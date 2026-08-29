@@ -67,35 +67,6 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  // Quick 1-Click Login Helper for Staff
-  const handleQuickLogin = (email: string, pass: string = 'admin@123') => {
-    setEmailOrPhone(email);
-    setPassword(pass);
-    setErrorMessage('');
-    
-    const matchedUser = allUsers.find(
-      (u) =>
-        u.email.toLowerCase() === email.toLowerCase() ||
-        (email === 'admin' && (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN')) ||
-        (email === 'editor' && u.role === 'EDITOR') ||
-        (email === 'reporter' && u.role === 'REPORTER')
-    );
-
-    if (matchedUser && matchedUser.status === 'ACTIVE') {
-      setIsLoading(true);
-      setTimeout(() => {
-        switchUser(matchedUser.id);
-        setSuccessMessage(`✅ थेट लॉगिन यशस्वी! स्वागत आहे, ${matchedUser.name} (${matchedUser.role})`);
-        setTimeout(() => {
-          setIsLoading(false);
-          onClose();
-          if (onSuccess) onSuccess();
-          if (matchedUser.role !== 'USER') setPortalMode('CMS');
-        }, 600);
-      }, 300);
-    }
-  };
-
   // Handle Secure Staff & User Login
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -441,59 +412,10 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
           {/* ================= MODE 1: LOGIN FORM ================= */}
           {authMode === 'LOGIN' && activeLoginTab === 'STAFF' && (
             <div className="space-y-4">
-              {/* ⚡ 1-Click Quick Login Chips */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>त्वरित १-क्लिक ॲडमिन लॉगिन (Quick Login):</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">Password: admin@123</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('admin@infonewsupdate24.com', 'admin@123')}
-                    className="p-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex flex-col items-center justify-center transition shadow-2xs cursor-pointer"
-                  >
-                    <span>👑 Super Admin</span>
-                    <span className="text-[9px] opacity-80 font-normal truncate max-w-full">admin@...</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('rohit.editor@infonews.com', 'admin@123')}
-                    className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] flex flex-col items-center justify-center transition shadow-2xs cursor-pointer"
-                  >
-                    <span>🛡️ मुख्य संपादक</span>
-                    <span className="text-[9px] opacity-80 font-normal truncate max-w-full">rohit.editor...</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('amit.reporter@infonews.com', 'reporter@123')}
-                    className="p-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex flex-col items-center justify-center transition shadow-2xs cursor-pointer"
-                  >
-                    <span>📝 वार्ताहर Desk</span>
-                    <span className="text-[9px] opacity-80 font-normal truncate max-w-full">amit.reporter...</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('anand.admin@infonews.com', 'admin@123')}
-                    className="p-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] flex flex-col items-center justify-center transition shadow-2xs cursor-pointer"
-                  >
-                    <span>⚙️ प्रशासक</span>
-                    <span className="text-[9px] opacity-80 font-normal truncate max-w-full">anand.admin...</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="relative flex justify-center text-[10px] uppercase">
-                <span className="bg-white px-2 text-slate-400 font-bold">किंवा ईमेल/युझरनेम व पासवर्ड प्रविष्ट करा</span>
-              </div>
-
               <form onSubmit={handleStaffLogin} className="space-y-4">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">
-                    ईमेल पत्ता / बातमीदार आयडी / युझरनेम (Staff Email / ID)
+                    ईमेल पत्ता / बातमीदार आयडी (Staff Email / ID)
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -502,7 +424,7 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
                       required
                       value={emailOrPhone}
                       onChange={(e) => setEmailOrPhone(e.target.value)}
-                      placeholder="उदा. admin किंवा admin@infonewsupdate24.com"
+                      placeholder="उदा. admin@infonewsupdate24.com"
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
                     />
                   </div>
@@ -513,11 +435,11 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
                     <label className="font-bold text-slate-700 block">
                       पासवर्ड (Password) <span className="text-red-500">*</span>
                     </label>
-                    <span className="text-[10px] text-slate-400 font-medium">डिफॉल्ट पासवर्ड: admin@123</span>
+                    <span className="text-[10px] text-slate-400 font-medium">पासवर्ड आवश्यक आहे</span>
                   </div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
                     type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
