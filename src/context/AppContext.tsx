@@ -282,7 +282,7 @@ export const DEFAULT_SITE_SETTINGS: SiteGlobalSettings = {
   socialWhatsAppChannel: 'https://whatsapp.com/channel/infonewsupdate24',
 };
 
-const STORAGE_PREFIX = 'infonews_db_';
+const STORAGE_PREFIX = 'infonews_db_v2_';
 const DELETED_POSTS_KEY = 'infonews_deleted_post_ids_v1';
 
 function getDeletedPostIds(): Set<string> {

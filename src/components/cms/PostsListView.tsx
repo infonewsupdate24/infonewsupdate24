@@ -29,8 +29,12 @@ import {
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Post, PostStatus } from '../../types';
 import { matchNewsPost } from '../../utils/searchUtils';
+import {
+  formatMarathiDate,
+  getSafeImageUrl,
+  DEFAULT_NEWS_FALLBACK_IMAGE,
+} from '../../utils/contentFormatter';
 import { QuickEditPostModal } from './QuickEditPostModal';
 import { SocialSharePreviewModal } from './SocialSharePreviewModal';
 import { BreakingNewsCardGeneratorModal } from './BreakingNewsCardGeneratorModal';
@@ -513,9 +517,12 @@ export const PostsListView: React.FC = () => {
                     <td className="px-4 py-3 max-w-sm">
                       <div className="flex items-start gap-3">
                         <img
-                          src={post.featuredImage}
+                          src={getSafeImageUrl(post.featuredImage)}
                           alt=""
-                          className="h-11 w-16 shrink-0 rounded-lg object-cover ring-1 ring-slate-200 shadow-2xs mt-0.5"
+                          onError={(e) => {
+                            e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                          }}
+                          className="h-11 w-16 shrink-0 rounded-lg object-cover ring-1 border border-slate-200 bg-slate-100 shadow-2xs mt-0.5"
                         />
                         <div className="min-w-0 flex-1">
                           <p
@@ -559,7 +566,7 @@ export const PostsListView: React.FC = () => {
                             </button>
 
                             <span className="text-[11px] text-slate-400">
-                              📍 {post.location || 'मुंबई'}
+                              📍 {post.location || 'महाराष्ट्र'}
                             </span>
                           </div>
                         </div>
@@ -596,21 +603,21 @@ export const PostsListView: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`font-black font-mono text-xs ${
-                            post.seo.score >= 80
+                            (post.seo?.score ?? 92) >= 80
                               ? 'text-emerald-600'
-                              : post.seo.score >= 50
+                              : (post.seo?.score ?? 92) >= 50
                               ? 'text-amber-600'
                               : 'text-red-600'
                           }`}
                         >
-                          {post.seo.score}/100
+                          {post.seo?.score ?? 92}/100
                         </span>
                       </div>
                     </td>
 
                     {/* Date & Views */}
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                      <p className="font-semibold text-slate-800">{post.publishDate}</p>
+                      <p className="font-semibold text-slate-800">{formatMarathiDate(post.publishDate || post.createdAt)}</p>
                       <p className="text-[10px] text-slate-400 font-mono">👁️ {post.views} Views</p>
                     </td>
 
