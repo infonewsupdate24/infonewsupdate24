@@ -46,13 +46,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
+  const FAKE_MOCK_USER_IDS = ['user-2', 'user-3', 'user-4', 'user-5', 'user-6', 'user-7', 'user-8'];
+
   // Initialize, hydrate users via UserService and Firestore Cloud
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Initial local hydration
+    // 1. Initial local hydration & scrubbing of fake demo users
     const initializeAuth = async () => {
-      const users = await UserService.getAllUsers();
+      const rawUsers = await UserService.getAllUsers();
+      // Filter out any leftover fake mock users
+      const cleanUsers = rawUsers.filter((u) => !FAKE_MOCK_USER_IDS.includes(u.id));
+      
+      // Ensure official Super Admin is always present
+      if (!cleanUsers.some((u) => u.id === SEED_USERS[0].id)) {
+        cleanUsers.unshift(SEED_USERS[0]);
+      }
+
+      // Cleanup Firestore from fake mock users
+      FAKE_MOCK_USER_IDS.forEach((fakeId) => {
+        FirestoreNewsService.deleteUserProfile(fakeId).catch(() => {});
+      });
+
       const savedId = (() => {
         try {
           return localStorage.getItem('infonews_auth_session');
@@ -62,22 +77,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })();
 
       if (isMounted) {
-        setAllUsers(users);
-        if (savedId && users.some((u) => u.id === savedId)) {
-          const matched = users.find((u) => u.id === savedId);
+        setAllUsers(cleanUsers);
+        UserService.saveUsers(cleanUsers);
+
+        if (savedId && cleanUsers.some((u) => u.id === savedId)) {
+          const matched = cleanUsers.find((u) => u.id === savedId);
           if (matched && matched.status === 'ACTIVE') {
             setCurrentUserId(savedId);
             setIsLoggedIn(true);
           } else {
-            // Pending or suspended account cannot stay logged in
             try {
               localStorage.removeItem('infonews_auth_session');
             } catch {}
             setCurrentUserId('');
             setIsLoggedIn(false);
           }
+        } else if (savedId && FAKE_MOCK_USER_IDS.includes(savedId)) {
+          // If previously logged in as a mock user, switch to Komal
+          setCurrentUserId(SEED_USERS[0].id);
+          setIsLoggedIn(true);
+          try {
+            localStorage.setItem('infonews_auth_session', SEED_USERS[0].id);
+          } catch {}
         } else {
-          // No active authenticated session -> Guest mode
           setCurrentUserId('');
           setIsLoggedIn(false);
         }
@@ -85,13 +107,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     initializeAuth();
 
-    // 2. Firestore Cloud Seeding
-    FirestoreNewsService.bulkSyncInitialUsers(SEED_USERS).catch(() => {});
+    // 2. Ensure Super Admin is in Firestore
+    FirestoreNewsService.saveUserProfile(SEED_USERS[0]).catch(() => {});
 
-    // 3. Realtime Firestore User Listener
+    // 3. Realtime Firestore User Listener (auto-filtering mock users)
     const unsubscribe = FirestoreNewsService.subscribeUsers((cloudUsers) => {
       if (isMounted && cloudUsers && cloudUsers.length > 0) {
-        setAllUsers(cloudUsers);
+        const filteredCloudUsers = cloudUsers.filter((u) => !FAKE_MOCK_USER_IDS.includes(u.id));
+        if (filteredCloudUsers.length > 0) {
+          // Ensure Super Admin is retained
+          if (!filteredCloudUsers.some((u) => u.id === SEED_USERS[0].id)) {
+            filteredCloudUsers.unshift(SEED_USERS[0]);
+          }
+          setAllUsers(filteredCloudUsers);
+        }
       }
     });
 

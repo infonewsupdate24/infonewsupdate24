@@ -45,12 +45,16 @@ export class UserService {
    * Fetch all users from storage or seed fallback.
    */
   static async getAllUsers(): Promise<UserProfile[]> {
+    const fakeMockIds = ['user-2', 'user-3', 'user-4', 'user-5', 'user-6', 'user-7', 'user-8'];
     try {
       const saved = localStorage.getItem(USERS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const clean = parsed.filter((u) => !fakeMockIds.includes(u.id));
+          if (clean.length > 0) {
+            return clean;
+          }
         }
       }
     } catch {
