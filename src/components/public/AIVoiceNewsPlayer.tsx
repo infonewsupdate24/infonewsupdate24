@@ -48,6 +48,7 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
   const activeIndexRef = useRef(0);
   const isPlayingRef = useRef(false);
   const isPausedRef = useRef(false);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   // Sync settings when changed from admin or parent
   useEffect(() => {
@@ -81,11 +82,6 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
 
     return segments.length > 0 ? segments : [cleanTextForTTS(post.title || 'बातमी')];
   }, [post.title, post.excerpt, post.content, aiVoiceSettings?.autoIntroGreeting, lang]);
-
-  const activeIndexRef = useRef(0);
-  const isPlayingRef = useRef(false);
-  const isPausedRef = useRef(false);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     activeIndexRef.current = currentParagraphIndex;
