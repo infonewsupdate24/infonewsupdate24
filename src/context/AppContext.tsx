@@ -325,8 +325,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Core Data Collections (Auto-filtered against permanently deleted IDs)
   const [posts, setPosts] = useState<Post[]>(() => {
     const deletedIds = getDeletedPostIds();
-    const stored = getStoredOrDefault('posts', SEED_POSTS);
-    return stored.filter((p) => !deletedIds.has(p.id));
+    const stored = getStoredOrDefault<Post[]>('posts', []);
+    const postMap = new Map<string, Post>();
+    // 1. Add all authentic imported WordPress and seed posts
+    SEED_POSTS.forEach((p) => {
+      if (!deletedIds.has(p.id)) postMap.set(p.id, p);
+    });
+    // 2. Add or overwrite with locally edited/created posts
+    stored.forEach((p) => {
+      if (!deletedIds.has(p.id)) postMap.set(p.id, p);
+    });
+    return Array.from(postMap.values());
   });
   const [categories, setCategories] = useState<Category[]>(() =>
     getStoredOrDefault('categories', SEED_CATEGORIES)
