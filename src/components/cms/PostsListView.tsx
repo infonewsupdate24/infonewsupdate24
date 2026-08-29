@@ -18,6 +18,7 @@ import {
   MessageCircle,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Share2,
   Sparkles,
@@ -50,6 +51,7 @@ export const PostsListView: React.FC = () => {
     duplicatePost,
     updatePost,
     changePostStatus,
+    syncAllSeedPosts,
   } = useApp();
   const { currentUser, hasPermission } = useAuth();
 
@@ -280,6 +282,21 @@ export const PostsListView: React.FC = () => {
               >
                 <Globe className="h-3.5 w-3.5 text-blue-600" />
                 <span>WP / URL Importer</span>
+              </button>
+
+              <button
+                id="btn-posts-sync-all"
+                type="button"
+                onClick={() => {
+                  syncAllSeedPosts();
+                  setFeedbackToast('✅ सर्व १२७ बातम्या व मूळ फोटो यशस्वीरीत्या सिंक झाले!');
+                  setTimeout(() => setFeedbackToast(''), 4000);
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-2 text-xs font-bold shadow-2xs transition"
+                title="सर्व १२७ बातम्या आणि मूळ फोटो त्वरित सिंक करा"
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-emerald-600" />
+                <span>१२७ बातम्या सिंक करा</span>
               </button>
             </>
           )}

@@ -143,6 +143,7 @@ interface AppContextType {
   updatePost: (id: string, updates: Partial<Post>, note?: string) => void;
   deletePost: (id: string) => void;
   duplicatePost: (id: string) => Post | null;
+  syncAllSeedPosts: () => void;
   changePostStatus: (
     id: string,
     newStatus: PostStatus,
@@ -327,7 +328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deletedIds = getDeletedPostIds();
     const stored = getStoredOrDefault<Post[]>('posts', []);
     const postMap = new Map<string, Post>();
-    // 1. Add all authentic imported WordPress and seed posts
+    // 1. Always load all 127 authentic imported WordPress and seed posts
     SEED_POSTS.forEach((p) => {
       if (!deletedIds.has(p.id)) postMap.set(p.id, p);
     });
@@ -335,8 +336,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     stored.forEach((p) => {
       if (!deletedIds.has(p.id)) postMap.set(p.id, p);
     });
-    return Array.from(postMap.values());
+    const result = Array.from(postMap.values());
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(result));
+    } catch {}
+    return result;
   });
+
+  const syncAllSeedPosts = () => {
+    const deletedIds = getDeletedPostIds();
+    const postMap = new Map<string, Post>();
+    SEED_POSTS.forEach((p) => {
+      if (!deletedIds.has(p.id)) postMap.set(p.id, p);
+    });
+    const result = Array.from(postMap.values());
+    setPosts(result);
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(result));
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (posts.length < SEED_POSTS.length) {
+      syncAllSeedPosts();
+    }
+  }, [posts.length]);
   const [categories, setCategories] = useState<Category[]>(() =>
     getStoredOrDefault('categories', SEED_CATEGORIES)
   );
@@ -1470,6 +1494,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatePost,
         deletePost,
         duplicatePost,
+        syncAllSeedPosts,
         changePostStatus,
         createPage,
         updatePage,
