@@ -183,21 +183,29 @@ export function cleanTextForTTS(rawText: string): string {
     '$1 येथून, '
   );
 
-  // 6. Common acronym expansions for Marathi pronunciation
+  // 6. Strip URLs, Social media boilerplates, and media caption text
   clean = clean
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/www\.\S+/gi, '')
+    .replace(/Instagram\s+photos\s+and\s+videos/gi, '')
+    .replace(/photos\s+and\s+videos/gi, '')
+    .replace(/follow\s+us\s+on\s+[a-z]+/gi, '')
+    .replace(/photo\s*credits?\s*:\s*[^\n.]+/gi, '')
+    .replace(/@\w+/g, '')
+    .replace(/#\w+/g, '')
+    .replace(/\bInfoNewsUpdate24\b/gi, 'इन्फो न्यूज २४')
     .replace(/\bIMD\b/gi, 'आय एम डी')
     .replace(/\bIPL\b/gi, 'आय पी एल')
     .replace(/\bMPSC\b/gi, 'एम पी एस सी')
     .replace(/\bUPSC\b/gi, 'यु पी एस सी')
     .replace(/\bAI\b/gi, 'ए आय')
-    .replace(/\bInfoNewsUpdate24\b/gi, 'इन्फो न्यूज २४')
     .replace(/&/g, ' आणि ')
     .replace(/\\n/gi, ' ')
     .replace(/\\r/gi, ' ')
     .replace(/\\t/gi, ' ')
     .replace(/\b[nN]{2,}\b/g, ' ')
     .replace(/\b[nN]\b/g, ' ')
-    .replace(/[\[\]{}()<>|\/\\~^_]/g, ' ')
+    .replace(/[\[\]{}()<>|\/\\~^_•*#@=]/g, ' ')
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -206,7 +214,7 @@ export function cleanTextForTTS(rawText: string): string {
 }
 
 /**
- * Splits text into optimal speech chunks for natural narration.
+ * Splits text into optimal speech chunks for natural narration (Mobile & Desktop optimized).
  */
 export function splitIntoSpeechParagraphs(
   title: string,
@@ -223,40 +231,46 @@ export function splitIntoSpeechParagraphs(
 
   if (title) {
     const cleanT = cleanTextForTTS(title);
-    if (cleanT) chunks.push(`बातमीचे शीर्षक: ${cleanT}`);
+    if (cleanT) chunks.push(`बातमी: ${cleanT}`);
   }
 
   if (excerpt) {
-    const cleanExp = cleanTextForTTS(cleanExcerpt(excerpt, content, 140));
-    if (cleanExp && !title.includes(cleanExp.slice(0, 30))) {
-      chunks.push(`ठळक घडामोडी: ${cleanExp}`);
+    const cleanExp = cleanTextForTTS(cleanExcerpt(excerpt, content, 120));
+    if (cleanExp && !title.includes(cleanExp.slice(0, 25))) {
+      chunks.push(`ठळक मुद्दे: ${cleanExp}`);
     }
   }
 
   if (content) {
     const cleanFull = cleanTextForTTS(content);
-    // Split into sentences using punctuation (।, ., !, ?, \n)
+    // Split into sentences using punctuation (।, ., !, ?, ;)
     const sentences = cleanFull
-      .split(/[।.\n!?]+/)
+      .split(/[।.\n!?;\u0964]+/)
       .map((s) => s.trim())
-      .filter((s) => s.length > 5);
+      .filter((s) => s.length > 3);
 
-    let currentChunk = '';
     sentences.forEach((sent) => {
-      if ((currentChunk + ' ' + sent).length > 140) {
-        if (currentChunk.trim()) {
-          chunks.push(currentChunk.trim());
-        }
-        currentChunk = sent;
+      // If a sentence is very long, split into ~80 character sub-phrases for mobile stability
+      if (sent.length > 90) {
+        const words = sent.split(/\s+/);
+        let subChunk = '';
+        words.forEach((w) => {
+          if ((subChunk + ' ' + w).length > 75) {
+            if (subChunk.trim()) chunks.push(subChunk.trim());
+            subChunk = w;
+          } else {
+            subChunk += (subChunk ? ' ' : '') + w;
+          }
+        });
+        if (subChunk.trim()) chunks.push(subChunk.trim());
       } else {
-        currentChunk += (currentChunk ? ' ' : '') + sent;
+        chunks.push(sent);
       }
     });
-
-    if (currentChunk.trim()) {
-      chunks.push(currentChunk.trim());
-    }
   }
+
+  return chunks.filter((c) => c.trim().length > 0);
+}
 
   return chunks.filter((c) => c.trim().length > 0);
 }

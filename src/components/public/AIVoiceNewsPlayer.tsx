@@ -104,24 +104,7 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     };
   }, []);
 
-  // Chrome TTS Keepalive to prevent pausing mid-sentence
-  const startKeepAlive = () => {
-    if (keepAliveTimerRef.current) clearInterval(keepAliveTimerRef.current);
-    keepAliveTimerRef.current = setInterval(() => {
-      if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      }
-    }, 9000);
-  };
-
-  const stopKeepAlive = () => {
-    if (keepAliveTimerRef.current) {
-      clearInterval(keepAliveTimerRef.current);
-      keepAliveTimerRef.current = null;
-    }
-  };
-
+  // Mobile-safe continuous sentence streamer
   const playSegment = (index: number) => {
     try {
       if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis) {
@@ -137,7 +120,6 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
         setIsPaused(false);
         setProgress(100);
         setCurrentParagraphIndex(0);
-        stopKeepAlive();
         return;
       }
 
@@ -169,7 +151,7 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
         utterance.voice = matchedVoice;
         utterance.lang = matchedVoice.lang || langCode;
       } else {
-        utterance.lang = langCode;
+        utterance.lang = langCode || 'mr-IN';
       }
 
       utterance.pitch = Math.max(0.6, Math.min(1.4, selectedAnchor.pitch));
@@ -181,29 +163,33 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
         setCurrentParagraphIndex(index);
         const pct = Math.round(((index + 1) / paragraphs.length) * 100);
         setProgress(pct);
-        startKeepAlive();
       };
 
       utterance.onend = () => {
         if (isPlayingRef.current && !isPausedRef.current) {
-          playSegment(index + 1);
+          // Small 20ms pause between sentences sounds much more natural and gives mobile engine time to buffer
+          setTimeout(() => {
+            playSegment(index + 1);
+          }, 30);
         }
       };
 
       utterance.onerror = (e) => {
-        if (e.error !== 'canceled' && e.error !== 'interrupted') {
-          console.warn('Speech utterance error:', e);
-          if (index + 1 < paragraphs.length) {
+        if (e.error === 'canceled' || e.error === 'interrupted') {
+          return;
+        }
+        console.warn('Speech utterance note:', e);
+        if (isPlayingRef.current && index + 1 < paragraphs.length) {
+          setTimeout(() => {
             playSegment(index + 1);
-          } else {
-            setIsPlaying(false);
-            setIsPaused(false);
-            stopKeepAlive();
-          }
+          }, 40);
+        } else {
+          setIsPlaying(false);
+          setIsPaused(false);
         }
       };
 
-      // 50ms timeout gives Chrome engine time to flush cancellation state
+      // 30ms timeout gives mobile Chrome engine time to flush cancellation state
       setTimeout(() => {
         try {
           window.speechSynthesis.speak(utterance);
@@ -212,16 +198,18 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
           }
         } catch (speakErr) {
           console.warn('Speak error:', speakErr);
-          setIsPlaying(false);
-          setIsPaused(false);
-          stopKeepAlive();
+          if (index + 1 < paragraphs.length) {
+            playSegment(index + 1);
+          } else {
+            setIsPlaying(false);
+            setIsPaused(false);
+          }
         }
-      }, 50);
+      }, 30);
     } catch (err) {
       console.warn('Speech synthesis play error:', err);
       setIsPlaying(false);
       setIsPaused(false);
-      stopKeepAlive();
     }
   };
 
