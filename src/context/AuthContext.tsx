@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { SEED_USERS } from '../data/seedData';
+import { FirebaseAuthService } from '../services/FirebaseAuthService';
 import { FirestoreNewsService } from '../services/FirestoreNewsService';
 import { UserService } from '../services/UserService';
 import { Permission, PostStatus, UserProfile, UserRole } from '../types';
