@@ -252,7 +252,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const DEFAULT_SITE_SETTINGS: SiteGlobalSettings = {
   siteTitle: 'InfoNewsUpdate24',
   siteTagline: 'महाराष्ट्रातील ताज्या, निर्भीड आणि विश्वासार्ह घडामोडी',
-  siteUrl: 'https://infonewsupdate24live.pages.dev',
+  siteUrl: 'https://www.infonewsupdate24.com',
   siteEmail: 'vicky123.kdk@gmail.com',
   sitePhone: '+91 87999333629',
   siteAddress: 'मुख्य ब्युरो कार्यालय, गडचिरोली, महाराष्ट्र ४४२६०५',

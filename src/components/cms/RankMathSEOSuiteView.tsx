@@ -57,8 +57,8 @@ Allow: /news/
 Allow: /article/
 
 # XML Sitemaps
-Sitemap: https://infonewsupdate24live.pages.dev/sitemap_index.xml
-Sitemap: https://infonewsupdate24live.pages.dev/news-sitemap.xml
+Sitemap: https://www.infonewsupdate24.com/sitemap_index.xml
+Sitemap: https://www.infonewsupdate24.com/news-sitemap.xml
 `;
 
 const DEFAULT_RANK_MATH_CONFIG: RankMathGlobalConfig = {
@@ -519,7 +519,7 @@ export const RankMathSEOSuiteView: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleCopy('https://infonewsupdate24live.pages.dev/news-sitemap.xml', 'news_sitemap')}
+                  onClick={() => handleCopy('https://www.infonewsupdate24.com/news-sitemap.xml', 'news_sitemap')}
                   className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1 cursor-pointer"
                 >
                   {copiedKey === 'news_sitemap' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -535,7 +535,7 @@ export const RankMathSEOSuiteView: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleCopy('https://infonewsupdate24live.pages.dev/sitemap_index.xml', 'index_sitemap')}
+                  onClick={() => handleCopy('https://www.infonewsupdate24.com/sitemap_index.xml', 'index_sitemap')}
                   className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1 cursor-pointer"
                 >
                   {copiedKey === 'index_sitemap' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
