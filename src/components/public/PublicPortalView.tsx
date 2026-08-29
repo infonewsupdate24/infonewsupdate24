@@ -232,6 +232,93 @@ export const PublicPortalView: React.FC = () => {
     });
   };
 
+  // --- Universal Route & WordPress Legacy URL Resolver ---
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const resolveCurrentUrl = () => {
+      const pathname = window.location.pathname.replace(/\/+$/, ''); // strip trailing slash
+      const searchParams = new URLSearchParams(window.location.search);
+
+      // 1. E-Paper Mode
+      if (searchParams.get('mode') === 'epaper' || pathname === '/epaper') {
+        setIsEPaperViewOpen(true);
+        return;
+      }
+
+      // 2. Category Route (/category/slug or /category/slug/subslug or ?cat=xxx)
+      if (pathname.startsWith('/category/')) {
+        const catSlug = pathname.replace('/category/', '').split('/')[0];
+        if (catSlug) {
+          setPublicActiveCategorySlug(catSlug);
+          setPublicActivePostSlug(null);
+          setPublicActivePageSlug(null);
+          return;
+        }
+      }
+
+      // 3. Static Page Route (/page/slug)
+      if (pathname.startsWith('/page/')) {
+        const pageSlug = pathname.replace('/page/', '');
+        if (pageSlug) {
+          setPublicActivePageSlug(pageSlug);
+          setPublicActivePostSlug(null);
+          setPublicActiveCategorySlug(null);
+          return;
+        }
+      }
+
+      // 4. Single Article Route (/article/slug or WordPress /YYYY/MM/DD/slug or /slug)
+      let postSlugCandidate = '';
+      if (pathname.startsWith('/article/')) {
+        postSlugCandidate = pathname.replace('/article/', '');
+      } else if (pathname.match(/^\/\d{4}\/\d{2}\/(\d{2}\/)?([^\/]+)$/)) {
+        // WordPress date permalink: /2024/05/20/post-slug/
+        const parts = pathname.split('/').filter(Boolean);
+        postSlugCandidate = parts[parts.length - 1];
+      } else if (pathname.length > 1 && !pathname.includes('.') && !pathname.startsWith('/cms')) {
+        // Direct slug format: /post-slug
+        postSlugCandidate = pathname.replace(/^\//, '');
+      }
+
+      if (postSlugCandidate) {
+        const cleanCandidate = decodeURIComponent(postSlugCandidate).toLowerCase();
+        const matchedPost = posts.find(
+          (p) =>
+            p.slug.toLowerCase() === cleanCandidate ||
+            cleanCandidate.includes(p.slug.toLowerCase()) ||
+            p.slug.toLowerCase().includes(cleanCandidate)
+        );
+
+        if (matchedPost) {
+          setPublicActivePostSlug(matchedPost.slug);
+          setPublicActiveCategorySlug(null);
+          setPublicActivePageSlug(null);
+          return;
+        }
+      }
+
+      // 5. WordPress Query Param (?p=123 or ?post=xxx)
+      const pParam = searchParams.get('p') || searchParams.get('post');
+      if (pParam) {
+        const matchedPost = posts.find((p) => p.id === `post-${pParam}` || p.id === pParam || p.slug.includes(pParam));
+        if (matchedPost) {
+          setPublicActivePostSlug(matchedPost.slug);
+          return;
+        }
+      }
+    };
+
+    resolveCurrentUrl();
+
+    const handlePopState = () => {
+      resolveCurrentUrl();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [posts, categories, pages, setPublicActiveCategorySlug, setPublicActivePostSlug, setPublicActivePageSlug]);
+
   useEffect(() => {
     const handleLayoutUpdate = () => {
       setHomepageSections(HomepageLayoutService.getSections());
