@@ -250,6 +250,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (u.phone && u.phone.includes(clean)) ||
         u.name.toLowerCase() === clean ||
         u.id.toLowerCase() === clean ||
+        (clean === 'komal' && u.role === 'SUPER_ADMIN') ||
+        (clean === 'vicky' && u.role === 'SUPER_ADMIN') ||
         ((clean === 'admin' || clean === 'admin@infonews.com' || clean === 'admin@infonewsupdate24.com') && (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN')) ||
         (clean === 'superadmin' && u.role === 'SUPER_ADMIN') ||
         (clean === 'editor' && u.role === 'EDITOR') ||
@@ -259,22 +261,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!matched) {
       return {
         success: false,
-        message: '❌ वापरकर्ता सापडला नाही. कृपया वैध ईमेल किंवा मोबाईल नंबर प्रविष्ट करा किंवा नवीन नोंदणी करा.',
+        message: '❌ वापरकर्ता सापडला नाही. कृपया वैध ईमेल किंवा मोबाईल नंबर प्रविष्ट करा.',
       };
     }
 
     // 1. Password Verification
     if (password !== undefined) {
-      const validPasswords = [
-        matched.password,
-        'admin@123',
-        'editor@123',
-        'reporter@123',
-        'staff@123',
-        'infonews@123',
-      ].filter(Boolean);
+      const isPasswordCorrect = matched.password
+        ? matched.password === password.trim()
+        : password.trim() === 'admininfo@1234';
 
-      if (!validPasswords.includes(password.trim())) {
+      if (!isPasswordCorrect) {
         return {
           success: false,
           message: '❌ चुकीचा पासवर्ड! कृपया योग्य पासवर्ड प्रविष्ट करा.',

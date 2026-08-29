@@ -118,6 +118,8 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
           (u.phone && u.phone.includes(cleanIdentifier)) ||
           u.name.toLowerCase() === cleanIdentifier.toLowerCase() ||
           u.id.toLowerCase() === cleanIdentifier.toLowerCase() ||
+          (cleanIdentifier.toLowerCase() === 'komal' && u.role === 'SUPER_ADMIN') ||
+          (cleanIdentifier.toLowerCase() === 'vicky' && u.role === 'SUPER_ADMIN') ||
           ((cleanIdentifier.toLowerCase() === 'admin' ||
             cleanIdentifier.toLowerCase() === 'admin@infonews.com' ||
             cleanIdentifier.toLowerCase() === 'admin@infonewsupdate24.com') &&
@@ -128,7 +130,7 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
       );
 
       if (!matchedUser) {
-        setErrorMessage('❌ वापरकर्ता सापडला नाही. कृपया ईमेल बरोबर आहे का ते तपासा किंवा वरील १-क्लिक लॉगिन बटण वापरा.');
+        setErrorMessage('❌ वापरकर्ता सापडला नाही. कृपया आपला नोंदणीकृत ईमेल किंवा मोबाईल नंबर तपासा.');
         return;
       }
 
@@ -145,19 +147,12 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
       }
 
       // 5. Password Validation Logic
-      const validPasswords = [
-        matchedUser.password,
-        'admin@123',
-        'editor@123',
-        'reporter@123',
-        'staff@123',
-        'infonews@123',
-      ].filter(Boolean);
-
-      const isPasswordCorrect = validPasswords.includes(password.trim());
+      const isPasswordCorrect = matchedUser.password
+        ? matchedUser.password === password.trim()
+        : password.trim() === 'admininfo@1234';
 
       if (!isPasswordCorrect) {
-        setErrorMessage('❌ चुकीचा पासवर्ड! योग्य पासवर्ड "admin@123" प्रविष्ट करा किंवा खालील त्वरित लॉगिन वापरा.');
+        setErrorMessage('❌ चुकीचा पासवर्ड! कृपया योग्य पासवर्ड प्रविष्ट करा.');
         return;
       }
 
