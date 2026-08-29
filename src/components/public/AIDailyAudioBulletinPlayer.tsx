@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -101,7 +101,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
         ? 'ताजी व महत्त्वाची बातमी!'
         : 'शुभ प्रभात!';
 
-    const introText =  + "" + ${greeting} InfoNewsUpdate24 च्या आजच्या दैनिक ऑडिओ बुलेटिनमध्ये आपले सहर्ष स्वागत आहे. मी आपली डिजिटल वृत्त निवेदक . पाहुयात आजच्या ठळक ५ घडामोडी. + "" + ;
+    const introText = `${greeting} InfoNewsUpdate24 च्या आजच्या दैनिक ऑडिओ बुलेटिनमध्ये आपले सहर्ष स्वागत आहे. मी आपली डिजिटल वृत्त निवेदक ${selectedAnchor.name}. पाहुयात आजच्या ठळक ५ घडामोडी.`;
 
     list.push({
       type: 'INTRO',
@@ -113,19 +113,19 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
     topPosts.forEach((p, idx) => {
       const cleanTitle = cleanTextForTTS(p.title);
       const cleanExp = cleanTextForTTS(p.excerpt || p.content.slice(0, 160));
-      const storyNarrative =  + "" + बातमी क्रमांक : ।  + "" + ;
+      const storyNarrative = `बातमी क्रमांक ${idx + 1}: ${cleanTitle}। ${cleanExp}`;
 
       list.push({
         type: 'STORY',
         storyIndex: idx,
         post: p,
         text: storyNarrative,
-        displayTitle:  + "" + बातमी :  + "" + ,
+        displayTitle: `बातमी ${idx + 1}: ${cleanTitle}`,
       });
     });
 
     // 3. OUTRO
-    const outroText =  + "" + या होत्या आजच्या ५ महत्त्वाच्या घडामोडी. सर्व बातम्या सविस्तर वाचण्यासाठी आणि ताज्या अपडेट्ससाठी भेट देत राहा www.infonewsupdate24.com वर. धन्यवाद आणि आपला दिवस शुभ जावो! + "" + ;
+    const outroText = `या होत्या आजच्या ५ महत्त्वाच्या घडामोडी. सर्व बातम्या सविस्तर वाचण्यासाठी आणि ताज्या अपडेट्ससाठी भेट देत राहा www.infonewsupdate24.com वर. धन्यवाद आणि आपला दिवस शुभ जावो!`;
 
     list.push({
       type: 'OUTRO',
