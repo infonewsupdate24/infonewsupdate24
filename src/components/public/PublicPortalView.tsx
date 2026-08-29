@@ -2709,7 +2709,7 @@ export const PublicPortalView: React.FC = () => {
                       {selectedPost.authorName}
                     </p>
                     <p className="text-[11px] text-slate-500 font-medium">
-                      विशेष प्रतिनिधी &bull; {selectedPost.publishDate}
+                      विशेष प्रतिनिधी &bull; {formatMarathiDate(selectedPost.publishDate || selectedPost.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -2887,8 +2887,11 @@ export const PublicPortalView: React.FC = () => {
             {/* Featured Image */}
             <div className="space-y-1.5">
               <img
-                src={selectedPost.featuredImage}
+                src={getSafeImageUrl(selectedPost.featuredImage)}
                 alt={selectedPost.featuredImageAlt || selectedPost.title}
+                onError={(e) => {
+                  e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                }}
                 className="w-full rounded-xl object-cover max-h-96 shadow-sm"
               />
               {selectedPost.featuredImageCaption && (
