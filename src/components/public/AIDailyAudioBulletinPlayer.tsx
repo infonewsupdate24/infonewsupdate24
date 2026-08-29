@@ -335,9 +335,13 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-3">
           <div
-            className={lex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all shadow-md }
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all shadow-md ${
+              isPlaying && !isPaused
+                ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white animate-pulse ring-2 ring-red-400/50'
+                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+            }`}
           >
-            <Radio className={h-5 w-5 } />
+            <Radio className={`h-5 w-5 ${isPlaying && !isPaused ? 'animate-bounce' : ''}`} />
           </div>
 
           <div>
@@ -363,7 +367,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
               {isPlaying
                 ? isPaused
                   ? 'बुलेटिन थांबवले आहे (Paused). पुढे ऐकण्यासाठी Resume दाबा.'
-                  : 🎙️ 
+                  : `🎙️ ${currentSegment?.displayTitle || 'बातम्यांचे वाचन सुरू आहे...'}`
                 : 'आजच्या टॉप ५ ठळक घडामोडी एकाच क्लिकवर रेडिओप्रमाणे सलग ऐका.'}
             </p>
           </div>
@@ -415,7 +419,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
             <button
               type="button"
               onClick={handleStartBroadcast}
-              className="flex items-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 px-5 py-2.5 text-xs font-black text-slate-950 shadow-lg shadow-emerald-950/60 transition-all cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 px-5 py-2.5 text-xs font-black text-slate-950 shadow-lg shadow-emerald-950/60 transition-all cursor-pointer"
             >
               <Play className="h-4 w-4 fill-slate-950" />
               <span>{isPaused ? 'पुढे सुरू करा (Resume)' : '🎙️ संपूर्ण आजचे ऑडिओ बुलेटिन ऐका'}</span>
@@ -475,16 +479,16 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
         <div className="flex items-center gap-3">
           {isPlaying && !isPaused ? (
             <div className="flex items-center gap-1 h-6">
-              <span className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.8s_infinite] h-4"></span>
-              <span className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_0.2s] h-6"></span>
-              <span className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.9s_infinite_0.4s] h-3"></span>
-              <span className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.7s_infinite_0.1s] h-5"></span>
+              <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-4"></span>
+              <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-6"></span>
+              <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-3"></span>
+              <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-5"></span>
               <span className="text-[10px] font-bold text-emerald-400 ml-1.5 font-mono">
                 {currentSegment?.type === 'INTRO'
                   ? 'PROLOGUE'
                   : currentSegment?.type === 'OUTRO'
                   ? 'EPILOGUE'
-                  : HEADLINE /5}
+                  : `HEADLINE ${(currentSegment?.storyIndex ?? 0) + 1}/5`}
               </span>
             </div>
           ) : (
@@ -525,10 +529,18 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
               <div
                 key={post.id}
                 onClick={() => handleJumpToStory(idx)}
-                className={lex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer group }
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${
+                  isThisStoryActive
+                    ? 'bg-emerald-950/70 border-emerald-400 shadow-md ring-1 ring-emerald-400/50'
+                    : 'bg-slate-800/40 border-slate-700/60 hover:bg-slate-800/80 hover:border-slate-600'
+                }`}
               >
                 <div
-                  className={lex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-black transition-colors }
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-black transition-colors ${
+                    isThisStoryActive
+                      ? 'bg-emerald-400 text-slate-950 animate-pulse'
+                      : 'bg-slate-700/60 text-slate-300 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'
+                  }`}
                 >
                   {isThisStoryActive ? (
                     <Volume2 className="h-4 w-4 text-slate-950" />
@@ -539,7 +551,11 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
 
                 <div className="min-w-0 flex-1">
                   <h4
-                    className={	ext-xs font-bold line-clamp-2 leading-snug transition-colors }
+                    className={`text-xs font-bold line-clamp-2 leading-snug transition-colors ${
+                      isThisStoryActive
+                        ? 'text-emerald-300 font-extrabold'
+                        : 'text-white group-hover:text-emerald-300'
+                    }`}
                   >
                     {post.title}
                   </h4>
