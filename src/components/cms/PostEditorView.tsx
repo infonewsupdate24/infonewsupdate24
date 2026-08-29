@@ -30,6 +30,7 @@ import {
   Sparkles,
   Tag,
   Upload,
+  UserCheck,
   Volume2,
   X,
   Zap,
@@ -69,11 +70,21 @@ export const PostEditorView: React.FC = () => {
   const [featuredImageCaption, setFeaturedImageCaption] = useState(
     existingPost?.featuredImageCaption || ''
   );
+  const [authorName, setAuthorName] = useState(
+    existingPost?.authorName || 'InfoNewsUpdate24 विशेष प्रतिनिधी'
+  );
+  const [authorRole, setAuthorRole] = useState(
+    existingPost?.authorRole || currentUser?.role || 'SUPER_ADMIN'
+  );
+  const [authorAvatar, setAuthorAvatar] = useState(
+    existingPost?.authorAvatar ||
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+  );
   const [categoryId, setCategoryId] = useState(existingPost?.categoryId || categories[0]?.id || 'cat-1');
   const [subCategoryId, setSubCategoryId] = useState(existingPost?.subCategoryId || '');
   const [postTags, setPostTags] = useState<string[]>(existingPost?.tags || ['Maharashtra', 'News']);
   const [newTagInput, setNewTagInput] = useState('');
-  const [location, setLocation] = useState(existingPost?.location || 'Mumbai');
+  const [location, setLocation] = useState(existingPost?.location || 'गडचिरोली');
   const [status, setStatus] = useState<PostStatus>(existingPost?.status || 'DRAFT');
   const [visibility, setVisibility] = useState<PostVisibility>(existingPost?.visibility || 'PUBLIC');
   const [isBreaking, setIsBreaking] = useState(existingPost?.isBreaking || false);
@@ -283,9 +294,9 @@ export const PostEditorView: React.FC = () => {
       subCategoryId: subCategoryId || undefined,
       tags: postTags,
       authorId: existingPost ? existingPost.authorId : currentUser.id,
-      authorName: existingPost ? existingPost.authorName : currentUser.name,
-      authorAvatar: existingPost ? existingPost.authorAvatar : currentUser.avatar,
-      authorRole: existingPost ? existingPost.authorRole : currentUser.role,
+      authorName: authorName.trim() || 'InfoNewsUpdate24 विशेष प्रतिनिधी',
+      authorAvatar: authorAvatar,
+      authorRole: authorRole,
       status: finalStatus,
       visibility,
       publishDate: new Date().toLocaleDateString('en-GB', {
@@ -1032,6 +1043,80 @@ export const PostEditorView: React.FC = () => {
                 />
               </div>
             )}
+          </div>
+
+          {/* Author / Reporter Modification Card (लेखक व बातमीदार Byline) */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <UserCheck className="h-4 w-4 text-red-600" />
+                <span>लेखक व वार्ताहर (Author & Reporter)</span>
+              </h3>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 mb-1 block">
+                वार्ताहर / लेखकाचे नाव (Author Name):
+              </label>
+              <input
+                type="text"
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="उदा. InfoNewsUpdate24 विशेष प्रतिनिधी"
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-hidden"
+              />
+            </div>
+
+            {/* Quick Author Presets */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-500 block">
+                त्वरित निवड (Quick Presets):
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setAuthorName('InfoNewsUpdate24 विशेष प्रतिनिधी')}
+                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
+                >
+                  📰 InfoNews24 विशेष प्रतिनिधी
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthorName('Komal Daulatrao Dahagaonkar')}
+                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
+                >
+                  ✍️ Komal D. Dahagaonkar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthorName('गडचिरोली ब्युरो प्रतिनिधी')}
+                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
+                >
+                  📍 गडचिरोली ब्युरो
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthorName('संपादकीय मंडळ, InfoNewsUpdate24')}
+                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
+                >
+                  🏛️ संपादकीय मंडळ
+                </button>
+              </div>
+            </div>
+
+            {/* Location / Bureau */}
+            <div>
+              <label className="text-xs font-semibold text-slate-700 mb-1 block">
+                स्थान / बातमीदार ब्युरो (Location):
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="उदा. गडचिरोली, मुंबई, नागपूर, चामोर्शी, एटापल्ली"
+                className="h-8 w-full rounded-md border border-slate-200 px-2.5 text-xs text-slate-800 focus:border-red-500 focus:outline-hidden"
+              />
+            </div>
           </div>
 
           {/* Categories Hierarchy Box */}
