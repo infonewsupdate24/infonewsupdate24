@@ -43,6 +43,7 @@ import {
   WordPressImporterService,
   WordPressImportResult,
 } from '../../services/WordPressImporterService';
+import { FirestoreNewsService } from '../../services/FirestoreNewsService';
 import { Post, StaticPage } from '../../types';
 
 // Sample Built-in WordPress WXR XML dataset for instant 1-click test import
@@ -396,7 +397,7 @@ export const WordPressAndUrlImporterView: React.FC = () => {
     }, 300);
   };
 
-  const handleExecuteWpImport = () => {
+  const handleExecuteWpImport = async () => {
     if (!wpParsedResult || (!wpParsedResult.posts.length && !wpParsedResult.pages.length)) return;
 
     let importedPostsCount = 0;
@@ -420,12 +421,14 @@ export const WordPressAndUrlImporterView: React.FC = () => {
       });
     }
 
-    // 2. Import Posts
+    // 2. Import Posts and sync directly to Firestore
+    const createdPostsList: Post[] = [];
     wpParsedResult.posts.forEach((p) => {
-      createPost({
+      const created = createPost({
         ...p,
         status: wpStatusOverride === 'FORCE_PUBLISHED' ? 'PUBLISHED' : (wpStatusOverride === 'FORCE_DRAFT' ? 'DRAFT' : p.status),
       });
+      createdPostsList.push(created);
       importedPostsCount++;
     });
 
@@ -443,6 +446,13 @@ export const WordPressAndUrlImporterView: React.FC = () => {
       importedPagesCount++;
     });
 
+    // 4. Background Sync to Cloud Firestore
+    try {
+      createdPostsList.forEach((post) => {
+        FirestoreNewsService.savePost(post).catch(() => {});
+      });
+    } catch {}
+
     addActivityLog({
       userId: currentUser?.id || 'user-admin',
       userName: currentUser?.name || 'Administrator',
@@ -459,7 +469,7 @@ export const WordPressAndUrlImporterView: React.FC = () => {
 
     setWpImportSuccessMsg({
       type: 'success',
-      text: `WordPress / Hostinger बॅकअप डेटा यशस्वीरित्या पोर्टलमध्ये समाविष्ट झाला! (${importedPostsCount} बातम्या, ${importedPagesCount} पेजेस, ${importedCatsCount} नवीन कॅटेगरीज जोडल्या)`,
+      text: `WordPress / Hostinger बॅकअप डेटा यशस्वीरित्या पोर्टलमध्ये समाविष्ट झाला! (${importedPostsCount} बातम्या, ${importedPagesCount} पेजेस, ${importedCatsCount} नवीन प्रवर्गे समाविष्ट)`,
       details: {
         posts: importedPostsCount,
         pages: importedPagesCount,
