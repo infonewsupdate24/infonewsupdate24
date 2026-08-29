@@ -534,7 +534,7 @@ export const DashboardView: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setCmsView('wordpress_import')}
+          onClick={() => setCmsView('importer')}
           className="p-4 rounded-2xl border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-left transition flex flex-col justify-between group cursor-pointer shadow-xs"
         >
           <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center group-hover:scale-110 transition">
