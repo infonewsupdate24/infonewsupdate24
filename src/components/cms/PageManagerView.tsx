@@ -17,6 +17,7 @@ import {
   Globe,
   ImageIcon,
   Layout,
+  Lock,
   MoreVertical,
   Plus,
   RefreshCw,
@@ -34,6 +35,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { canManagePages } from '../../utils/rbac';
 import { StaticPage } from '../../types';
 import { transliterateMarathiToSlug } from '../../services/SEOAutoOptimizer';
 import { MediaPickerModal } from './MediaPickerModal';
@@ -54,6 +56,7 @@ export const PageManagerView: React.FC = () => {
     setPublicActivePostSlug,
   } = useApp();
   const { currentUser, hasPermission } = useAuth();
+  const isAdmin = canManagePages(currentUser);
 
   // Mode: 'LIST' | 'EDITOR'
   const [viewMode, setViewMode] = useState<'LIST' | 'EDITOR'>('LIST');
@@ -87,6 +90,10 @@ export const PageManagerView: React.FC = () => {
 
   // Switch to Add New Page
   const handleAddNewPage = () => {
+    if (!isAdmin) {
+      showNotification('error', '🔒 पेजेस तयार करण्याचे अधिकार फक्त मुख्य ॲडमिनला आहेत.');
+      return;
+    }
     setEditingPageId(null);
     setFormTitle('');
     setFormSlug('');
@@ -293,6 +300,10 @@ export const PageManagerView: React.FC = () => {
 
   // Save Page
   const handleSavePage = (targetStatus?: 'PUBLISHED' | 'DRAFT') => {
+    if (!isAdmin) {
+      showNotification('error', '🔒 पेजेस बदलण्याचे अधिकार फक्त मुख्य ॲडमिनला आहेत.');
+      return;
+    }
     if (!formTitle.trim()) {
       showNotification('error', 'कृपया पानाचे शीर्षक (Page Title) प्रविष्ट करा.');
       return;
@@ -343,6 +354,10 @@ export const PageManagerView: React.FC = () => {
 
   // Duplicate Page
   const handleDuplicate = (id: string) => {
+    if (!isAdmin) {
+      showNotification('error', '🔒 पेजेस प्रत करण्याचे अधिकार फक्त मुख्य ॲडमिनला आहेत.');
+      return;
+    }
     const dup = duplicatePage(id);
     if (dup) {
       showNotification('success', `पानाची प्रत तयार करण्यात आली: ${dup.title}`);
@@ -351,6 +366,10 @@ export const PageManagerView: React.FC = () => {
 
   // Delete / Trash Page
   const handleDeletePage = (id: string, title: string) => {
+    if (!isAdmin) {
+      showNotification('error', '🔒 पेजेस हटवण्याचे अधिकार फक्त मुख्य ॲडमिनला आहेत.');
+      return;
+    }
     if (window.confirm(`तुम्हाला खात्री आहे का की "${title}" हे पान कायमचे हटवायचे आहे?`)) {
       deletePage(id);
       setSelectedPageIds((prev) => prev.filter((item) => item !== id));
@@ -875,34 +894,43 @@ export const PageManagerView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* 1-Click Mandatory Legal & AdSense Pages Generator */}
-          <button
-            type="button"
-            onClick={handleGenerateMandatoryPages}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition-all cursor-pointer"
-            title="AdSense व IT Rules 2021 साठी अनिवार्य पाने एका क्लिकवर तयार करा"
-          >
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            <span>📜 कायदेशीर व AdSense पाने ऑटो-जनरेट</span>
-          </button>
+          {!isAdmin ? (
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 border border-amber-300 px-3.5 py-2.5 text-xs font-bold text-amber-800 shadow-2xs">
+              <Lock className="h-4 w-4 text-amber-700" />
+              <span>🔒 पेजेस सुरक्षित मोड (केवळ ॲडमिन व्यवस्थापित करू शकतात)</span>
+            </span>
+          ) : (
+            <>
+              {/* 1-Click Mandatory Legal & AdSense Pages Generator */}
+              <button
+                type="button"
+                onClick={handleGenerateMandatoryPages}
+                className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition-all cursor-pointer"
+                title="AdSense व IT Rules 2021 साठी अनिवार्य पाने एका क्लिकवर तयार करा"
+              >
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span>📜 कायदेशीर व AdSense पाने ऑटो-जनरेट</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setCmsView('importer')}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all cursor-pointer"
-          >
-            <Globe className="h-4 w-4 text-red-600" />
-            <span>WP Importer</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setCmsView('importer')}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all cursor-pointer"
+              >
+                <Globe className="h-4 w-4 text-red-600" />
+                <span>WP Importer</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={handleAddNewPage}
-            className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition-all cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add New Page (नवीन पान जोडा)</span>
-          </button>
+              <button
+                type="button"
+                onClick={handleAddNewPage}
+                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition-all cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add New Page (नवीन पान जोडा)</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1190,27 +1218,40 @@ export const PageManagerView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleViewLivePage(page.slug)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-emerald-600 transition-colors"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-emerald-600 transition-colors cursor-pointer"
                             title="View on Public Portal"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEditPage(page)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors"
-                            title="Edit Page"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeletePage(page.id, page.title)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            title="Delete Page"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+
+                          {isAdmin ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleEditPage(page)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-colors cursor-pointer"
+                                title="Edit Page"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePage(page.id, page.title)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                                title="Delete Page"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700 shadow-2xs"
+                              title="🔒 हे पान सुरक्षित आहे (केवळ मुख्य ॲडमिन संपादन करू शकतात)"
+                            >
+                              <Lock className="h-3 w-3 text-amber-600" />
+                              <span>Admin Only</span>
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>

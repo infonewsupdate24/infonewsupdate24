@@ -13,6 +13,7 @@ import {
   Italic,
   Link as LinkIcon,
   List,
+  Lock,
   MapPin,
   Maximize2,
   Mic,
@@ -38,6 +39,7 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { canEditPost } from '../../utils/rbac';
 import { useVoiceTyping } from '../../hooks/useVoiceTyping';
 import { Post, PostSEO, PostStatus, PostVisibility } from '../../types';
 import { SocialSharePreviewModal } from './SocialSharePreviewModal';
@@ -105,9 +107,13 @@ export const PostEditorView: React.FC = () => {
   const [isAutoOptimizing, setIsAutoOptimizing] = useState(false);
   const [lastAutoSavedTime, setLastAutoSavedTime] = useState<string | null>(null);
 
-  // Auto-Save Draft every 25s
+  // 🔒 Published Post Security Guard: If post is PUBLISHED, only Super Admin & Admin can edit
+  const isReadOnly = Boolean(existingPost && !canEditPost(currentUser, existingPost));
+
+  // Auto-Save Draft every 25s (Only if user has edit permission)
   useEffect(() => {
     if (!title && !content) return;
+    if (isReadOnly) return;
     const timer = setInterval(() => {
       try {
         const draftData = {
@@ -281,6 +287,10 @@ export const PostEditorView: React.FC = () => {
   };
 
   const handleSave = (targetStatus?: PostStatus) => {
+    if (isReadOnly) {
+      alert('🔒 ही बातमी प्रकाशित झालेली असल्याने फक्त मुख्य ॲडमिनच यात बदल करू शकतात.');
+      return;
+    }
     const finalStatus = targetStatus || status;
     const postPayload = {
       title: title || 'Untitled News Article',
@@ -419,39 +429,65 @@ export const PostEditorView: React.FC = () => {
             <span>सोशल शेअर</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleSave('DRAFT')}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <Save className="h-3.5 w-3.5" />
-            <span>Save Draft</span>
-          </button>
+          {isReadOnly ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 border border-amber-300 px-3.5 py-1.5 text-xs font-bold text-amber-800 shadow-2xs">
+              <Lock className="h-3.5 w-3.5 text-amber-700" />
+              <span>🔒 प्रकाशित बातमी (फक्त वाचन मोड)</span>
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSave('DRAFT')}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>Save Draft</span>
+              </button>
 
-          {hasPermission('post.submit') && status === 'DRAFT' && (
-            <button
-              type="button"
-              onClick={() => handleSave('SUBMITTED')}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>Submit for Review</span>
-            </button>
-          )}
+              {hasPermission('post.submit') && status === 'DRAFT' && (
+                <button
+                  type="button"
+                  onClick={() => handleSave('SUBMITTED')}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 cursor-pointer"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Submit for Review</span>
+                </button>
+              )}
 
-          {hasPermission('post.publish') && (
-            <button
-              id="btn-publish-post-main"
-              type="button"
-              onClick={() => handleSave('PUBLISHED')}
-              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              <span>{status === 'PUBLISHED' ? 'Update & Publish' : 'Publish Now'}</span>
-            </button>
+              {hasPermission('post.publish') && (
+                <button
+                  id="btn-publish-post-main"
+                  type="button"
+                  onClick={() => handleSave('PUBLISHED')}
+                  className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 cursor-pointer"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>{status === 'PUBLISHED' ? 'Update & Publish' : 'Publish Now'}</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* 🔒 Read-Only Published Post Security Banner for Non-Admins */}
+      {isReadOnly && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-xs animate-in fade-in">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-white shadow-xs shrink-0">
+            <Lock className="h-5 w-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-amber-950 uppercase tracking-wide flex items-center gap-2">
+              <span>🔒 प्रकाशित बातमी संपादन कुलूप (Published Post Lock Active)</span>
+            </h4>
+            <p className="text-xs text-amber-800 mt-0.5">
+              ही बातमी आधीच प्रकाशित झालेली असल्याने वृत्तसंकेतस्थळ सुरक्षा नियमांनुसार फक्त <strong>Super Admin / मुख्य ॲडमिन</strong> च यात बदल किंवा डिलीट करू शकतात. आपण ही बातमी फक्त वाचू (View Only) शकता.
+            </p>
+          </div>
+        </div>
+      )}
 
       {saveSuccessMsg && (
         <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-xs font-bold text-emerald-800 ring-1 ring-emerald-600/30 animate-in fade-in">
@@ -539,10 +575,11 @@ export const PostEditorView: React.FC = () => {
               <input
                 id="input-post-title"
                 type="text"
+                disabled={isReadOnly}
                 placeholder="उदा. मुंबई-पुणे एक्सप्रेसवेवर नवीन लेन खुली; प्रवाशांना मोठा दिलासा..."
                 value={title}
                 onChange={handleTitleChange}
-                className="w-full text-lg font-bold text-slate-900 border-b border-slate-200 pb-2 focus:border-red-600 focus:outline-hidden placeholder:text-slate-300"
+                className="w-full text-lg font-bold text-slate-900 border-b border-slate-200 pb-2 focus:border-red-600 focus:outline-hidden placeholder:text-slate-300 disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
               />
 
               {/* Title Character Count & Google CTR Meter */}
@@ -589,26 +626,29 @@ export const PostEditorView: React.FC = () => {
               <span className="font-bold text-slate-700 flex items-center gap-1">
                 🔗 पर्मालिंक (Permalink):
               </span>
-              <span className="text-slate-400 font-mono text-[11px]">https://infonewsupdate24.com/news/</span>
+              <span className="text-slate-400 font-mono text-[11px]">https://infonewsupdate24.com/</span>
               <input
                 type="text"
+                disabled={isReadOnly}
                 value={slug}
                 onChange={(e) => {
                   setSlug(e.target.value);
                   setIsSlugLocked(true);
                 }}
                 placeholder="auto-generated-marathi-slug"
-                className="flex-1 min-w-[200px] rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-800 font-mono focus:border-red-500 focus:ring-1 focus:ring-red-200 outline-none"
+                className="flex-1 min-w-[200px] rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-800 font-mono focus:border-red-500 focus:ring-1 focus:ring-red-200 outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
               />
-              <button
-                type="button"
-                onClick={handleRegenerateSlug}
-                title="मथळ्यावरून पर्मालिंक पुन्हा ऑटो-जनरेट करा (Auto-populate from Title)"
-                className="flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-100 hover:text-red-600 transition-colors shadow-2xs"
-              >
-                <RefreshCw className="h-3 w-3 text-red-600" />
-                <span>Auto-Generate</span>
-              </button>
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={handleRegenerateSlug}
+                  title="मथळ्यावरून पर्मालिंक पुन्हा ऑटो-जनरेट करा (Auto-populate from Title)"
+                  className="flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-100 hover:text-red-600 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <RefreshCw className="h-3 w-3 text-red-600" />
+                  <span>Auto-Generate</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -756,10 +796,11 @@ export const PostEditorView: React.FC = () => {
                   ref={contentTextareaRef}
                   id="input-post-content"
                   rows={12}
+                  disabled={isReadOnly}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Write or paste your news story in Marathi or English..."
-                  className="w-full p-4 text-sm text-slate-800 font-sans leading-relaxed focus:outline-hidden resize-y"
+                  className="w-full p-4 text-sm text-slate-800 font-sans leading-relaxed focus:outline-hidden resize-y disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                 />
 
                 {/* Rank Math Enhanced Live Metrics Bar */}
@@ -874,10 +915,11 @@ export const PostEditorView: React.FC = () => {
             </label>
             <textarea
               rows={3}
+              disabled={isReadOnly}
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
               placeholder="Brief summary that appears on news feed cards and search previews..."
-              className="w-full rounded-lg border border-slate-200 p-3 text-xs text-slate-800 focus:border-red-500 focus:outline-hidden"
+              className="w-full rounded-lg border border-slate-200 p-3 text-xs text-slate-800 focus:border-red-500 focus:outline-hidden disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
             />
           </div>
 

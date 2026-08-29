@@ -15,6 +15,7 @@ import {
   Flame,
   Globe,
   Hash,
+  Lock,
   MessageCircle,
   Pencil,
   Plus,
@@ -30,6 +31,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { canEditPost, canDeletePost } from '../../utils/rbac';
 import { matchNewsPost } from '../../utils/searchUtils';
 import {
   formatMarathiDate,
@@ -641,44 +643,73 @@ export const PostsListView: React.FC = () => {
                     {/* Actions */}
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Quick Edit button */}
-                        <button
-                          type="button"
-                          onClick={() => setQuickEditPost(post)}
-                          className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="जलद संपादन (Quick Edit)"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
+                        {canEditPost(currentUser, post) ? (
+                          <>
+                            {/* Quick Edit button */}
+                            <button
+                              type="button"
+                              onClick={() => setQuickEditPost(post)}
+                              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                              title="जलद संपादन (Quick Edit)"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
 
-                        {/* Full Edit button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedPostId(post.id);
-                            setCmsView('posts_edit');
-                          }}
-                          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                          title="पूर्ण एडिटर उघडा (Full Editor)"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
+                            {/* Full Edit button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPostId(post.id);
+                                setCmsView('posts_edit');
+                              }}
+                              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                              title="पूर्ण एडिटर उघडा (Full Editor)"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {/* Locked Post Indicator & View Only for Non-Admins */}
+                            <span
+                              className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700 shadow-2xs"
+                              title="🔒 प्रकाशित बातमी सुरक्षित आहे (केवळ ॲडमिन संपादन करू शकतात)"
+                            >
+                              <Lock className="h-3 w-3 text-amber-600" />
+                              <span>Locked</span>
+                            </span>
 
-                        {/* Clone / Duplicate */}
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicate(post)}
-                          className="rounded-lg p-1.5 text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-                          title="बातमीची प्रत बनवा (Duplicate Post)"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPostId(post.id);
+                                setCmsView('posts_edit');
+                              }}
+                              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                              title="बातमी पहा (View Only Mode)"
+                            >
+                              <Eye className="h-4 w-4 text-slate-600" />
+                            </button>
+                          </>
+                        )}
+
+                        {/* Clone / Duplicate (Only if user has post.create permission) */}
+                        {hasPermission('post.create') && (
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicate(post)}
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                            title="बातमीची प्रत बनवा (Duplicate Post)"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        )}
 
                         {/* WhatsApp / Social Share */}
                         <button
                           type="button"
                           onClick={() => setSocialSharePost(post)}
-                          className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
                           title="सोशल मीडिया व WhatsApp शेअर"
                         >
                           <MessageCircle className="h-4 w-4" />
@@ -688,14 +719,14 @@ export const PostsListView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setGraphicCardPost(post)}
-                          className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 transition-colors"
+                          className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                           title="ब्रेकिंग न्यूज फोटो कार्ड तयार करा"
                         >
                           <Camera className="h-4 w-4" />
                         </button>
 
-                        {/* Delete */}
-                        {hasPermission('post.delete') && (
+                        {/* Delete (Strictly locked to canDeletePost) */}
+                        {canDeletePost(currentUser, post) && (
                           <button
                             type="button"
                             onClick={() => {
@@ -704,7 +735,7 @@ export const PostsListView: React.FC = () => {
                                 showToast('बातमी हटवली गेली.');
                               }
                             }}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
                             title="हटवा (Delete Post)"
                           >
                             <Trash2 className="h-4 w-4" />
