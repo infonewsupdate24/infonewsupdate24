@@ -1958,29 +1958,29 @@ export const PublicPortalView: React.FC = () => {
   return (
     <div id="public-portal-root" className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans">
       {/* 1. TOP UTILITY BAR (Date, Breaking News, Social Links, CMS Switcher) */}
-      <div className="bg-[#1e293b] text-slate-200 text-xs py-1.5 px-4 sm:px-8 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+      <div className="bg-[#1e293b] text-slate-200 text-xs py-1.5 px-3 sm:px-8 border-b border-slate-800 overflow-hidden">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {/* Header Date & Live Clock */}
             {themeSettings.showHeaderDate && (
-              <span className="font-semibold text-slate-300 flex items-center gap-1.5 shrink-0">
-                <Calendar className="h-3.5 w-3.5 text-red-500" />
+              <span className="font-semibold text-slate-300 flex items-center gap-1 shrink-0 text-[10px] sm:text-xs">
+                <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-500" />
                 <span>{getHeaderFormattedDate()}</span>
               </span>
             )}
 
             {/* Breaking News Ticker Bar */}
             {themeSettings.showBreakingNews && breakingPost && (
-              <div className="hidden md:flex items-center gap-2 overflow-hidden max-w-lg">
+              <div className="hidden lg:flex items-center gap-2 overflow-hidden max-w-sm">
                 <span
-                  className="rounded px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-wider shrink-0 transition-colors shadow-xs"
+                  className="rounded px-1.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shrink-0 shadow-xs"
                   style={{ backgroundColor: themeSettings.breakingNewsBadgeColor || '#dc2626' }}
                 >
-                  {themeSettings.breakingNewsLabel || 'Breaking News'}
+                  {themeSettings.breakingNewsLabel || 'Breaking'}
                 </span>
                 <span
                   onClick={() => setPublicActivePostSlug(breakingPost.slug)}
-                  className="truncate text-slate-300 hover:text-white cursor-pointer font-medium"
+                  className="truncate text-slate-300 hover:text-white cursor-pointer text-xs font-medium"
                 >
                   {breakingPost.title}
                 </span>
@@ -1988,10 +1988,10 @@ export const PublicPortalView: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Header Social Icons */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Header Social Icons (Hidden on Mobile & Tablet, shown on Desktop) */}
             {themeSettings.showHeaderSocialIcons && (
-              <div className="flex items-center gap-2.5 text-slate-400">
+              <div className="hidden xl:flex items-center gap-2 text-slate-400">
                 {themeSettings.enabledSocialPlatforms?.facebook && themeSettings.socialLinks?.facebook && (
                   <a
                     href={themeSettings.socialLinks.facebook}
@@ -2047,17 +2047,6 @@ export const PublicPortalView: React.FC = () => {
                     <MessageCircle className="h-3.5 w-3.5" />
                   </a>
                 )}
-                {themeSettings.enabledSocialPlatforms?.telegram && themeSettings.socialLinks?.telegram && (
-                  <a
-                    href={themeSettings.socialLinks.telegram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-sky-400 transition-colors p-0.5"
-                    title="Telegram Channel"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                  </a>
-                )}
               </div>
             )}
 
@@ -2065,43 +2054,44 @@ export const PublicPortalView: React.FC = () => {
             <button
               type="button"
               onClick={() => PWAService.promptInstall(() => setIsPWAInstallModalOpen(true))}
-              className="flex items-center gap-1.5 rounded bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 px-2.5 py-1 text-[11px] font-black text-white shadow-xs transition-transform active:scale-95 cursor-pointer"
+              className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-black text-white shadow-xs transition-transform active:scale-95 cursor-pointer shrink-0"
               title="मोफत मोबाईल ॲप इन्स्टॉल करा"
             >
               <Smartphone className="h-3 w-3 animate-pulse" />
-              <span>📲 ॲप इन्स्टॉल करा</span>
+              <span className="hidden xs:inline">📲 ॲप इन्स्टॉल</span>
+              <span className="xs:hidden">📲 ॲप</span>
             </button>
 
-            {/* E-Paper Quick Switch */}
+            {/* E-Paper Quick Switch (Hidden on small mobile) */}
             <button
               type="button"
               onClick={() => setIsEPaperViewOpen(true)}
-              className="flex items-center gap-1.5 rounded bg-amber-500 px-2.5 py-1 text-[11px] font-black text-slate-950 shadow-xs hover:bg-amber-400 transition-colors cursor-pointer"
+              className="hidden sm:flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-black text-slate-950 shadow-xs hover:bg-amber-400 transition-colors cursor-pointer shrink-0"
             >
               <Newspaper className="h-3 w-3" />
-              <span>📰 ई-पेपर</span>
+              <span>ई-पेपर</span>
             </button>
 
-            {/* Dark / Light Mode Switcher */}
+            {/* Dark / Light Mode Switcher (Hidden on small mobile) */}
             <button
               type="button"
               onClick={toggleDarkMode}
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-black transition-all cursor-pointer shadow-xs ${
+              className={`hidden md:flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-black transition-all cursor-pointer shadow-xs shrink-0 ${
                 currentTheme === 'dark'
                   ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-1 ring-amber-300'
                   : 'bg-slate-700/80 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-600'
               }`}
-              title={currentTheme === 'dark' ? 'डे मोड (Light Mode) चालू करा' : 'नाईट मोड (Dark Mode) चालू करा'}
+              title={currentTheme === 'dark' ? 'डे मोड (Light Mode)' : 'नाईट मोड (Dark Mode)'}
             >
               {currentTheme === 'dark' ? (
                 <>
-                  <Sun className="h-3.5 w-3.5 text-amber-950" />
-                  <span>☀️ डे मोड</span>
+                  <Sun className="h-3 w-3 text-amber-950" />
+                  <span>डे मोड</span>
                 </>
               ) : (
                 <>
-                  <Moon className="h-3.5 w-3.5 text-amber-300" />
-                  <span>🌙 नाईट मोड</span>
+                  <Moon className="h-3 w-3 text-amber-300" />
+                  <span>नाईट मोड</span>
                 </>
               )}
             </button>
@@ -2109,33 +2099,33 @@ export const PublicPortalView: React.FC = () => {
             {/* Multi-Language Switcher (TopBar) */}
             <LanguageSwitcher variant="topbar" />
 
-            {/* Quick Switch to CMS Admin Panel (Strictly visible ONLY for Authenticated Staff / Journalists) */}
+            {/* Quick Switch to CMS Admin Panel (Staff only) */}
             {isLoggedIn && currentUser && currentUser.role !== 'USER' && currentUser.id !== 'guest-reader' && (
               <button
                 id="btn-switch-to-cms"
                 type="button"
                 onClick={() => setPortalMode('CMS')}
-                className="flex items-center gap-1.5 rounded bg-red-600/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs hover:bg-red-600 transition-colors cursor-pointer"
+                className="hidden sm:flex items-center gap-1 rounded-lg bg-red-600/90 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-bold text-white shadow-xs hover:bg-red-600 transition-colors cursor-pointer shrink-0"
               >
                 <Layers className="h-3 w-3" />
-                <span>Admin CMS Panel ({currentUser.role})</span>
+                <span>CMS</span>
               </button>
             )}
 
             {/* User Account / Login Button */}
             {isLoggedIn && currentUser && currentUser.id !== 'guest-reader' ? (
-              <div className="relative group">
+              <div className="relative group shrink-0">
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs transition cursor-pointer"
+                  className="flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-bold text-white shadow-xs transition cursor-pointer"
                   title="वापरकर्ता प्रोफाइल व मेन्यू"
                 >
                   <img
                     src={currentUser.avatar}
                     alt={currentUser.name}
-                    className="w-3.5 h-3.5 rounded-full object-cover border border-slate-400"
+                    className="w-3.5 h-3.5 rounded-full object-cover border border-slate-400 shrink-0"
                   />
-                  <span>{currentUser.name.split(' ')[0]} ({currentUser.role === 'USER' ? 'वाचक' : currentUser.role})</span>
+                  <span className="truncate max-w-[45px] xs:max-w-[70px]">{currentUser.name.split(' ')[0]}</span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </button>
 
@@ -2176,11 +2166,11 @@ export const PublicPortalView: React.FC = () => {
                 id="btn-portal-login"
                 type="button"
                 onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-3 py-1 text-[11px] font-bold text-white shadow-xs transition cursor-pointer"
-                title="संपादकीय मंडळ, बातमीदार किंवा वाचक म्हणून लॉगिन करा"
+                className="flex items-center gap-1 rounded-lg bg-red-600 hover:bg-red-700 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-bold text-white shadow-xs transition cursor-pointer shrink-0"
+                title="संपादकीय मंडळ किंवा वाचक म्हणून लॉगिन करा"
               >
-                <LogIn className="h-3.5 w-3.5 text-yellow-300" />
-                <span>लॉगिन (Login)</span>
+                <LogIn className="h-3 w-3 text-yellow-300" />
+                <span>लॉगिन</span>
               </button>
             )}
           </div>
@@ -2424,16 +2414,121 @@ export const PublicPortalView: React.FC = () => {
 
         {/* Mobile Navigation Drawer / Dropdown */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-800 bg-[#0f172a] p-3 space-y-1 text-xs max-h-[80vh] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
-            {navMenuItems.map((item) => {
-              const submenus = getSubmenusForItem(item);
-              const hasSubmenus = submenus.length > 0;
-              const isExpanded = expandedMobileMenuIds.includes(item.id);
-              const active = isItemActive(item, submenus);
+          <div className="md:hidden border-t border-slate-800 bg-[#0f172a] p-3 space-y-3 text-xs max-h-[80vh] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
+            {/* Mobile User Profile or Login Quick Card */}
+            {isLoggedIn && currentUser && currentUser.id !== 'guest-reader' ? (
+              <div className="p-3 bg-slate-800/90 border border-slate-700 rounded-2xl flex items-center justify-between shadow-md">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-9 h-9 rounded-full object-cover border-2 border-red-500 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                    <span className="inline-block text-[9px] font-black bg-red-600/90 text-white px-2 py-0.5 rounded-full mt-0.5">
+                      {currentUser.role === 'USER' ? 'वाचक सदस्य' : currentUser.role}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {currentUser.role !== 'USER' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        setPortalMode('CMS');
+                      }}
+                      className="px-2.5 py-1 bg-red-600 text-white text-[10px] font-black rounded-lg shadow-xs hover:bg-red-500 cursor-pointer"
+                    >
+                      CMS
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      setPortalMode('PUBLIC');
+                    }}
+                    className="p-1.5 bg-slate-700 hover:bg-red-950/60 text-red-400 rounded-lg cursor-pointer"
+                    title="लॉगआउट"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsLoginModalOpen(true);
+                }}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-950/50 cursor-pointer transition-all active:scale-95"
+              >
+                <LogIn className="h-4 w-4 text-yellow-300 animate-pulse" />
+                <span>लॉगिन करा (Sign In / Login)</span>
+              </button>
+            )}
 
-              return (
-                <div key={item.id} className="rounded-lg bg-slate-800/40 overflow-hidden">
-                  <div className="flex items-center justify-between">
+            {/* Mobile Quick Action Buttons (E-Paper, Night Mode, Install App) */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsEPaperViewOpen(true);
+                }}
+                className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-[11px] hover:bg-amber-500/30 cursor-pointer"
+              >
+                <Newspaper className="h-3.5 w-3.5 text-amber-400" />
+                <span>ई-पेपर</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  PWAService.promptInstall(() => {
+                    setIsMobileMenuOpen(false);
+                    setIsPWAInstallModalOpen(true);
+                  });
+                }}
+                className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 font-bold text-[11px] hover:bg-red-500/30 cursor-pointer"
+              >
+                <Smartphone className="h-3.5 w-3.5 text-red-400" />
+                <span>ॲप इन्स्टॉल</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleDarkMode}
+                className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-bold text-[11px] hover:bg-slate-700 cursor-pointer"
+              >
+                {currentTheme === 'dark' ? (
+                  <>
+                    <Sun className="h-3.5 w-3.5 text-amber-400" />
+                    <span>डे मोड</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="h-3.5 w-3.5 text-amber-300" />
+                    <span>नाईट मोड</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Menu Items List */}
+            <div className="space-y-1 pt-1">
+              {navMenuItems.map((item) => {
+                const submenus = getSubmenusForItem(item);
+                const hasSubmenus = submenus.length > 0;
+                const isExpanded = expandedMobileMenuIds.includes(item.id);
+                const active = isItemActive(item, submenus);
+
+                return (
+                  <div key={item.id} className="rounded-lg bg-slate-800/40 overflow-hidden">
+                    <div className="flex items-center justify-between">
                     <button
                       type="button"
                       onClick={() => handleNavMenuItemClick(item)}
