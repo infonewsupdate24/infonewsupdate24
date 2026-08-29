@@ -23,12 +23,16 @@ interface AIVoiceNewsPlayerProps {
   post: Post;
   aiVoiceSettings?: AIVoiceSettings;
   autoPlay?: boolean;
+  onClose?: () => void;
+  isFloating?: boolean;
 }
 
 export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
   post,
   aiVoiceSettings,
   autoPlay = false,
+  onClose,
+  isFloating = false,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -44,7 +48,6 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
   const activeIndexRef = useRef(0);
   const isPlayingRef = useRef(false);
   const isPausedRef = useRef(false);
-  const keepAliveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync settings when changed from admin or parent
   useEffect(() => {
@@ -88,12 +91,9 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     isPausedRef.current = isPaused;
   }, [isPlaying, isPaused]);
 
-  // Clean up SpeechSynthesis and keepalive timers on unmount
+  // Clean up SpeechSynthesis on unmount
   useEffect(() => {
     return () => {
-      if (keepAliveTimerRef.current) {
-        clearInterval(keepAliveTimerRef.current);
-      }
       try {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
           window.speechSynthesis.cancel();
@@ -222,7 +222,6 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
         window.speechSynthesis.resume();
         setIsPaused(false);
         setIsPlaying(true);
-        startKeepAlive();
       } else {
         playSegment(currentParagraphIndex);
       }
@@ -237,7 +236,6 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
       if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
         window.speechSynthesis.pause();
         setIsPaused(true);
-        stopKeepAlive();
       }
     } catch (err) {
       console.warn('Speech synthesis pause error:', err);
@@ -252,7 +250,6 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     } catch (err) {
       console.warn('Speech synthesis cancel error:', err);
     }
-    stopKeepAlive();
     setIsPlaying(false);
     setIsPaused(false);
     setProgress(0);

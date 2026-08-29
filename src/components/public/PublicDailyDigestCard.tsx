@@ -1,4 +1,3 @@
-import React, { useState, useMemo } from 'react';
 import {
   MessageCircle,
   Copy,
@@ -10,9 +9,12 @@ import {
   Calendar,
   ExternalLink,
   Sparkles,
+  Radio,
+  Headphones,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WhatsAppBulletinService } from '../../services/WhatsAppBulletinService';
+import { AIDailyAudioBulletinPlayer } from './AIDailyAudioBulletinPlayer';
 
 export const PublicDailyDigestCard: React.FC = () => {
   const { posts, whatsAppSettings, epaperSettings } = useApp();
@@ -66,8 +68,8 @@ export const PublicDailyDigestCard: React.FC = () => {
   if (!publishedPosts.length) return null;
 
   return (
-    <div className="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 text-white p-5 sm:p-7 shadow-xl space-y-4">
-      {/* Header */}
+    <div className="rounded-3xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white p-5 sm:p-7 shadow-2xl space-y-6">
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20 pb-4">
         <div>
           <div className="flex items-center gap-2">
@@ -78,28 +80,29 @@ export const PublicDailyDigestCard: React.FC = () => {
                 <Sunset className="h-3 w-3" />
               )}
               {bulletinType === 'MORNING'
-                ? 'MORNING DIGEST'
-                : 'EVENING DIGEST'}
+                ? 'MORNING RADIO DIGEST'
+                : 'EVENING RADIO DIGEST'}
             </span>
             <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               <span>{dateStr}</span>
             </span>
           </div>
-          <h3 className="text-lg sm:text-xl font-black text-white mt-1">
-            🌅 आजचे दैनिक बातमीपत्र (Daily WhatsApp Bulletin)
+          <h3 className="text-lg sm:text-xl font-black text-white mt-1 flex items-center gap-2">
+            <span>📻 आजचे दैनिक AI ऑडिओ बातमीपत्र (Daily News Podcast)</span>
           </h3>
           <p className="text-xs text-slate-300 mt-0.5">
-            आजच्या टॉप ५ प्रमुख घडामोडी एकाच ठिकाणी वाचा किंवा मित्रांना WhatsApp वर एका क्लिकवर पाठवा.
+            आजच्या टॉप ५ प्रमुख घडामोडी एकाच ठिकाणी स्पष्ट आवाजात ऐका किंवा मित्रांना WhatsApp वर एका क्लिकवर पाठवा.
           </p>
         </div>
 
-        {/* Action Buttons */}
+        {/* WhatsApp & Copy Action Buttons */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={handleCopy}
             className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 px-3.5 py-2 text-xs font-bold text-slate-200 transition-colors cursor-pointer"
+            title="संपूर्ण बुलेटिन मजकूर कॉपी करा"
           >
             {copied ? (
               <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -113,34 +116,20 @@ export const PublicDailyDigestCard: React.FC = () => {
             type="button"
             onClick={handleShare}
             className="flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 px-4 py-2 text-xs font-black text-slate-950 shadow-lg shadow-emerald-950/50 transition-all cursor-pointer"
+            title="WhatsApp वर थेट पाठवा"
           >
             <MessageCircle className="h-4 w-4 fill-slate-950" />
-            <span>WhatsApp वर फॉरवर्ड करा</span>
+            <span>WhatsApp शेअर</span>
           </button>
         </div>
       </div>
 
-      {/* Top 5 Headlines List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-        {publishedPosts.map((post, idx) => (
-          <div
-            key={post.id}
-            className="flex items-start gap-3 p-3 rounded-2xl bg-slate-800/50 border border-slate-700/60 hover:border-emerald-500/50 transition-colors"
-          >
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-xs font-bold border border-emerald-500/40">
-              {idx + 1}
-            </span>
-            <div className="min-w-0">
-              <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug">
-                {post.title}
-              </h4>
-              <span className="text-[10px] text-slate-400 font-medium mt-1 block">
-                {post.categorySlug} &bull; {post.readingTime} वाचन
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* 🎙️ LIVE AI AUDIO BULLETIN PLAYER */}
+      <AIDailyAudioBulletinPlayer
+        posts={publishedPosts}
+        bulletinType={bulletinType}
+        dateStr={dateStr}
+      />
 
       {/* Toast */}
       {toastMsg && (
