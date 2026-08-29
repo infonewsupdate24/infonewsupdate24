@@ -26,5 +26,7 @@ User-agent: facebookexternalhit
 Allow: /
 
 # XML Sitemaps
-Sitemap: https://infonewsupdate24.com/sitemap.xml
-Sitemap: https://infonewsupdate24.com/sitemap-news.xml
+Sitemap: https://www.infonewsupdate24.com/sitemap.xml
+Sitemap: https://www.infonewsupdate24.com/sitemap-news.xml
+Sitemap: https://www.infonewsupdate24.com/sitemap_index.xml
+Sitemap: https://www.infonewsupdate24.com/news-sitemap.xml
