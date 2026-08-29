@@ -59,6 +59,7 @@ import {
 import { matchNewsPost } from '../../utils/searchUtils';
 import {
   cleanExcerpt,
+  cleanTextForTTS,
   formatNewsTitle,
   formatMarathiDate,
   getSafeImageUrl,
@@ -672,12 +673,15 @@ export const PublicPortalView: React.FC = () => {
 
       window.speechSynthesis.cancel();
 
-      // Prepare COMPLETE article text: Title + Excerpt + Body content
-      const fullArticleNarrative = `${post.title}. बातमी तपशील: ${post.excerpt}. ${post.content}`;
+      // Prepare CLEAN article text: Title + Excerpt + Body content without rogue HTML or \n artifacts
+      const cleanTitle = cleanTextForTTS(post.title);
+      const cleanExp = cleanTextForTTS(cleanExcerpt(post.excerpt, post.content, 140));
+      const cleanBody = cleanTextForTTS(post.content);
+      const fullArticleNarrative = `${cleanTitle}। ठळक मुद्दे: ${cleanExp}। सविस्तर बातमी: ${cleanBody}`;
 
       const utterance = new SpeechSynthesisUtterance(fullArticleNarrative);
-      utterance.lang = 'mr-IN'; // Marathi / Indian English phonetic voice
-      utterance.rate = 0.95;
+      utterance.lang = 'mr-IN'; // Marathi Indian voice
+      utterance.rate = 0.92;
 
       // Fallback voice selection
       const voices = window.speechSynthesis.getVoices();

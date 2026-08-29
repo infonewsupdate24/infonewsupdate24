@@ -192,7 +192,13 @@ export function cleanTextForTTS(rawText: string): string {
     .replace(/\bAI\b/gi, 'ए आय')
     .replace(/\bInfoNewsUpdate24\b/gi, 'इन्फो न्यूज २४')
     .replace(/&/g, ' आणि ')
+    .replace(/\\n/gi, ' ')
+    .replace(/\\r/gi, ' ')
+    .replace(/\\t/gi, ' ')
+    .replace(/\b[nN]{2,}\b/g, ' ')
+    .replace(/\b[nN]\b/g, ' ')
     .replace(/[\[\]{}()<>|\/\\~^_]/g, ' ')
+    .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
