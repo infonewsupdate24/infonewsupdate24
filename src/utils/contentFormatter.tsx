@@ -254,3 +254,75 @@ export function splitIntoSpeechParagraphs(
 
   return chunks.filter((c) => c.trim().length > 0);
 }
+
+export const DEFAULT_NEWS_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80';
+
+/**
+ * Universal date formatter for Marathi news portal.
+ * Converts raw ISO timestamps (e.g. 2026-01-18T17:52:30) or English dates to clean, professional Marathi format.
+ */
+export function formatMarathiDate(rawDate?: string): string {
+  if (!rawDate) return 'आजची बातमी';
+
+  try {
+    const trimmed = rawDate.trim();
+
+    // If it's already a clean Marathi text like "२९ ऑगस्ट २०२६"
+    if (trimmed.includes('ऑगस्ट') || trimmed.includes('जानेवारी') || trimmed.includes('आधी')) {
+      return trimmed;
+    }
+
+    const d = new Date(trimmed);
+    if (isNaN(d.getTime())) {
+      return trimmed;
+    }
+
+    const monthsMarathi = [
+      'जानेवारी',
+      'फेब्रुवारी',
+      'मार्च',
+      'एप्रिल',
+      'मे',
+      'जून',
+      'जुलै',
+      'ऑगस्ट',
+      'सप्टेंबर',
+      'ऑक्टोबर',
+      'नोव्हेंबर',
+      'डिसेंबर',
+    ];
+
+    const day = d.getDate();
+    const month = monthsMarathi[d.getMonth()];
+    const year = d.getFullYear();
+
+    return `${day} ${month} ${year}`;
+  } catch {
+    return rawDate || 'आजची बातमी';
+  }
+}
+
+/**
+ * Ensures image URLs are safe, HTTPS-compliant, and will not trigger Mixed Content or broken icon.
+ */
+export function getSafeImageUrl(url?: string): string {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return DEFAULT_NEWS_FALLBACK_IMAGE;
+  }
+
+  const trimmed = url.trim();
+
+  // If already HTTPS or data URI
+  if (trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+    return trimmed;
+  }
+
+  // If HTTP image, convert to HTTPS if same domain or proxy via images.weserv.nl
+  if (trimmed.startsWith('http://')) {
+    const withoutHttp = trimmed.replace(/^http:\/\//i, '');
+    return `https://images.weserv.nl/?url=${encodeURIComponent(withoutHttp)}&default=${encodeURIComponent(DEFAULT_NEWS_FALLBACK_IMAGE)}`;
+  }
+
+  return trimmed;
+}
+

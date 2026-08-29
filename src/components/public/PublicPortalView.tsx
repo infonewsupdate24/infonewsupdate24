@@ -56,8 +56,13 @@ import {
   GOOGLE_CONVERSATIONAL_VOICES,
   GoogleVoiceAnchor,
 } from '../../services/AIVoiceService';
-import { matchNewsPost } from '../../utils/searchUtils';
-import { cleanExcerpt, formatNewsTitle } from '../../utils/contentFormatter';
+import {
+  cleanExcerpt,
+  formatNewsTitle,
+  formatMarathiDate,
+  getSafeImageUrl,
+  DEFAULT_NEWS_FALLBACK_IMAGE,
+} from '../../utils/contentFormatter';
 import { ReaderPollWidget } from './ReaderPollWidget';
 import { AIVoiceNewsPlayer } from './AIVoiceNewsPlayer';
 import { AdSlotRenderer } from '../common/AdSlotRenderer';
@@ -739,8 +744,11 @@ export const PublicPortalView: React.FC = () => {
                 onClick={() => setPublicActivePostSlug(heroPosts[0].slug)}
               >
                 <img
-                  src={heroPosts[0].featuredImage}
+                  src={getSafeImageUrl(heroPosts[0].featuredImage)}
                   alt={heroPosts[0].title}
+                  onError={(e) => {
+                    e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                  }}
                   className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
@@ -751,7 +759,7 @@ export const PublicPortalView: React.FC = () => {
                       Breaking News
                     </span>
                     <span className="text-xs text-slate-300 font-medium">
-                      {heroPosts[0].publishDate} &bull; {heroPosts[0].readingTimeMinutes} min read
+                      {formatMarathiDate(heroPosts[0].publishDate || heroPosts[0].createdAt)} &bull; {heroPosts[0].readingTimeMinutes || 3} min read
                     </span>
                   </div>
 
@@ -802,9 +810,12 @@ export const PublicPortalView: React.FC = () => {
                   className="group flex gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer"
                 >
                   <img
-                    src={post.featuredImage}
+                    src={getSafeImageUrl(post.featuredImage)}
                     alt=""
-                    className="h-20 w-24 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                    onError={(e) => {
+                      e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                    }}
+                    className="h-20 w-24 shrink-0 rounded-lg object-cover ring-1 border border-slate-200 bg-slate-100"
                   />
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <p className="text-xs font-bold text-slate-900 group-hover:text-red-600 line-clamp-2 leading-snug">
@@ -812,7 +823,7 @@ export const PublicPortalView: React.FC = () => {
                     </p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-[10px] text-slate-400 font-medium">
-                        {post.publishDate}
+                        {formatMarathiDate(post.publishDate || post.createdAt)}
                       </span>
                       {aiVoiceSettings?.showSpeakerOnCards !== false && (
                         <button
@@ -900,8 +911,11 @@ export const PublicPortalView: React.FC = () => {
                       <div>
                         <div className="relative h-44 w-full overflow-hidden bg-slate-100">
                           <img
-                            src={post.featuredImage}
+                            src={getSafeImageUrl(post.featuredImage)}
                             alt=""
+                            onError={(e) => {
+                              e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                            }}
                             className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                           <span className="absolute top-2.5 left-2.5 rounded-md bg-red-600 text-white text-[10px] font-black uppercase px-2 py-0.5 shadow-xs">
@@ -920,7 +934,7 @@ export const PublicPortalView: React.FC = () => {
                       </div>
 
                       <div className="px-4 pb-3 flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-50 pt-2">
-                        <span>{post.publishDate}</span>
+                        <span>{formatMarathiDate(post.publishDate || post.createdAt)}</span>
                         <div className="flex items-center gap-2">
                           {aiVoiceSettings?.showSpeakerOnCards !== false && (
                             <button
@@ -970,7 +984,7 @@ export const PublicPortalView: React.FC = () => {
                         </p>
                         <div className="flex items-center justify-between mt-0.5">
                           <span className="text-[10px] text-slate-400 font-medium">
-                            {post.publishDate}
+                            {formatMarathiDate(post.publishDate || post.createdAt)}
                           </span>
                           {aiVoiceSettings?.showSpeakerOnCards !== false && (
                             <button
@@ -1017,8 +1031,11 @@ export const PublicPortalView: React.FC = () => {
                         className="group flex gap-3 cursor-pointer items-start"
                       >
                         <img
-                          src={post.featuredImage}
+                          src={getSafeImageUrl(post.featuredImage)}
                           alt=""
+                          onError={(e) => {
+                            e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                          }}
                           className="h-16 w-20 rounded-xl object-cover ring-1 ring-slate-200 shrink-0 group-hover:scale-105 transition-transform"
                         />
                         <div className="flex-1 min-w-0 flex flex-col justify-between">
@@ -1029,7 +1046,7 @@ export const PublicPortalView: React.FC = () => {
                             {formatNewsTitle(post.title)}
                           </h4>
                           <span className="text-[10px] text-slate-400 mt-1">
-                            {post.publishDate}
+                            {formatMarathiDate(post.publishDate || post.createdAt)}
                           </span>
                         </div>
                       </div>
@@ -1237,8 +1254,11 @@ export const PublicPortalView: React.FC = () => {
                         <div>
                           <div className="relative h-44 w-full overflow-hidden bg-slate-100">
                             <img
-                              src={post.featuredImage}
+                              src={getSafeImageUrl(post.featuredImage)}
                               alt=""
+                              onError={(e) => {
+                                e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                              }}
                               className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
 
@@ -1276,7 +1296,7 @@ export const PublicPortalView: React.FC = () => {
                         {/* Card Footer */}
                         <div className="px-4 pb-3.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                           <div className="flex items-center gap-1">
-                            <span className="font-medium text-slate-500">{post.publishDate}</span>
+                            <span className="font-medium text-slate-500">{formatMarathiDate(post.publishDate || post.createdAt)}</span>
                             {post.readingTimeMinutes && (
                               <span className="hidden xl:inline">&bull; ⏱️ {post.readingTimeMinutes} मि.</span>
                             )}
@@ -1288,7 +1308,7 @@ export const PublicPortalView: React.FC = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://infonewsupdate24.com/post/${post.slug}`;
+                                const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://www.infonewsupdate24.com/article/${post.slug}`;
                                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
                               }}
                               className="p-1 rounded-md text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
@@ -1329,8 +1349,11 @@ export const PublicPortalView: React.FC = () => {
                       >
                         <div className="relative h-44 sm:h-32 sm:w-56 shrink-0 rounded-xl overflow-hidden bg-slate-100">
                           <img
-                            src={post.featuredImage}
+                            src={getSafeImageUrl(post.featuredImage)}
                             alt=""
+                            onError={(e) => {
+                              e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                            }}
                             className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           {post.isVideoNews && (
@@ -1349,7 +1372,7 @@ export const PublicPortalView: React.FC = () => {
                                 {categories.find((c) => c.id === post.categoryId)?.name || 'ताज्या बातम्या'}
                               </span>
                               <span className="text-[11px] text-slate-400 font-medium">
-                                {post.publishDate} &bull; ⏱️ {post.readingTimeMinutes || 2} मि. वाचन
+                                {formatMarathiDate(post.publishDate || post.createdAt)} &bull; ⏱️ {post.readingTimeMinutes || 2} मि. वाचन
                               </span>
                             </div>
                             <h4 className="text-base sm:text-lg font-black text-slate-900 group-hover:text-red-600 line-clamp-2 leading-snug font-serif">
