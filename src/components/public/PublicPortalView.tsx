@@ -72,6 +72,7 @@ import { ArticleContentRenderer } from '../common/ArticleContentRenderer';
 import { EPaperHubView } from './EPaperHubView';
 import { WebPushPromptBanner } from './WebPushPromptBanner';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
+import { PWAInstallModal } from './PWAInstallModal';
 import { PWAService } from '../../services/PWAService';
 import { KrishiMandiRatesWidget } from './KrishiMandiRatesWidget';
 import { WhatsAppCommunityFloatingWidget } from './WhatsAppCommunityFloatingWidget';
@@ -238,6 +239,8 @@ export const PublicPortalView: React.FC = () => {
       return updated;
     });
   };
+
+  const [isPWAInstallModalOpen, setIsPWAInstallModalOpen] = useState(false);
 
   // --- Universal Route & WordPress Legacy URL Resolver ---
   useEffect(() => {
@@ -2061,7 +2064,7 @@ export const PublicPortalView: React.FC = () => {
             {/* PWA Mobile App Install Quick Button */}
             <button
               type="button"
-              onClick={() => PWAService.promptInstall()}
+              onClick={() => PWAService.promptInstall(() => setIsPWAInstallModalOpen(true))}
               className="flex items-center gap-1.5 rounded bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 px-2.5 py-1 text-[11px] font-black text-white shadow-xs transition-transform active:scale-95 cursor-pointer"
               title="मोफत मोबाईल ॲप इन्स्टॉल करा"
             >
@@ -3422,6 +3425,12 @@ export const PublicPortalView: React.FC = () => {
 
       {/* 7. PWA MOBILE APP INSTALLER PROMPT */}
       <PWAInstallPrompt />
+
+      {/* 7.1 PWA MOBILE APP INSTALL GUIDE MODAL */}
+      <PWAInstallModal
+        isOpen={isPWAInstallModalOpen}
+        onClose={() => setIsPWAInstallModalOpen(false)}
+      />
 
       {/* 8. WHATSAPP COMMUNITY FLOATING HUB & MULTI-DISTRICT MODAL */}
       <WhatsAppCommunityFloatingWidget />

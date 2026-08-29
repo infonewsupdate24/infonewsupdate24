@@ -14,14 +14,21 @@ export class PWAService {
   public static init(): void {
     if (typeof window === 'undefined') return;
 
+    if ((window as any).__deferredPwaPrompt) {
+      this.deferredPrompt = (window as any).__deferredPwaPrompt;
+      this.notifyListeners(true);
+    }
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       this.deferredPrompt = e;
+      (window as any).__deferredPwaPrompt = e;
       this.notifyListeners(true);
     });
 
     window.addEventListener('appinstalled', () => {
       this.deferredPrompt = null;
+      (window as any).__deferredPwaPrompt = null;
       this.notifyListeners(false);
     });
   }
@@ -46,27 +53,37 @@ export class PWAService {
   }
 
   public static canInstall(): boolean {
-    return this.deferredPrompt !== null || this.isIOS();
+    return this.deferredPrompt !== null || (typeof window !== 'undefined' && (this.isIOS() || this.isAndroid()));
   }
 
-  public static async promptInstall(): Promise<'accepted' | 'dismissed' | 'manual_ios'> {
-    if (this.isIOS()) {
-      return 'manual_ios';
+  public static getDeferredPrompt(): any {
+    return this.deferredPrompt || (typeof window !== 'undefined' ? (window as any).__deferredPwaPrompt : null);
+  }
+
+  public static async promptInstall(onFallbackGuide?: () => void): Promise<'accepted' | 'dismissed' | 'manual_guide'> {
+    const prompt = this.getDeferredPrompt();
+
+    if (prompt) {
+      try {
+        prompt.prompt();
+        const choiceResult = await prompt.userChoice;
+        this.deferredPrompt = null;
+        if (typeof window !== 'undefined') (window as any).__deferredPwaPrompt = null;
+        this.notifyListeners(false);
+        return choiceResult.outcome;
+      } catch {
+        if (onFallbackGuide) onFallbackGuide();
+        return 'manual_guide';
+      }
     }
 
-    if (!this.deferredPrompt) {
-      return 'dismissed';
+    // If native prompt is not available, show visual step-by-step install modal
+    if (onFallbackGuide) {
+      onFallbackGuide();
+      return 'manual_guide';
     }
 
-    try {
-      this.deferredPrompt.prompt();
-      const choiceResult = await this.deferredPrompt.userChoice;
-      this.deferredPrompt = null;
-      this.notifyListeners(false);
-      return choiceResult.outcome;
-    } catch {
-      return 'dismissed';
-    }
+    return 'dismissed';
   }
 
   public static subscribe(listener: (canInstall: boolean) => void): () => void {

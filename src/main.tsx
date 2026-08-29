@@ -2,6 +2,10 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { PWAService } from './services/PWAService';
+
+// Initialize PWA install prompt listeners immediately on startup
+PWAService.init();
 
 // Global resilience handlers for benign browser sandbox aborts and cross-origin events
 if (typeof window !== 'undefined') {
