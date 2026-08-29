@@ -22,6 +22,7 @@ import {
   GOOGLE_CONVERSATIONAL_VOICES,
   GoogleVoiceAnchor,
 } from '../../services/AIVoiceService';
+import { LanguageService } from '../../services/LanguageService';
 import { Post } from '../../types';
 import { cleanTextForTTS, splitIntoSpeechParagraphs } from '../../utils/contentFormatter';
 
@@ -51,6 +52,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
   const [currentSegmentIdx, setCurrentSegmentIdx] = useState(0);
   const [activeStoryIdx, setActiveStoryIdx] = useState<number>(0);
   const [speed, setSpeed] = useState<number>(1.0);
+  const [lang, setLang] = useState<string>(() => LanguageService.getCurrentLanguage() || 'mr');
   const [selectedAnchor, setSelectedAnchor] = useState<GoogleVoiceAnchor>(() =>
     AIVoiceService.getSavedAnchor()
   );
@@ -75,6 +77,17 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
     AIVoiceService.initVoices();
   }, []);
 
+  // Auto-sync with live language switcher changes
+  useEffect(() => {
+    const handleGlobalLangChange = (e: any) => {
+      if (e.detail?.code) {
+        setLang(e.detail.code);
+      }
+    };
+    window.addEventListener('infonews:language-changed', handleGlobalLangChange);
+    return () => window.removeEventListener('infonews:language-changed', handleGlobalLangChange);
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -92,28 +105,47 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
     };
   }, []);
 
-  // Construct sequential news broadcast playlist
+  // Construct sequential news broadcast playlist in active language
   const playlist: BulletinSegment[] = useMemo(() => {
     const list: BulletinSegment[] = [];
     const topPosts = Array.isArray(posts) ? posts.filter(Boolean).slice(0, 5) : [];
     if (!topPosts.length) return list;
 
-    const anchorName = selectedAnchor?.name || 'वृत्त निवेदक';
+    const anchorName = selectedAnchor?.name || 'News Anchor';
 
     // 1. INTRO
-    const greeting =
-      bulletinType === 'EVENING'
-        ? 'शुभ संध्याकाळ!'
-        : bulletinType === 'BREAKING'
-        ? 'ताजी व महत्त्वाची बातमी!'
-        : 'शुभ प्रभात!';
-
-    const introText = `${greeting} InfoNewsUpdate24 च्या आजच्या दैनिक ऑडिओ बुलेटिनमध्ये आपले सहर्ष स्वागत आहे. मी आपली डिजिटल वृत्त निवेदक ${anchorName}. पाहुयात आजच्या ठळक ५ घडामोडी.`;
+    let introText = '';
+    let introTitle = '🎙️ बुलेटिन प्रस्तावना (Intro)';
+    if (lang === 'mr') {
+      const greeting = bulletinType === 'EVENING' ? 'शुभ संध्याकाळ!' : bulletinType === 'BREAKING' ? 'ताजी व महत्त्वाची बातमी!' : 'शुभ प्रभात!';
+      introText = `${greeting} InfoNewsUpdate24 च्या आजच्या दैनिक ऑडिओ बुलेटिनमध्ये आपले सहर्ष स्वागत आहे. मी आपली डिजिटल वृत्त निवेदक ${anchorName}. पाहुयात आजच्या ठळक ५ घडामोडी.`;
+      introTitle = '🎙️ बुलेटिन प्रस्तावना (Intro)';
+    } else if (lang === 'hi') {
+      const greeting = bulletinType === 'EVENING' ? 'शुभ संध्या!' : bulletinType === 'BREAKING' ? 'ताज़ा और महत्वपूर्ण खबर!' : 'सुप्रभात!';
+      introText = `${greeting} InfoNewsUpdate24 के आज के दैनिक ऑडियो बुलेटिन में आपका स्वागत है. मैं आपकी डिजिटल समाचार एंकर ${anchorName}. आइए सुनते हैं आज की टॉप ५ प्रमुख खबरें.`;
+      introTitle = '🎙️ बुलेटिन प्रस्तावना (Intro)';
+    } else if (lang === 'gu') {
+      introText = `નમસ્કાર! InfoNewsUpdate24 ના આજના દૈનિક ઓડિયો બુલેટિનમાં આપનું સ્વાગત છે. હું તમારી ડિજિટલ સમાચાર એન્કર ${anchorName}. સાંભળીએ આજના ટોપ ૫ મુખ્ય સમાચાર.`;
+      introTitle = '🎙️ બુલેટિન પ્રસ્તાવના';
+    } else if (lang === 'kn') {
+      introText = `ನಮಸ್ಕಾರ! InfoNewsUpdate24 ನ ಇಂದಿನ ದೈನಂದಿನ ಆಡಿಯೊ ಬುಲೆಟಿನ್‌ಗೆ ಸ್ವಾಗತ. ಇಂದಿನ ಟಾಪ್ ೫ ಮುಖ್ಯಾಂಶಗಳನ್ನು ಕೇಳೋಣ.`;
+      introTitle = '🎙️ ಸುದ್ದಿ ಮುಖ್ಯಾಂಶಗಳು';
+    } else if (lang === 'te') {
+      introText = `నమస్కారం! InfoNewsUpdate24 నేటి ఆడియో వార్తా బులెటిన్‌కు స్వాగతం. నేటి టాప్ 5 ముఖ్య వార్తలను విందాం.`;
+      introTitle = '🎙️ వార్తా ముఖ్యాంశాలు';
+    } else if (lang === 'bn') {
+      introText = `নমস্কার! InfoNewsUpdate24 এর আজকের দৈনিক অডিও বুলেটিনে স্বাগতম। আসুন জেনে নেই আজকের সেরা ৫টি প্রধান খবর।`;
+      introTitle = '🎙️ সংবাদ বুলেটিন';
+    } else {
+      const greeting = bulletinType === 'EVENING' ? 'Good evening!' : bulletinType === 'BREAKING' ? 'Breaking news alert!' : 'Good morning!';
+      introText = `${greeting} Welcome to InfoNewsUpdate24 Daily AI Audio Bulletin. I am your voice anchor ${anchorName}. Here are today's top 5 headline stories.`;
+      introTitle = '🎙️ Daily Audio Bulletin Intro';
+    }
 
     list.push({
       type: 'INTRO',
       text: introText,
-      displayTitle: '🎙️ बुलेटिन प्रस्तावना (Intro)',
+      displayTitle: introTitle,
     });
 
     // 2. STORIES (1 to 5)
@@ -121,19 +153,34 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
       const cleanTitle = cleanTextForTTS(p.title || '');
       const rawExp = p.excerpt || (p.content && typeof p.content === 'string' ? p.content.slice(0, 160) : '');
       const cleanExp = cleanTextForTTS(rawExp);
-      const storyNarrative = `बातमी क्रमांक ${idx + 1}: ${cleanTitle}। ${cleanExp}`;
+      const storyNarrative = `${cleanTitle}। ${cleanExp}`;
 
       list.push({
         type: 'STORY',
         storyIndex: idx,
         post: p,
         text: storyNarrative,
-        displayTitle: `बातमी ${idx + 1}: ${cleanTitle || 'ठळक बातमी'}`,
+        displayTitle: `${idx + 1}. ${cleanTitle || 'Headline'}`,
       });
     });
 
     // 3. OUTRO
-    const outroText = `या होत्या आजच्या ५ महत्त्वाच्या घडामोडी. सर्व बातम्या सविस्तर वाचण्यासाठी आणि ताज्या अपडेट्ससाठी भेट देत राहा www.infonewsupdate24.com वर. धन्यवाद आणि आपला दिवस शुभ जावो!`;
+    let outroText = '';
+    if (lang === 'mr') {
+      outroText = `या होत्या आजच्या ५ महत्त्वाच्या घडामोडी. सर्व बातम्या सविस्तर वाचण्यासाठी आणि ताज्या अपडेट्ससाठी भेट देत राहा www.infonewsupdate24.com वर. धन्यवाद आणि आपला दिवस शुभ जावो!`;
+    } else if (lang === 'hi') {
+      outroText = `ये थीं आज की ५ मुख्य खबरें. ताजा अपडेट्स और विस्तार से पढ़ने के लिए विजिट करते रहें www.infonewsupdate24.com. धन्यवाद और आपका दिन शुभ हो!`;
+    } else if (lang === 'gu') {
+      outroText = `આ હતા આજના ૫ મુખ્ય સમાચાર. વધુ અપડેટ્સ માટે મુલાકાત લો www.infonewsupdate24.com. આભાર અને આપનો દિવસ શુભ રહે!`;
+    } else if (lang === 'kn') {
+      outroText = `ಇವು ಇಂದಿನ ೫ ಮುಖ್ಯ ಸುದ್ದಿಗಳು. ಹೆಚ್ಚಿನ ವಿವರಗಳಿಗಾಗಿ www.infonewsupdate24.com ಗೆ ಭೇಟಿ ನೀಡಿ. ಧನ್ಯವಾದಗಳು!`;
+    } else if (lang === 'te') {
+      outroText = `ఇవి నేటి 5 ముఖ్య వార్తలు. మరిన్ని వివరాల కోసం www.infonewsupdate24.com ను సందర్శించండి. ధన్యవాదాలు!`;
+    } else if (lang === 'bn') {
+      outroText = `এই ছিল আজকের ৫টি প্রধান খবর। বিস্তারিত পড়তে ভিজিট করুন www.infonewsupdate24.com। ধন্যবাদ!`;
+    } else {
+      outroText = `Those were today's top 5 stories. For full reports and real-time alerts, stay tuned to www.infonewsupdate24.com. Thank you and have a wonderful day!`;
+    }
 
     list.push({
       type: 'OUTRO',
@@ -142,7 +189,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
     });
 
     return list;
-  }, [posts, bulletinType, selectedAnchor]);
+  }, [posts, bulletinType, selectedAnchor, lang]);
 
   // Fallback to Web Speech API if neural audio stream encounters network restriction
   const fallbackToWebSpeech = (cleanText: string, segIdx: number) => {
@@ -239,8 +286,8 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
       const rawText = segment.text;
       const cleanText = cleanTextForTTS(rawText);
 
-      // 1. Check if we should use Google Indic Neural Audio (Guarantees authentic Marathi on Windows/Mac/Mobile)
-      const audioUrl = AIVoiceService.getIndicAudioUrl(cleanText, 'mr');
+      // 1. Check if we should use Google Indic Neural Audio (Supports Marathi, Hindi, English, Gujarati, Kannada, Telugu, Bengali, Tamil)
+      const audioUrl = AIVoiceService.getIndicAudioUrl(cleanText, lang);
       const audio = new Audio(audioUrl);
       audioPlayerRef.current = audio;
       audio.playbackRate = speed;

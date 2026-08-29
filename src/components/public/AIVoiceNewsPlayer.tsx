@@ -4,6 +4,7 @@ import {
   GOOGLE_CONVERSATIONAL_VOICES,
   GoogleVoiceAnchor,
 } from '../../services/AIVoiceService';
+import { LanguageService } from '../../services/LanguageService';
 import { AIVoiceSettings, Post } from '../../types';
 import { cleanTextForTTS, splitIntoSpeechParagraphs } from '../../utils/contentFormatter';
 import {
@@ -39,7 +40,7 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [speed, setSpeed] = useState(aiVoiceSettings?.speed || 1.0);
-  const [lang, setLang] = useState<'mr' | 'en'>(aiVoiceSettings?.lang || 'mr');
+  const [lang, setLang] = useState<string>(() => aiVoiceSettings?.lang || LanguageService.getCurrentLanguage() || 'mr');
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [selectedAnchor, setSelectedAnchor] = useState<GoogleVoiceAnchor>(() =>
     AIVoiceService.getSavedAnchor()
@@ -60,18 +61,52 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     if (aiVoiceSettings?.lang) setLang(aiVoiceSettings.lang);
   }, [aiVoiceSettings?.anchorId, aiVoiceSettings?.speed, aiVoiceSettings?.lang]);
 
+  // Auto-sync with live language switcher changes
+  useEffect(() => {
+    const handleGlobalLangChange = (e: any) => {
+      if (e.detail?.code) {
+        setLang(e.detail.code);
+      }
+    };
+    window.addEventListener('infonews:language-changed', handleGlobalLangChange);
+    return () => window.removeEventListener('infonews:language-changed', handleGlobalLangChange);
+  }, []);
+
   // Pre-load voices on component mount
   useEffect(() => {
     AIVoiceService.initVoices();
   }, []);
 
-  // Breakdown article into clean, HTML-stripped sequential segments
+  // Breakdown article into clean, HTML-stripped sequential segments in the active language
   const paragraphs = React.useMemo(() => {
-    const introText = aiVoiceSettings?.autoIntroGreeting
-      ? lang === 'mr'
-        ? `नमस्कार! InfoNewsUpdate24 डिजिटल बातमीपत्रामध्ये आपले स्वागत आहे.`
-        : `Welcome to InfoNewsUpdate24 audio news bulletin.`
-      : '';
+    let introText = '';
+    if (aiVoiceSettings?.autoIntroGreeting) {
+      switch (lang) {
+        case 'mr':
+          introText = `नमस्कार! InfoNewsUpdate24 डिजिटल बातमीपत्रामध्ये आपले स्वागत आहे.`;
+          break;
+        case 'hi':
+          introText = `नमस्कार! InfoNewsUpdate24 डिजिटल समाचार बुलेटिन में आपका स्वागत है.`;
+          break;
+        case 'gu':
+          introText = `નમસ્કાર! InfoNewsUpdate24 ડિજિટલ સમાચાર બુલેટિનમાં આપનું સ્વાગત છે.`;
+          break;
+        case 'kn':
+          introText = `ನಮಸ್ಕಾರ! InfoNewsUpdate24 ಡಿಜಿಟಲ್ ಸುದ್ದಿ ಬುಲೆಟಿನ್‌ಗೆ ಸ್ವಾಗತ.`;
+          break;
+        case 'te':
+          introText = `నమస్కారం! InfoNewsUpdate24 డిజిటల్ న్యూస్ బులిటెన్‌కు స్వాగతం.`;
+          break;
+        case 'bn':
+          introText = `নমস্কার! InfoNewsUpdate24 ডিজিটাল সংবাদ বুলেটিনে আপনাকে স্বাগতম।`;
+          break;
+        case 'ta':
+          introText = `வணக்கம்! InfoNewsUpdate24 டிஜிட்டல் செய்தி அறிக்கைக்கு வரவேற்கிறோம்.`;
+          break;
+        default:
+          introText = `Welcome to InfoNewsUpdate24 audio news bulletin.`;
+      }
+    }
 
     const segments = splitIntoSpeechParagraphs(
       post.title || '',
