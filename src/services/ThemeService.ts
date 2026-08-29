@@ -8,10 +8,6 @@ export class ThemeService {
     try {
       const saved = localStorage.getItem(THEME_STORAGE_KEY);
       if (saved === 'dark' || saved === 'light') return saved;
-      // System preference check
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-      }
     } catch {}
     return 'light';
   }

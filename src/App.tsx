@@ -153,12 +153,71 @@ const MainRouter: React.FC = () => {
   return <CMSLayout>{renderCmsContent()}</CMSLayout>;
 };
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('AppErrorBoundary caught error:', error, errorInfo);
+  }
+
+  handleReload = () => {
+    try {
+      localStorage.removeItem('infonews_theme_mode');
+    } catch {}
+    window.location.href = '/';
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 text-center shadow-xl space-y-4">
+            <div className="h-14 w-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-sm">
+              <span className="text-2xl">📰</span>
+            </div>
+            <h2 className="text-xl font-black text-slate-900">InfoNewsUpdate24</h2>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              पेज लोड होताना तात्पुरती अडचण आली आहे. कृपया खालील बटण दाबून ताज्या बातम्या पुन्हा लोड करा.
+            </p>
+            <button
+              type="button"
+              onClick={this.handleReload}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+            >
+              🔄 ताज्या बातम्या पुन्हा उघडा (Refresh News Portal)
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <AuthProvider>
-      <AppProvider>
-        <MainRouter />
-      </AppProvider>
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <AppProvider>
+          <MainRouter />
+        </AppProvider>
+      </AuthProvider>
+    </AppErrorBoundary>
   );
 }
