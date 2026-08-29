@@ -2586,6 +2586,7 @@ export const PublicPortalView: React.FC = () => {
                 </div>
               );
             })}
+            </div>
 
             {/* Mobile Language Switcher */}
             <div className="p-3 border-t border-slate-800 bg-slate-900/80 rounded-xl mt-3">
