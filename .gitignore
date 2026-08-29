@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+*.tar.gz
+*.sql.gz
+domains/
+public/wp-content/
+

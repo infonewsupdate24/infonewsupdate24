@@ -19,6 +19,7 @@ import {
   ThemeSettings,
   UserProfile,
 } from '../types';
+import importedWPPosts from './importedWordPressPosts.json';
 
 export const SEED_USERS: UserProfile[] = [
   {
@@ -172,6 +173,7 @@ export const SEED_TAGS: Tag[] = [
 ];
 
 export const SEED_POSTS: Post[] = [
+  ...(importedWPPosts as unknown as Post[]),
   {
     id: 'post-1',
     title: 'महाराष्ट्रात पुन्हा पावसाचे आगमन, अनेक जिल्ह्यांना हवामान विभागाचा अलर्ट',

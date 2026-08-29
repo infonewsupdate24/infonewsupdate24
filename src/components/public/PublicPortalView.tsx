@@ -56,6 +56,7 @@ import {
   GOOGLE_CONVERSATIONAL_VOICES,
   GoogleVoiceAnchor,
 } from '../../services/AIVoiceService';
+import { matchNewsPost } from '../../utils/searchUtils';
 import {
   cleanExcerpt,
   formatNewsTitle,
