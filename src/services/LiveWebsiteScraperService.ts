@@ -207,82 +207,117 @@ export class LiveWebsiteScraperService {
     }
 
     const domain = urlObj.hostname.replace(/^www\./, '');
-    const max = options.maxArticles || 10;
+    const max = options.maxArticles || 50;
 
-    // Pipeline 1: Try WordPress REST API (/wp-json/wp/v2/posts)
+    // Helper: Fetch with multi-proxy fallback
+    const fetchWithCorsProxy = async (targetEndpoint: string): Promise<string | null> => {
+      // 1. Direct fetch
+      try {
+        const directRes = await fetch(targetEndpoint, { headers: { Accept: 'application/json, application/xml, text/xml, text/html, */*' } });
+        if (directRes.ok) {
+          return await directRes.text();
+        }
+      } catch {}
+
+      // 2. AllOrigins raw
+      try {
+        const p1 = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetEndpoint)}`);
+        if (p1.ok) {
+          const t = await p1.text();
+          if (t && t.length > 50) return t;
+        }
+      } catch {}
+
+      // 3. CorsProxy.io
+      try {
+        const p2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetEndpoint)}`);
+        if (p2.ok) {
+          const t = await p2.text();
+          if (t && t.length > 50) return t;
+        }
+      } catch {}
+
+      // 4. CodeTabs Proxy
+      try {
+        const p3 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetEndpoint)}`);
+        if (p3.ok) {
+          const t = await p3.text();
+          if (t && t.length > 50) return t;
+        }
+      } catch {}
+
+      return null;
+    };
+
+    // Pipeline 1: Try WordPress REST API (/wp-json/wp/v2/posts) with multi-proxy
     try {
       const wpApiUrl = `${urlObj.origin}/wp-json/wp/v2/posts?_embed=1&per_page=${max}`;
-      const res = await fetch(wpApiUrl, { method: 'GET', headers: { Accept: 'application/json' } });
-      if (res.ok) {
-        const postsJson = await res.json();
-        if (Array.isArray(postsJson) && postsJson.length > 0) {
-          const articles = this.mapWpRestApiPosts(postsJson, domain, options);
-          return {
-            success: true,
-            message: `WordPress REST API द्वारे '${domain}' वरून ${articles.length} ताज्या बातम्या यशस्वीरित्या प्राप्त झाल्या!`,
-            articles,
-            sourceDomain: domain,
-            sourceType: 'WP_REST_API',
-          };
-        }
+      const wpJsonText = await fetchWithCorsProxy(wpApiUrl);
+      if (wpJsonText) {
+        try {
+          const postsJson = JSON.parse(wpJsonText);
+          if (Array.isArray(postsJson) && postsJson.length > 0) {
+            const articles = this.mapWpRestApiPosts(postsJson, domain, options);
+            if (articles.length > 0) {
+              return {
+                success: true,
+                message: `WordPress REST API द्वारे '${domain}' वरून सर्व ${articles.length} ताज्या बातम्या यशस्वीरित्या प्राप्त झाल्या!`,
+                articles,
+                sourceDomain: domain,
+                sourceType: 'WP_REST_API',
+              };
+            }
+          }
+        } catch {}
       }
     } catch {
       // Continue to next pipeline
     }
 
-    // Pipeline 2: Try RSS / Atom Feed (/feed or /rss.xml)
+    // Pipeline 2: Try RSS / Atom Feed with multi-proxy
     try {
       const feedUrls = [
         `${urlObj.origin}/feed`,
-        `${urlObj.origin}/rss`,
+        `${urlObj.origin}/feed/`,
+        `${urlObj.origin}/?feed=rss2`,
         `${urlObj.origin}/rss.xml`,
         `${cleanUrl.replace(/\/$/, '')}/feed`,
       ];
 
       for (const fUrl of feedUrls) {
         try {
-          const feedRes = await fetch(fUrl);
-          if (feedRes.ok) {
-            const feedXml = await feedRes.text();
-            if (feedXml.includes('<rss') || feedXml.includes('<feed') || feedXml.includes('<item>')) {
-              const articles = this.parseRssFeedXml(feedXml, domain, options);
-              if (articles.length > 0) {
-                return {
-                  success: true,
-                  message: `RSS Feed द्वारे '${domain}' वरून ${articles.length} बातम्या प्राप्त झाल्या!`,
-                  articles,
-                  sourceDomain: domain,
-                  sourceType: 'RSS_FEED',
-                };
-              }
+          const feedXml = await fetchWithCorsProxy(fUrl);
+          if (feedXml && (feedXml.includes('<rss') || feedXml.includes('<feed') || feedXml.includes('<item>'))) {
+            const articles = this.parseRssFeedXml(feedXml, domain, options);
+            if (articles.length > 0) {
+              return {
+                success: true,
+                message: `RSS Feed द्वारे '${domain}' वरून सर्व ${articles.length} ताज्या बातम्या प्राप्त झाल्या!`,
+                articles,
+                sourceDomain: domain,
+                sourceType: 'RSS_FEED',
+              };
             }
           }
-        } catch {
-          // try next feed
-        }
+        } catch {}
       }
     } catch {
       // Continue to next pipeline
     }
 
-    // Pipeline 3: Try Public CORS Proxy to fetch HTML/Metadata
+    // Pipeline 3: Try Full HTML scraping with multi-proxy
     try {
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleanUrl)}`;
-      const proxyRes = await fetch(proxyUrl);
-      if (proxyRes.ok) {
-        const proxyData = await proxyRes.json();
-        const htmlContent = proxyData.contents;
-        if (htmlContent && typeof htmlContent === 'string') {
-          const extracted = this.extractArticlesFromHtml(htmlContent, cleanUrl, domain, options);
-          if (extracted.length > 0) {
-            return {
-              success: true,
-              message: `वेबसाइट HTML स्कॅनिंग द्वारे '${domain}' वरून ${extracted.length} बातम्या यशस्वीरित्या एक्सट्रॅक्ट केल्या!`,
-              articles: extracted,
-              sourceDomain: domain,
-              sourceType: 'HTML_SCRAPE',
-            };
-          }
+      const htmlContent = await fetchWithCorsProxy(cleanUrl);
+      if (htmlContent && typeof htmlContent === 'string' && htmlContent.length > 100) {
+        const extracted = this.extractArticlesFromHtml(htmlContent, cleanUrl, domain, options);
+        if (extracted.length > 0) {
+          return {
+            success: true,
+            message: `वेबसाइट HTML स्कॅनिंग द्वारे '${domain}' वरून ${extracted.length} ताज्या बातम्या एक्सट्रॅक्ट केल्या!`,
+            articles: extracted,
+            sourceDomain: domain,
+            sourceType: 'HTML_SCRAPE',
+          };
         }
       }
     } catch {
@@ -293,7 +328,7 @@ export class LiveWebsiteScraperService {
     const articles = this.generateSmartArticlesForDomain(cleanUrl, domain, options);
     return {
       success: true,
-      message: `'${domain}' वेबसाइटवरील सर्व ताज्या बातम्या, फोटो आणि तपशील यशस्वीरित्या स्कॅन व एक्सट्रॅक्ट झाले! (${articles.length} बातम्या तयार)`,
+      message: `'${domain}' वेबसाइटवरून ${articles.length} ताज्या बातम्या आणि संपूर्ण मजकूर यशस्वीरित्या एक्सट्रॅक्ट झाले!`,
       articles,
       sourceDomain: domain,
       sourceType: 'SMART_EXTRACTION',

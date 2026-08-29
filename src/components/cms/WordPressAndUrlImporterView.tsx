@@ -663,11 +663,10 @@ export const WordPressAndUrlImporterView: React.FC = () => {
                     onChange={(e) => setScrapeArticleCount(Number(e.target.value))}
                     className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-800 focus:outline-hidden"
                   >
-                    <option value={5}>५ बातम्या (Quick 5)</option>
-                    <option value={10}>१० बातम्या (Recommended 10)</option>
-                    <option value={15}>१५ बातम्या (15 Articles)</option>
-                    <option value={20}>२० बातम्या (20 Articles)</option>
-                    <option value={50}>५० बातम्या (50 Bulk)</option>
+                    <option value={10}>१० बातम्या (Quick 10)</option>
+                    <option value={25}>२५ बातम्या (25 Articles)</option>
+                    <option value={50}>५० बातम्या (Recommended 50)</option>
+                    <option value={100}>१०० बातम्या (100 Max Bulk)</option>
                   </select>
                 </div>
 

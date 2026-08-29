@@ -283,6 +283,23 @@ export const DEFAULT_SITE_SETTINGS: SiteGlobalSettings = {
 };
 
 const STORAGE_PREFIX = 'infonews_db_';
+const DELETED_POSTS_KEY = 'infonews_deleted_post_ids_v1';
+
+function getDeletedPostIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_POSTS_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+}
+
+function recordDeletedPostId(id: string) {
+  try {
+    const set = getDeletedPostIds();
+    set.add(id);
+    localStorage.setItem(DELETED_POSTS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
 
 function getStoredOrDefault<T>(key: string, defaultValue: T): T {
   try {
@@ -305,8 +322,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [publicSearchQuery, setPublicSearchQuery] = useState<string>('');
   const [quickListenPost, setQuickListenPost] = useState<Post | null>(null);
 
-  // Core Data Collections
-  const [posts, setPosts] = useState<Post[]>(() => getStoredOrDefault('posts', SEED_POSTS));
+  // Core Data Collections (Auto-filtered against permanently deleted IDs)
+  const [posts, setPosts] = useState<Post[]>(() => {
+    const deletedIds = getDeletedPostIds();
+    const stored = getStoredOrDefault('posts', SEED_POSTS);
+    return stored.filter((p) => !deletedIds.has(p.id));
+  });
   const [categories, setCategories] = useState<Category[]>(() =>
     getStoredOrDefault('categories', SEED_CATEGORIES)
   );
@@ -437,15 +458,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 2. Subscribe to Real-Time Post updates from cloud
     const unsubscribePosts = FirestoreNewsService.subscribePosts((cloudPosts) => {
       if (cloudPosts && cloudPosts.length > 0) {
+        const deletedIds = getDeletedPostIds();
+        const filteredCloud = cloudPosts.filter((p) => !deletedIds.has(p.id));
         setPosts((currentLocal) => {
-          // Merge cloud posts with any unsaved local drafts smoothly
-          const merged = [...cloudPosts];
-          currentLocal.forEach((localPost) => {
-            if (!merged.some((cp) => cp.id === localPost.id)) {
-              merged.push(localPost);
-            }
-          });
-          return merged;
+          // Keep only legitimate local drafts, NEVER resurrect deleted posts
+          const localOnlyDrafts = currentLocal.filter(
+            (lp) => lp.status === 'DRAFT' && !deletedIds.has(lp.id) && !filteredCloud.some((cp) => cp.id === lp.id)
+          );
+          return [...filteredCloud, ...localOnlyDrafts];
         });
       }
     });
@@ -474,7 +494,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Sync to LocalStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(posts));
+      const deletedIds = getDeletedPostIds();
+      const cleanPosts = posts.filter((p) => !deletedIds.has(p.id));
+      localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(cleanPosts));
       localStorage.setItem(STORAGE_PREFIX + 'categories', JSON.stringify(categories));
       localStorage.setItem(STORAGE_PREFIX + 'tags', JSON.stringify(tags));
       localStorage.setItem(STORAGE_PREFIX + 'menus', JSON.stringify(menus));
@@ -594,7 +616,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deletePost = (id: string) => {
+    recordDeletedPostId(id);
     setPosts((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const remaining = posts.filter((p) => p.id !== id);
+      localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(remaining));
+    } catch {}
     FirestoreNewsService.deletePost(id).catch((err) => {
       console.warn('Cloud post delete note:', err);
     });
