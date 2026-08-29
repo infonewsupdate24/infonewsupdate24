@@ -325,6 +325,45 @@ export const PublicPortalView: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [posts, categories, pages, setPublicActiveCategorySlug, setPublicActivePostSlug, setPublicActivePageSlug]);
 
+  // Synchronize browser address bar permalinks (pushState) whenever navigation state changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (publicActivePostSlug) {
+      const activePost = posts.find((p) => p.slug === publicActivePostSlug);
+      const targetPath = `/${publicActivePostSlug}/`;
+      if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActivePostSlug)) {
+        window.history.pushState({ postSlug: publicActivePostSlug }, '', targetPath);
+      }
+      if (activePost) {
+        document.title = `${activePost.title} | InfoNewsUpdate24`;
+      }
+    } else if (publicActiveCategorySlug) {
+      const activeCat = categories.find((c) => c.slug === publicActiveCategorySlug || c.id === publicActiveCategorySlug);
+      const targetPath = `/category/${publicActiveCategorySlug}/`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ categorySlug: publicActiveCategorySlug }, '', targetPath);
+      }
+      if (activeCat) {
+        document.title = `${activeCat.name} | ताज्या मराठी बातम्या | InfoNewsUpdate24`;
+      }
+    } else if (publicActivePageSlug) {
+      const activePage = pages.find((pg) => pg.slug === publicActivePageSlug);
+      const targetPath = `/page/${publicActivePageSlug}/`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ pageSlug: publicActivePageSlug }, '', targetPath);
+      }
+      if (activePage) {
+        document.title = `${activePage.title} | InfoNewsUpdate24`;
+      }
+    } else if (!isEPaperViewOpen) {
+      if (window.location.pathname !== '/' && window.location.pathname !== '') {
+        window.history.pushState({}, '', '/');
+      }
+      document.title = 'InfoNewsUpdate24 | महाराष्ट्र व गडचिरोली ताज्या मराठी बातम्या | Breaking News Portal';
+    }
+  }, [publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, posts, categories, pages]);
+
   useEffect(() => {
     const handleLayoutUpdate = () => {
       setHomepageSections(HomepageLayoutService.getSections());
