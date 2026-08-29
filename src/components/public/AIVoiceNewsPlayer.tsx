@@ -82,6 +82,11 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     return segments.length > 0 ? segments : [cleanTextForTTS(post.title || 'बातमी')];
   }, [post.title, post.excerpt, post.content, aiVoiceSettings?.autoIntroGreeting, lang]);
 
+  const activeIndexRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  const isPausedRef = useRef(false);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     activeIndexRef.current = currentParagraphIndex;
   }, [currentParagraphIndex]);
@@ -91,10 +96,14 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     isPausedRef.current = isPaused;
   }, [isPlaying, isPaused]);
 
-  // Clean up SpeechSynthesis on unmount
+  // Clean up Audio and SpeechSynthesis on unmount
   useEffect(() => {
     return () => {
       try {
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current = null;
+        }
         if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
           window.speechSynthesis.cancel();
         }
@@ -104,48 +113,16 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     };
   }, []);
 
-  // Mobile-safe continuous sentence streamer
-  const playSegment = (index: number) => {
+  // Web Speech API fallback method
+  const fallbackToWebSpeech = (cleanSegment: string, index: number) => {
     try {
       if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis) {
-        setSpeechError('आपल्या ब्राउझरमध्ये Text-to-Speech सपोर्ट उपलब्ध नाही.');
-        return;
-      }
-
-      setSpeechError(null);
-
-      if (index >= paragraphs.length) {
-        // Completed reading full article
         setIsPlaying(false);
         setIsPaused(false);
-        setProgress(100);
-        setCurrentParagraphIndex(0);
-        return;
-      }
-
-      // Safe unlock: cancel prior speech and resume engine
-      try {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-        window.speechSynthesis.cancel();
-      } catch {
-        // Safe
-      }
-
-      const rawSegment = paragraphs[index] || '';
-      const cleanSegment = cleanTextForTTS(rawSegment);
-
-      if (!cleanSegment || cleanSegment.trim().length === 0) {
-        if (index + 1 < paragraphs.length) {
-          playSegment(index + 1);
-        }
         return;
       }
 
       const utterance = new SpeechSynthesisUtterance(cleanSegment);
-
-      // Find the best voice and matching language code available
       const { voice: matchedVoice, langCode } = AIVoiceService.selectBestVoice(selectedAnchor, lang);
       if (matchedVoice) {
         utterance.voice = matchedVoice;
@@ -167,18 +144,13 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
 
       utterance.onend = () => {
         if (isPlayingRef.current && !isPausedRef.current) {
-          // Small 20ms pause between sentences sounds much more natural and gives mobile engine time to buffer
           setTimeout(() => {
             playSegment(index + 1);
           }, 30);
         }
       };
 
-      utterance.onerror = (e) => {
-        if (e.error === 'canceled' || e.error === 'interrupted') {
-          return;
-        }
-        console.warn('Speech utterance note:', e);
+      utterance.onerror = () => {
         if (isPlayingRef.current && index + 1 < paragraphs.length) {
           setTimeout(() => {
             playSegment(index + 1);
@@ -189,25 +161,89 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
         }
       };
 
-      // 30ms timeout gives mobile Chrome engine time to flush cancellation state
-      setTimeout(() => {
-        try {
-          window.speechSynthesis.speak(utterance);
-          if (window.speechSynthesis.paused) {
-            window.speechSynthesis.resume();
-          }
-        } catch (speakErr) {
-          console.warn('Speak error:', speakErr);
-          if (index + 1 < paragraphs.length) {
-            playSegment(index + 1);
-          } else {
-            setIsPlaying(false);
-            setIsPaused(false);
-          }
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsPlaying(false);
+      setIsPaused(false);
+    }
+  };
+
+  // High-Quality continuous sentence streamer (Google Indic Neural TTS + Web Speech API)
+  const playSegment = (index: number) => {
+    try {
+      setSpeechError(null);
+
+      if (index >= paragraphs.length) {
+        // Completed reading full article
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current = null;
         }
-      }, 30);
+        setIsPlaying(false);
+        setIsPaused(false);
+        setProgress(100);
+        setCurrentParagraphIndex(0);
+        return;
+      }
+
+      // Stop previous audio playback
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+
+      try {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+      } catch {}
+
+      const rawSegment = paragraphs[index] || '';
+      const cleanSegment = cleanTextForTTS(rawSegment);
+
+      if (!cleanSegment || cleanSegment.trim().length === 0) {
+        if (index + 1 < paragraphs.length) {
+          playSegment(index + 1);
+        }
+        return;
+      }
+
+      // Stream authentic Marathi audio
+      const audioUrl = AIVoiceService.getIndicAudioUrl(cleanSegment, lang === 'mr' ? 'mr' : 'en');
+      const audio = new Audio(audioUrl);
+      audioPlayerRef.current = audio;
+      audio.playbackRate = speed;
+
+      audio.onplay = () => {
+        setIsPlaying(true);
+        setIsPaused(false);
+        setCurrentParagraphIndex(index);
+        const pct = Math.round(((index + 1) / paragraphs.length) * 100);
+        setProgress(pct);
+      };
+
+      audio.onended = () => {
+        if (isPlayingRef.current && !isPausedRef.current) {
+          setTimeout(() => {
+            playSegment(index + 1);
+          }, 40);
+        }
+      };
+
+      audio.onerror = (err) => {
+        console.warn('Neural stream note, using Web Speech fallback:', err);
+        fallbackToWebSpeech(cleanSegment, index);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Audio play prevented, fallback to Web Speech:', err);
+          fallbackToWebSpeech(cleanSegment, index);
+        });
+      }
     } catch (err) {
-      console.warn('Speech synthesis play error:', err);
+      console.warn('Speech playback error:', err);
       setIsPlaying(false);
       setIsPaused(false);
     }
@@ -217,26 +253,36 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
     // Play subtle news chime to unlock audio context & provide immediate feedback
     AIVoiceService.playNewsBulletinJingle();
 
-    try {
-      if (isPaused && typeof window !== 'undefined' && window.speechSynthesis) {
+    if (isPaused && audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.play();
+        setIsPaused(false);
+        setIsPlaying(true);
+      } catch {
+        playSegment(currentParagraphIndex);
+      }
+    } else if (isPaused && typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+      try {
         window.speechSynthesis.resume();
         setIsPaused(false);
         setIsPlaying(true);
-      } else {
+      } catch {
         playSegment(currentParagraphIndex);
       }
-    } catch (err) {
-      console.warn('Speech synthesis resume error:', err);
+    } else {
       playSegment(currentParagraphIndex);
     }
   };
 
   const handlePause = () => {
     try {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
         window.speechSynthesis.pause();
-        setIsPaused(true);
       }
+      setIsPaused(true);
     } catch (err) {
       console.warn('Speech synthesis pause error:', err);
     }
@@ -244,6 +290,11 @@ export const AIVoiceNewsPlayer: React.FC<AIVoiceNewsPlayerProps> = ({
 
   const handleStop = () => {
     try {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.currentTime = 0;
+        audioPlayerRef.current = null;
+      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }

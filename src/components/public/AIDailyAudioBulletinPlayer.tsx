@@ -59,6 +59,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
   const isPlayingRef = useRef(false);
   const isPausedRef = useRef(false);
   const activeSegmentIdxRef = useRef(0);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -78,6 +79,10 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
   useEffect(() => {
     return () => {
       try {
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current = null;
+        }
         if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
           window.speechSynthesis.cancel();
         }
@@ -139,45 +144,16 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
     return list;
   }, [posts, bulletinType, selectedAnchor]);
 
-  // Play a single segment from the playlist
-  const playSegment = (segIdx: number) => {
+  // Fallback to Web Speech API if neural audio stream encounters network restriction
+  const fallbackToWebSpeech = (cleanText: string, segIdx: number) => {
     try {
       if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis) {
-        setSpeechError('आपल्या ब्राउझरमध्ये Text-to-Speech सपोर्ट उपलब्ध नाही.');
-        return;
-      }
-
-      setSpeechError(null);
-
-      if (segIdx >= playlist.length) {
-        // Bulletin completed!
         setIsPlaying(false);
         setIsPaused(false);
-        setCurrentSegmentIdx(0);
-        setActiveStoryIdx(0);
         return;
       }
 
-      try {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-        window.speechSynthesis.cancel();
-      } catch {
-        // Safe
-      }
-
-      const segment = playlist[segIdx];
-      if (!segment) return;
-
-      // Update story index if segment is a story
-      if (segment.type === 'STORY' && typeof segment.storyIndex === 'number') {
-        setActiveStoryIdx(segment.storyIndex);
-      }
-
-      const rawText = segment.text;
-      const cleanText = cleanTextForTTS(rawText);
-
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       const anchor = selectedAnchor || AIVoiceService.getSavedAnchor();
       const { voice: matchedVoice, langCode } = AIVoiceService.selectBestVoice(anchor, 'mr');
       if (matchedVoice) {
@@ -198,18 +174,13 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
 
       utterance.onend = () => {
         if (isPlayingRef.current && !isPausedRef.current) {
-          // Play next segment after brief 120ms pause for broadcasting cadence
           setTimeout(() => {
             playSegment(segIdx + 1);
           }, 120);
         }
       };
 
-      utterance.onerror = (e) => {
-        if (e.error === 'canceled' || e.error === 'interrupted') {
-          return;
-        }
-        console.warn('Bulletin utterance note:', e);
+      utterance.onerror = () => {
         if (isPlayingRef.current && segIdx + 1 < playlist.length) {
           setTimeout(() => {
             playSegment(segIdx + 1);
@@ -220,22 +191,86 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
         }
       };
 
-      setTimeout(() => {
-        try {
-          window.speechSynthesis.speak(utterance);
-          if (window.speechSynthesis.paused) {
-            window.speechSynthesis.resume();
-          }
-        } catch (err) {
-          console.warn('Speech speak error:', err);
-          if (segIdx + 1 < playlist.length) {
-            playSegment(segIdx + 1);
-          } else {
-            setIsPlaying(false);
-            setIsPaused(false);
-          }
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsPlaying(false);
+      setIsPaused(false);
+    }
+  };
+
+  // Play a single segment from the playlist using High-Quality Indic Neural TTS
+  const playSegment = (segIdx: number) => {
+    try {
+      setSpeechError(null);
+
+      if (segIdx >= playlist.length) {
+        // Bulletin completed!
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current = null;
         }
-      }, 40);
+        setIsPlaying(false);
+        setIsPaused(false);
+        setCurrentSegmentIdx(0);
+        setActiveStoryIdx(0);
+        return;
+      }
+
+      // Stop previous audio playback
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+
+      try {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+      } catch {}
+
+      const segment = playlist[segIdx];
+      if (!segment) return;
+
+      // Update story index if segment is a story
+      if (segment.type === 'STORY' && typeof segment.storyIndex === 'number') {
+        setActiveStoryIdx(segment.storyIndex);
+      }
+
+      const rawText = segment.text;
+      const cleanText = cleanTextForTTS(rawText);
+
+      // 1. Check if we should use Google Indic Neural Audio (Guarantees authentic Marathi on Windows/Mac/Mobile)
+      const audioUrl = AIVoiceService.getIndicAudioUrl(cleanText, 'mr');
+      const audio = new Audio(audioUrl);
+      audioPlayerRef.current = audio;
+      audio.playbackRate = speed;
+
+      audio.onplay = () => {
+        setIsPlaying(true);
+        setIsPaused(false);
+        setCurrentSegmentIdx(segIdx);
+      };
+
+      audio.onended = () => {
+        if (isPlayingRef.current && !isPausedRef.current) {
+          setTimeout(() => {
+            playSegment(segIdx + 1);
+          }, 120);
+        }
+      };
+
+      audio.onerror = (err) => {
+        console.warn('Neural audio stream fallback to Web Speech:', err);
+        fallbackToWebSpeech(cleanText, segIdx);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Audio play prevented, attempting Web Speech:', err);
+          fallbackToWebSpeech(cleanText, segIdx);
+        });
+      }
     } catch (err) {
       console.warn('Bulletin playback error:', err);
       setIsPlaying(false);
@@ -247,7 +282,15 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
     // Play broadcasting sound chime
     AIVoiceService.playNewsBulletinJingle();
 
-    if (isPaused && typeof window !== 'undefined' && window.speechSynthesis) {
+    if (isPaused && audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.play();
+        setIsPaused(false);
+        setIsPlaying(true);
+      } catch {
+        playSegment(currentSegmentIdx);
+      }
+    } else if (isPaused && typeof window !== 'undefined' && window.speechSynthesis?.paused) {
       try {
         window.speechSynthesis.resume();
         setIsPaused(false);
@@ -262,10 +305,13 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
 
   const handlePause = () => {
     try {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
         window.speechSynthesis.pause();
-        setIsPaused(true);
       }
+      setIsPaused(true);
     } catch (err) {
       console.warn('Pause error:', err);
     }

@@ -273,6 +273,32 @@ export class AIVoiceService {
   }
 
   /**
+   * Checks if the device/browser has a native Marathi or Hindi speech synthesis voice installed.
+   * If false (e.g. Windows desktop without Indic language pack), Web Speech API will skip Devanagari text.
+   */
+  public static hasNativeIndicVoice(): boolean {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+    const voices = window.speechSynthesis.getVoices() || [];
+    return voices.some(
+      (v) =>
+        v.lang.toLowerCase().startsWith('mr') ||
+        v.lang.toLowerCase().startsWith('hi') ||
+        v.name.toLowerCase().includes('marathi') ||
+        v.name.toLowerCase().includes('hindi') ||
+        v.name.toLowerCase().includes('मराठी') ||
+        v.name.toLowerCase().includes('हिन्दी')
+    );
+  }
+
+  /**
+   * Returns a streaming audio URL for authentic Marathi / Indic text narration via Google Indic Neural TTS.
+   */
+  public static getIndicAudioUrl(text: string, lang = 'mr'): string {
+    const clean = cleanTextForTTS(text).slice(0, 190);
+    return `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(clean)}`;
+  }
+
+  /**
    * Finds the most suitable SpeechSynthesisVoice and matching langCode based on language and anchor gender.
    */
   public static selectBestVoice(
