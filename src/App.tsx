@@ -37,6 +37,9 @@ import { LiveBlogManagerView } from './components/cms/LiveBlogManagerView';
 import { NewsletterManagerView } from './components/cms/NewsletterManagerView';
 import { HomepageLayoutBuilderView } from './components/cms/HomepageLayoutBuilderView';
 import { GoogleSearchConsoleSettingsView } from './components/cms/GoogleSearchConsoleSettingsView';
+import { RankMathSEOSuiteView } from './components/cms/RankMathSEOSuiteView';
+import { LiteSpeedCacheView } from './components/cms/LiteSpeedCacheView';
+import { WordPressAndUrlImporterView } from './components/cms/WordPressAndUrlImporterView';
 import { BillingManagerView } from './components/cms/BillingManagerView';
 import { GlobalSettingsManagerView } from './components/cms/GlobalSettingsManagerView';
 import { SecurityCenterView } from './components/cms/SecurityCenterView';
@@ -128,6 +131,12 @@ const MainRouter: React.FC = () => {
         return <HomepageLayoutBuilderView />;
       case 'google_search_console':
         return <GoogleSearchConsoleSettingsView />;
+      case 'seo':
+        return <RankMathSEOSuiteView />;
+      case 'litespeed_cache':
+        return <LiteSpeedCacheView />;
+      case 'importer':
+        return <WordPressAndUrlImporterView />;
       case 'billing':
         return <BillingManagerView />;
       case 'settings':
