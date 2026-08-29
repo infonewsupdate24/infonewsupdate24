@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="mr" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    
+    <!-- Environment and Sandbox Resilience Polyfill -->
+    <script>
+      (function() {
+        try {
+          if (typeof window !== 'undefined') {
+            var _origFetch = window.fetch;
+            var _currentFetch = _origFetch;
+            try {
+              Object.defineProperty(window, 'fetch', {
+                get: function() { return _currentFetch || _origFetch; },
+                set: function(fn) { _currentFetch = fn; },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (e) {
+              try {
+                Object.defineProperty(Window.prototype, 'fetch', {
+                  get: function() { return _currentFetch || _origFetch; },
+                  set: function(fn) { _currentFetch = fn; },
+                  configurable: true,
+                  enumerable: true
+                });
+              } catch (e2) {}
+            }
+          }
+        } catch (err) {}
+      })();
+    </script>
+    
+    <!-- Primary Meta Tags -->
+    <title>InfoNewsUpdate24 | महाराष्ट्र व गडचिरोली ताज्या मराठी बातम्या | Breaking News Portal</title>
+    <meta name="title" content="InfoNewsUpdate24 | महाराष्ट्र व गडचिरोली ताज्या मराठी बातम्या | Breaking News Portal" />
+    <meta name="description" content="InfoNewsUpdate24 - गडचिरोली १२ तालुके, विदर्भ, महाराष्ट्र, राजकारण, कृषी उत्पन्न बाजारभाव, पंचांग, थेट हवामान आणि ताज्या घडामोडींचे अग्रगण्य डिजिटल न्यूज नेटवर्क." />
+    <meta name="keywords" content="मराठी बातम्या, ताज्या बातम्या, गडचिरोली न्यूज, महाराष्ट्र घडामोडी, बाजारभाव, पंचांग, हवामान, Marathi News, InfoNewsUpdate24" />
+    <meta name="author" content="InfoNewsUpdate24 News Desk" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot-news" content="index, follow" />
+    
+    <!-- Google Search Console Ownership Verification Meta Tag (Customizable in CMS) -->
+    <meta name="google-site-verification" content="google-site-verification-infonewsupdate24-master-token" />
+    <meta name="msvalidate.01" content="bing-webmaster-verification-infonewsupdate24" />
+    
+    <!-- Canonical & Alternate -->
+    <link rel="canonical" href="https://infonewsupdate24.com/" />
+    <link rel="alternate" type="application/rss+xml" title="InfoNewsUpdate24 RSS Feed" href="/sitemap.xml" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+
+    <!-- Open Graph / Facebook / WhatsApp (Social SEO) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://infonewsupdate24.com/" />
+    <meta property="og:site_name" content="InfoNewsUpdate24" />
+    <meta property="og:locale" content="mr_IN" />
+    <meta property="og:title" content="InfoNewsUpdate24 - महाराष्ट्र व गडचिरोलीचे नंबर १ मराठी न्यूज पोर्टल" />
+    <meta property="og:description" content="ताज्या घडामोडी, ब्रेकिंग न्यूज, कृषी बाजारभाव, दैनिक पंचांग व स्थानिक वार्ता सर्वात आधी." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=630&auto=format&fit=crop&q=80" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="InfoNewsUpdate24 Marathi Portal" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@InfoNewsUpdate24" />
+    <meta name="twitter:creator" content="@InfoNewsUpdate24" />
+    <meta name="twitter:title" content="InfoNewsUpdate24 - महाराष्ट्र व गडचिरोली मराठी न्यूज" />
+    <meta name="twitter:description" content="ताज्या घडामोडी, ब्रेकिंग न्यूज, कृषी बाजारभाव, दैनिक पंचांग व स्थानिक वार्ता." />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=630&auto=format&fit=crop&q=80" />
+
+    <!-- PageSpeed Insights & Performance DNS Preconnects -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+
+    <!-- Google Web Fonts for Marathi News (Display Swap for 0 CLS & Fast FCP) -->
+    <link href="https://fonts.googleapis.com/css2?family=Yantramanav:wght@400;500;700;900&family=Noto+Sans+Devanagari:wght@400;600;700;800&family=Rozha+One&display=swap" rel="stylesheet" />
+
+    <!-- PWA & Mobile Web App Settings -->
+    <meta name="theme-color" content="#dc2626" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="InfoNewsUpdate24" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.svg" />
+
+    <!-- Website & Organization Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "NewsMediaOrganization",
+          "@id": "https://infonewsupdate24.com/#organization",
+          "name": "InfoNewsUpdate24",
+          "url": "https://infonewsupdate24.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://infonewsupdate24.com/icon-512.svg",
+            "width": 512,
+            "height": 512
+          },
+          "sameAs": [
+            "https://facebook.com/infonewsupdate24",
+            "https://twitter.com/infonewsupdate24",
+            "https://instagram.com/infonewsupdate24",
+            "https://youtube.com/@infonewsupdate24"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://infonewsupdate24.com/#website",
+          "url": "https://infonewsupdate24.com/",
+          "name": "InfoNewsUpdate24",
+          "description": "महाराष्ट्र व गडचिरोली ताज्या मराठी बातम्या",
+          "publisher": {
+            "@id": "https://infonewsupdate24.com/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://infonewsupdate24.com/?s={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          },
+          "inLanguage": "mr-IN"
+        }
+      ]
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Safe PWA Service Worker registration (skipped in sandboxed iframes)
+      if ('serviceWorker' in navigator && window.self === window.top) {
+        window.addEventListener('load', () => {
+          try {
+            navigator.serviceWorker.register('/sw.js').catch(function() {});
+          } catch (e) {}
+        });
+      }
+    </script>
+  </body>
+</html>

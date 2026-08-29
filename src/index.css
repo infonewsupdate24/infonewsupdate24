@@ -1,0 +1,261 @@
+@import "tailwindcss";
+
+@keyframes tickerMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-ticker-marquee {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: tickerMarquee var(--ticker-duration, 28s) linear infinite;
+}
+
+.pause-on-hover:hover .animate-ticker-marquee {
+  animation-play-state: paused !important;
+}
+
+/* InfoNewsUpdate24 Article Body Styles */
+.article-html-content p {
+  margin-bottom: 1rem;
+  line-height: 1.75;
+  color: #1e293b;
+}
+
+.article-html-content strong,
+.article-html-content b {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.article-html-content em,
+.article-html-content i {
+  font-style: italic;
+  color: #334155;
+}
+
+.article-html-content h1,
+.article-html-content h2,
+.article-html-content h3,
+.article-html-content h4 {
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+}
+
+.article-html-content h2 {
+  font-size: 1.35rem;
+}
+
+.article-html-content h3 {
+  font-size: 1.2rem;
+}
+
+.article-html-content blockquote {
+  border-left: 4px solid #dc2626;
+  background-color: #f8fafc;
+  padding: 0.75rem 1rem;
+  margin: 1.25rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-style: italic;
+  color: #334155;
+}
+
+.article-html-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+  color: #334155;
+}
+
+.article-html-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+  color: #334155;
+}
+
+.article-html-content li {
+  margin-bottom: 0.35rem;
+}
+
+.article-html-content a {
+  color: #dc2626;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 600;
+}
+
+.article-html-content a:hover {
+  color: #b91c1c;
+}
+
+.article-html-content img {
+  border-radius: 0.75rem;
+  max-width: 100%;
+  height: auto;
+  margin: 1.25rem auto;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}
+
+/* -------------------------------------------------------------
+   DARK MODE / NIGHT READING THEME ENHANCEMENTS
+   ------------------------------------------------------------- */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #080c14 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark #public-portal-root {
+  background-color: #080c14 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark header.bg-white,
+html.dark nav.bg-white,
+html.dark div.bg-white {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #1e293b !important;
+}
+
+html.dark div.bg-slate-50,
+html.dark div.bg-slate-100 {
+  background-color: #151e32 !important;
+  border-color: #1e293b !important;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-100 {
+  border-color: #1e293b !important;
+}
+
+html.dark .text-slate-900,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-800,
+html.dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.dark .article-html-content p {
+  color: #cbd5e1 !important;
+}
+
+html.dark .article-html-content strong,
+html.dark .article-html-content b {
+  color: #ffffff !important;
+}
+
+html.dark .article-html-content em,
+html.dark .article-html-content i {
+  color: #94a3b8 !important;
+}
+
+html.dark .article-html-content blockquote {
+  background-color: #151e32 !important;
+  color: #94a3b8 !important;
+  border-left-color: #ef4444 !important;
+}
+
+html.dark .article-html-content ul,
+html.dark .article-html-content ol,
+html.dark .article-html-content li {
+  color: #cbd5e1 !important;
+}
+
+/* -------------------------------------------------------------
+   PRINT & SINGLE-PAGE A4 PDF OPTIMIZATION FOR E-PAPER
+   ------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 4mm 4mm 4mm 4mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 9.5pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  header,
+  nav,
+  footer,
+  button,
+  select,
+  input,
+  .no-print,
+  .epaper-no-print {
+    display: none !important;
+  }
+
+  .epaper-canvas-wrapper {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .epaper-broadsheet-canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: 2px solid #000000 !important;
+    padding: 3.5mm !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* Dedicated Invoice Bill Print Optimization */
+  #printable-invoice-voucher {
+    width: 100% !important;
+    max-width: 190mm !important;
+    margin: 0 auto !important;
+    padding: 8mm 10mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+
+

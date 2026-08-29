@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "News articles, breaking news, reports and press releases",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "featuredImage": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "status": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "content", "status", "createdAt"]
+    },
+    "MediaItem": {
+      "title": "MediaItem",
+      "description": "Uploaded media items including images, videos, audio and PDF documents",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "type": { "type": "string", "enum": ["image", "video", "document", "audio"] },
+        "mimeType": { "type": "string" },
+        "sizeBytes": { "type": "number" },
+        "altText": { "type": "string" },
+        "caption": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "url", "type", "createdAt"]
+    },
+    "StaticPage": {
+      "title": "StaticPage",
+      "description": "Custom WordPress-style static and dynamic pages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "content": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "slug", "content", "status", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "News categories and taxonomy hierarchy",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "Tag": {
+      "title": "Tag",
+      "description": "News keywords and article tags",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered journalists, editors, admins, and subscribers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "role", "status"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "All published and draft news articles"
+    },
+    "/pages/{pageId}": {
+      "schema": "StaticPage",
+      "description": "Custom site pages"
+    },
+    "/media/{mediaId}": {
+      "schema": "MediaItem",
+      "description": "Media library assets stored and synchronized in Firebase Firestore"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "News categories"
+    },
+    "/tags/{tagId}": {
+      "schema": "Tag",
+      "description": "News tags"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and credentials"
+    },
+    "/settings/{settingDocId}": {
+      "description": "Global website settings, SEO, theme and advertising config"
+    }
+  }
+}

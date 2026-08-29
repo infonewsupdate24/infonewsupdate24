@@ -1,0 +1,30 @@
+# InfoNewsUpdate24 Robots.txt
+# Optimized for Googlebot, Google-News, Bingbot, and Social Media Crawlers
+
+User-agent: *
+Allow: /
+Allow: /category/
+Allow: /page/
+Disallow: /admin
+Disallow: /cms
+Disallow: /api/private/
+
+User-agent: Googlebot
+Allow: /
+Disallow: /admin
+Disallow: /cms
+
+User-agent: Googlebot-News
+Allow: /
+Disallow: /admin
+Disallow: /cms
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+# XML Sitemaps
+Sitemap: https://infonewsupdate24.com/sitemap.xml
+Sitemap: https://infonewsupdate24.com/sitemap-news.xml

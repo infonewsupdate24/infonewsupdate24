@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Posts: public read, open write
+    match /posts/{postId} {
+      allow read, write: if true;
+    }
+
+    // Static Pages (WordPress-style pages): public read, open write
+    match /pages/{pageId} {
+      allow read, write: if true;
+    }
+
+    // Media Library (Images, Videos, Documents): public read, open write
+    match /media/{mediaId} {
+      allow read, write: if true;
+    }
+
+    // Categories and Tags: public read, open write
+    match /categories/{catId} {
+      allow read, write: if true;
+    }
+    match /tags/{tagId} {
+      allow read, write: if true;
+    }
+
+    // Navigation Menus
+    match /menus/{menuId} {
+      allow read, write: if true;
+    }
+
+    // Social Media & Reels
+    match /social_posts/{socId} {
+      allow read, write: if true;
+    }
+
+    // Comments
+    match /comments/{commentId} {
+      allow read, write: if true;
+    }
+
+    // Ad Units & AdSense
+    match /ads/{adId} {
+      allow read, write: if true;
+    }
+
+    // Breaking Tickers: public read, write open
+    match /tickers/{tickerId} {
+      allow read, write: if true;
+    }
+
+    // Citizen Reports: public write (submit news), public read approved
+    match /citizen_reports/{reportId} {
+      allow read, write: if true;
+    }
+
+    // Live Polls and Votes: public read and vote
+    match /polls/{pollId} {
+      allow read, write: if true;
+    }
+
+    // Merchant Ads: public read active, booking submission
+    match /merchant_ads/{adId} {
+      allow read, write: if true;
+    }
+
+    // User profiles & directory
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Global Settings (Site Settings, Theme, SEO, AdSense, E-Paper, WhatsApp)
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // Default match for any additional collections
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

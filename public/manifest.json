@@ -1,0 +1,25 @@
+{
+  "name": "InfoNewsUpdate24 - मराठी डिजिटल वृत्तपत्र",
+  "short_name": "InfoNewsUpdate24",
+  "description": "महाराष्ट्राचे अग्रगण्य, विश्वासार्ह व निर्भीड डिजिटल मराठी न्यूज पोर्टल आणि ई-पेपर",
+  "start_url": "/?mode=public&source=pwa",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#dc2626",
+  "orientation": "portrait-primary",
+  "categories": ["news", "magazines", "newspapers"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
