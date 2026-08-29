@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { Post, PostStatus, PostVisibility } from '../../types';
 import { transliterateMarathiToSlug } from '../../services/SEOAutoOptimizer';
 
@@ -28,6 +29,7 @@ export const QuickEditPostModal: React.FC<QuickEditPostModalProps> = ({
   onClose,
 }) => {
   const { categories, tags, updatePost } = useApp();
+  const { currentUser, hasPermission } = useAuth();
 
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
@@ -226,10 +228,14 @@ export const QuickEditPostModal: React.FC<QuickEditPostModalProps> = ({
                 onChange={(e) => setStatus(e.target.value as PostStatus)}
                 className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-800 font-medium focus:outline-hidden"
               >
-                <option value="PUBLISHED">Published (प्रसिद्ध)</option>
+                {hasPermission('post.publish') && (
+                  <option value="PUBLISHED">Published (प्रसिद्ध / लाईव्ह)</option>
+                )}
+                {hasPermission('post.review') && (
+                  <option value="UNDER_REVIEW">Under Review (तपासणीत)</option>
+                )}
+                <option value="SUBMITTED">Submitted (संपादकाकडे सादर)</option>
                 <option value="DRAFT">Draft (मसुदा)</option>
-                <option value="UNDER_REVIEW">Under Review (तपासणीत)</option>
-                <option value="SUBMITTED">Submitted (सादर)</option>
               </select>
             </div>
 
