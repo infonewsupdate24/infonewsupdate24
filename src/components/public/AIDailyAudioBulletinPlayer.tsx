@@ -90,8 +90,10 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
   // Construct sequential news broadcast playlist
   const playlist: BulletinSegment[] = useMemo(() => {
     const list: BulletinSegment[] = [];
-    const topPosts = posts.slice(0, 5);
+    const topPosts = Array.isArray(posts) ? posts.filter(Boolean).slice(0, 5) : [];
     if (!topPosts.length) return list;
+
+    const anchorName = selectedAnchor?.name || 'वृत्त निवेदक';
 
     // 1. INTRO
     const greeting =
@@ -101,7 +103,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
         ? 'ताजी व महत्त्वाची बातमी!'
         : 'शुभ प्रभात!';
 
-    const introText = `${greeting} InfoNewsUpdate24 च्या आजच्या दैनिक ऑडिओ बुलेटिनमध्ये आपले सहर्ष स्वागत आहे. मी आपली डिजिटल वृत्त निवेदक ${selectedAnchor.name}. पाहुयात आजच्या ठळक ५ घडामोडी.`;
+    const introText = `${greeting} InfoNewsUpdate24 च्या आजच्या दैनिक ऑडिओ बुलेटिनमध्ये आपले सहर्ष स्वागत आहे. मी आपली डिजिटल वृत्त निवेदक ${anchorName}. पाहुयात आजच्या ठळक ५ घडामोडी.`;
 
     list.push({
       type: 'INTRO',
@@ -111,8 +113,9 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
 
     // 2. STORIES (1 to 5)
     topPosts.forEach((p, idx) => {
-      const cleanTitle = cleanTextForTTS(p.title);
-      const cleanExp = cleanTextForTTS(p.excerpt || p.content.slice(0, 160));
+      const cleanTitle = cleanTextForTTS(p.title || '');
+      const rawExp = p.excerpt || (p.content && typeof p.content === 'string' ? p.content.slice(0, 160) : '');
+      const cleanExp = cleanTextForTTS(rawExp);
       const storyNarrative = `बातमी क्रमांक ${idx + 1}: ${cleanTitle}। ${cleanExp}`;
 
       list.push({
@@ -120,7 +123,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
         storyIndex: idx,
         post: p,
         text: storyNarrative,
-        displayTitle: `बातमी ${idx + 1}: ${cleanTitle}`,
+        displayTitle: `बातमी ${idx + 1}: ${cleanTitle || 'ठळक बातमी'}`,
       });
     });
 
@@ -134,7 +137,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
     });
 
     return list;
-  }, [posts, bulletinType, selectedAnchor.name]);
+  }, [posts, bulletinType, selectedAnchor]);
 
   // Play a single segment from the playlist
   const playSegment = (segIdx: number) => {
@@ -175,8 +178,8 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
       const rawText = segment.text;
       const cleanText = cleanTextForTTS(rawText);
 
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      const { voice: matchedVoice, langCode } = AIVoiceService.selectBestVoice(selectedAnchor, 'mr');
+      const anchor = selectedAnchor || AIVoiceService.getSavedAnchor();
+      const { voice: matchedVoice, langCode } = AIVoiceService.selectBestVoice(anchor, 'mr');
       if (matchedVoice) {
         utterance.voice = matchedVoice;
         utterance.lang = matchedVoice.lang || langCode;
@@ -184,8 +187,8 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
         utterance.lang = langCode || 'mr-IN';
       }
 
-      utterance.pitch = Math.max(0.6, Math.min(1.4, selectedAnchor.pitch));
-      utterance.rate = Math.max(0.7, Math.min(1.3, speed * selectedAnchor.rateModifier));
+      utterance.pitch = Math.max(0.6, Math.min(1.4, anchor?.pitch ?? 1.0));
+      utterance.rate = Math.max(0.7, Math.min(1.3, speed * (anchor?.rateModifier ?? 1.0)));
 
       utterance.onstart = () => {
         setIsPlaying(true);
@@ -352,7 +355,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
               </span>
 
               <span className="rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                अँकर: {selectedAnchor.name}
+                अँकर: {selectedAnchor?.name || 'नायला (Nyla)'}
               </span>
 
               {isPlaying && !isPaused && (
@@ -379,7 +382,7 @@ export const AIDailyAudioBulletinPlayer: React.FC<AIDailyAudioBulletinPlayerProp
           <div className="flex items-center gap-1 bg-slate-800/90 border border-slate-700 rounded-xl px-2.5 py-1 text-xs text-slate-300 shadow-xs">
             <Mic className="h-3 w-3 text-emerald-400" />
             <select
-              value={selectedAnchor.id}
+              value={selectedAnchor?.id || 'nyla'}
               onChange={(e) => handleAnchorChange(e.target.value)}
               className="bg-transparent text-xs font-bold text-white focus:outline-hidden cursor-pointer"
               title="वृत्त निवेदक बदला (Change Voice Anchor)"

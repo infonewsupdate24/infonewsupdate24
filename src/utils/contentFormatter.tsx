@@ -126,14 +126,14 @@ export function formatNewsTitle(rawTitle: string): string {
  * Cleans an article excerpt so it never displays raw HTML tags, entities like [&hellip;], or broken tags.
  */
 export function cleanExcerpt(
-  excerpt: string,
+  excerpt?: string,
   fallbackContent?: string,
   maxLength = 180
 ): string {
   let cleaned = stripAllHtmlTags(excerpt || '');
 
   if (!cleaned && fallbackContent) {
-    cleaned = stripAllHtmlTags(fallbackContent);
+    cleaned = stripAllHtmlTags(fallbackContent || '');
   }
 
   // Remove trailing ellipsis or brackets if any
@@ -152,8 +152,8 @@ export function cleanExcerpt(
 /**
  * Formats and prepares clean Marathi/English plain text specifically for Text-to-Speech audio reading.
  */
-export function cleanTextForTTS(rawText: string): string {
-  if (!rawText) return '';
+export function cleanTextForTTS(rawText?: any): string {
+  if (!rawText || typeof rawText !== 'string') return '';
 
   // 1. Decode entities & clean schema
   let clean = decodeHtmlEntities(rawText);
