@@ -34,6 +34,9 @@ import {
   X,
   XCircle,
   Zap,
+  Camera,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
@@ -1191,25 +1194,126 @@ export const UsersManagerView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Avatar Selector */}
-                <div>
-                  <label className="font-bold text-slate-700 block mb-2">
-                    प्रोफाइल फोटो (Avatar निवडा)
+                {/* Profile Photo / Avatar Uploader */}
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-3">
+                  <label className="font-bold text-slate-800 block text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Camera className="w-4 h-4 text-red-600" />
+                      प्रोफाइल फोटो (Profile Photo / Avatar)
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-normal">
+                      (JPG, PNG, WebP)
+                    </span>
                   </label>
-                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
-                    {PRESET_AVATARS.map((avUrl, idx) => (
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="relative group shrink-0 mx-auto sm:mx-0">
                       <img
-                        key={idx}
-                        src={avUrl}
+                        src={formAvatar}
                         alt="Avatar"
-                        onClick={() => setFormAvatar(avUrl)}
-                        className={`w-11 h-11 rounded-full object-cover cursor-pointer border-2 transition ${
-                          formAvatar === avUrl
-                            ? 'border-red-600 ring-2 ring-red-400 scale-105'
-                            : 'border-slate-200 opacity-70 hover:opacity-100'
-                        }`}
+                        className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md ring-2 ring-red-500/40"
                       />
-                    ))}
+                      <label
+                        htmlFor="admin-user-avatar-upload"
+                        className="absolute inset-0 rounded-full bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[9px] font-bold"
+                      >
+                        <Camera className="w-4 h-4" />
+                        बदला
+                      </label>
+                    </div>
+
+                    <div className="space-y-2 flex-1 w-full">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label
+                          htmlFor="admin-user-avatar-upload"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-xs cursor-pointer transition active:scale-95"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>📸 फोटो निवडा (Upload Photo)</span>
+                        </label>
+                        <input
+                          id="admin-user-avatar-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                const rawData = evt.target?.result as string;
+                                if (!rawData) return;
+                                const img = new Image();
+                                img.onload = () => {
+                                  const canvas = document.createElement('canvas');
+                                  const MAX_SIZE = 360;
+                                  const minDim = Math.min(img.width, img.height);
+                                  const startX = (img.width - minDim) / 2;
+                                  const startY = (img.height - minDim) / 2;
+                                  canvas.width = MAX_SIZE;
+                                  canvas.height = MAX_SIZE;
+                                  const ctx = canvas.getContext('2d');
+                                  if (ctx) {
+                                    ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, MAX_SIZE, MAX_SIZE);
+                                    const optimized = canvas.toDataURL('image/jpeg', 0.88);
+                                    setFormAvatar(optimized);
+                                    showNotification('success', '📸 फोटो यशस्वीरित्या जोडला!');
+                                  } else {
+                                    setFormAvatar(rawData);
+                                  }
+                                };
+                                img.src = rawData;
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+
+                        {formAvatar && (
+                          <button
+                            type="button"
+                            onClick={() => setFormAvatar(PRESET_AVATARS[0])}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+                            title="डीफॉल्ट अवतार"
+                          >
+                            <Trash2 className="w-3 h-3 text-slate-500" />
+                            <span>रीसेट</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        type="url"
+                        value={formAvatar.startsWith('data:') ? '' : formAvatar}
+                        onChange={(e) => {
+                          if (e.target.value) setFormAvatar(e.target.value.trim());
+                        }}
+                        placeholder="किंवा थेट वेब लिंक (Image URL) टाका..."
+                        className="w-full h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] text-slate-800 placeholder:text-slate-400 focus:border-red-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Preset Avatars */}
+                  <div className="pt-2 border-t border-slate-200/80">
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wider">
+                      किंवा प्रीसेट अवतार निवडा:
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                      {PRESET_AVATARS.map((avUrl, idx) => (
+                        <img
+                          key={idx}
+                          src={avUrl}
+                          alt="Avatar"
+                          onClick={() => setFormAvatar(avUrl)}
+                          className={`w-9 h-9 rounded-full object-cover cursor-pointer border-2 transition ${
+                            formAvatar === avUrl
+                              ? 'border-red-600 ring-2 ring-red-400 scale-105 shadow-xs'
+                              : 'border-slate-200 opacity-60 hover:opacity-100'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 

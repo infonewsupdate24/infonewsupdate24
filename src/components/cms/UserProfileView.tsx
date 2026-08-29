@@ -35,6 +35,10 @@ import {
   Users,
   XCircle,
   Zap,
+  Camera,
+  Upload,
+  Trash2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
@@ -394,25 +398,131 @@ export const UserProfileView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Avatar Selector */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-2">
-                  प्रोफाइल फोटो (Avatar निवडा)
+              {/* Author Profile Photo & Avatar Uploader */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-4">
+                <label className="font-bold text-slate-800 block text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-red-600" />
+                    लेखक / पत्रकार प्रोफाइल फोटो (Author Profile Photo)
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    (JPG, PNG, WebP सपोर्टेड)
+                  </span>
                 </label>
-                <div className="flex items-center gap-3 overflow-x-auto pb-1">
-                  {PRESET_AVATARS.map((avUrl, idx) => (
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {/* Avatar Circular Preview */}
+                  <div className="relative group shrink-0 mx-auto sm:mx-0">
                     <img
-                      key={idx}
-                      src={avUrl}
-                      alt="Avatar"
-                      onClick={() => setAvatar(avUrl)}
-                      className={`w-12 h-12 rounded-full object-cover cursor-pointer border-2 transition ${
-                        avatar === avUrl
-                          ? 'border-red-600 ring-2 ring-red-400 scale-105'
-                          : 'border-slate-200 opacity-70 hover:opacity-100'
-                      }`}
+                      src={avatar}
+                      alt="Author Avatar"
+                      className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md ring-2 ring-red-500/40"
                     />
-                  ))}
+                    <label
+                      htmlFor="user-avatar-upload"
+                      className="absolute inset-0 rounded-full bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[10px] font-bold"
+                    >
+                      <Camera className="w-5 h-5 mb-0.5" />
+                      बदला
+                    </label>
+                  </div>
+
+                  {/* Upload Controls */}
+                  <div className="space-y-2.5 flex-1 w-full">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        htmlFor="user-avatar-upload"
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-xs cursor-pointer transition active:scale-95"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>📸 गॅलरी / फाईलमधून फोटो निवडा</span>
+                      </label>
+                      <input
+                        id="user-avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              const rawData = evt.target?.result as string;
+                              if (!rawData) return;
+                              const img = new Image();
+                              img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                const MAX_SIZE = 360;
+                                const minDim = Math.min(img.width, img.height);
+                                const startX = (img.width - minDim) / 2;
+                                const startY = (img.height - minDim) / 2;
+                                canvas.width = MAX_SIZE;
+                                canvas.height = MAX_SIZE;
+                                const ctx = canvas.getContext('2d');
+                                if (ctx) {
+                                  ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, MAX_SIZE, MAX_SIZE);
+                                  const optimized = canvas.toDataURL('image/jpeg', 0.88);
+                                  setAvatar(optimized);
+                                  showNotification('success', '📸 फोटो यशस्वीरित्या लोड झाला! खाली "बदल सेव्ह करा" बटण दाबा.');
+                                } else {
+                                  setAvatar(rawData);
+                                }
+                              };
+                              img.src = rawData;
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+
+                      {avatar && (
+                        <button
+                          type="button"
+                          onClick={() => setAvatar(PRESET_AVATARS[0])}
+                          className="flex items-center gap-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+                          title="डीफॉल्ट फोटो करा"
+                        >
+                          <Trash2 className="w-3 h-3 text-slate-500" />
+                          <span>काढून टाका</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Custom Image URL Option */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="url"
+                        value={avatar.startsWith('data:') ? '' : avatar}
+                        onChange={(e) => {
+                          if (e.target.value) setAvatar(e.target.value.trim());
+                        }}
+                        placeholder="किंवा थेट इमेजची वेब लिंक (URL) टाका..."
+                        className="w-full h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] text-slate-800 placeholder:text-slate-400 focus:border-red-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preset Avatars Quick Choice */}
+                <div className="pt-2 border-t border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wider">
+                    किंवा तयार अवतार निवडा (Preset Avatars):
+                  </span>
+                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
+                    {PRESET_AVATARS.map((avUrl, idx) => (
+                      <img
+                        key={idx}
+                        src={avUrl}
+                        alt="Avatar"
+                        onClick={() => setAvatar(avUrl)}
+                        className={`w-10 h-10 rounded-full object-cover cursor-pointer border-2 transition ${
+                          avatar === avUrl
+                            ? 'border-red-600 ring-2 ring-red-400 scale-105 shadow-xs'
+                            : 'border-slate-200 opacity-60 hover:opacity-100'
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
 
