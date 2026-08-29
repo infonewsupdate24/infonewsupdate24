@@ -231,7 +231,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     try {
       localStorage.removeItem('infonews_auth_session');
+      localStorage.removeItem('infonews_current_user_v1');
+      sessionStorage.removeItem('infonews_auth_session');
     } catch {}
+    FirebaseAuthService.logout().catch(() => {});
     setIsLoggedIn(false);
     setCurrentUserId('');
   };

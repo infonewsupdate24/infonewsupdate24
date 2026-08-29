@@ -99,7 +99,7 @@ export class UserService {
     } catch {
       // Fallback
     }
-    return SEED_USERS[0].id;
+    return '';
   }
 
   /**

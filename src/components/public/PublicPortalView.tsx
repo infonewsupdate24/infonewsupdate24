@@ -1952,8 +1952,8 @@ export const PublicPortalView: React.FC = () => {
             {/* Multi-Language Switcher (TopBar) */}
             <LanguageSwitcher variant="topbar" />
 
-            {/* Quick Switch to CMS Admin Panel (Only visible for Authenticated Staff / Journalists) */}
-            {isLoggedIn && currentUser && currentUser.role !== 'USER' && (
+            {/* Quick Switch to CMS Admin Panel (Strictly visible ONLY for Authenticated Staff / Journalists) */}
+            {isLoggedIn && currentUser && currentUser.role !== 'USER' && currentUser.id !== 'guest-reader' && (
               <button
                 id="btn-switch-to-cms"
                 type="button"
