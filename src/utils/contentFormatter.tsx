@@ -272,9 +272,6 @@ export function splitIntoSpeechParagraphs(
   return chunks.filter((c) => c.trim().length > 0);
 }
 
-  return chunks.filter((c) => c.trim().length > 0);
-}
-
 export const DEFAULT_NEWS_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80';
 
 /**
