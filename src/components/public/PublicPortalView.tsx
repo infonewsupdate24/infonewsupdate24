@@ -2463,7 +2463,7 @@ export const PublicPortalView: React.FC = () => {
                       const phone = (form.elements.namedItem('cphone') as HTMLInputElement)?.value;
                       const msg = (form.elements.namedItem('cmsg') as HTMLTextAreaElement)?.value;
                       const text = encodeURIComponent(`*InfoNewsUpdate24 थेट संदेश*\n\nनाव: ${name}\nमोबाईल: ${phone}\nसंदेश: ${msg}`);
-                      window.open(`https://wa.me/919876543210?text=${text}`, '_blank');
+                      window.open(`https://wa.me/9187999333629?text=${text}`, '_blank');
                     }}
                     className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs"
                   >

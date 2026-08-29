@@ -56,8 +56,8 @@ export const DEFAULT_AD_PACKAGES: AdPackagePricing[] = [
 export const DEFAULT_UPI_MERCHANT_CONFIG = {
   upiId: 'infonewsupdate24@icici',
   merchantName: 'InfoNewsUpdate24 Media Network',
-  supportMobile: '+91 9876543210',
-  supportEmail: 'ads@infonewsupdate24.com',
+  supportMobile: '+91 87999333629',
+  supportEmail: 'vicky123.kdk@gmail.com',
 };
 
 export const SEED_MERCHANT_BOOKINGS: MerchantAdBooking[] = [

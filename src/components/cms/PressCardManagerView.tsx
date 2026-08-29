@@ -150,15 +150,15 @@ export const PressCardManagerView: React.FC = () => {
   const [isFlipped, setIsFlipped] = useState(false); // 3D Card Flip Toggle
 
   // Editable Card Data State
-  const [cardNameMarathi, setCardNameMarathi] = useState(activeUser?.name || 'राहुल देशमुख');
-  const [cardNameEnglish, setCardNameEnglish] = useState(activeUser?.name || 'Rahul Deshmukh');
-  const [cardDesignation, setCardDesignation] = useState(activeUser?.designation || 'जिल्हा विशेष प्रतिनिधी');
+  const [cardNameMarathi, setCardNameMarathi] = useState(activeUser?.name || 'कोमल दौलतराव डहागावकर');
+  const [cardNameEnglish, setCardNameEnglish] = useState(activeUser?.name || 'Komal Daulatrao Dahagaonkar');
+  const [cardDesignation, setCardDesignation] = useState(activeUser?.designation || 'मुख्य संपादक व संचालक');
   const [cardBureau, setCardBureau] = useState(activeUser?.location || 'गडचिरोली मुख्य ब्युरो');
   const [cardIdNumber, setCardIdNumber] = useState(`INU24-MAH-2026-${Math.floor(1000 + Math.random() * 9000)}`);
   const [cardBloodGroup, setCardBloodGroup] = useState('O +ve');
   const [cardIssueDate, setCardIssueDate] = useState('०१/०१/२०२६');
   const [cardExpiryDate, setCardExpiryDate] = useState('३१/१२/२०२६');
-  const [cardPhone, setCardPhone] = useState(activeUser?.phone || '+91 9876543210');
+  const [cardPhone, setCardPhone] = useState(activeUser?.phone || '+91 87999333629');
   const [cardAvatar, setCardAvatar] = useState(activeUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80');
 
   // Verification Modal State
@@ -182,7 +182,7 @@ export const PressCardManagerView: React.FC = () => {
       setCardNameEnglish(u.name);
       setCardDesignation(u.designation || 'वार्ताहर');
       setCardBureau(u.location || 'गडचिरोली ब्युरो');
-      setCardPhone(u.phone || '+91 9876543210');
+      setCardPhone(u.phone || '+91 87999333629');
       setCardAvatar(u.avatar);
       setCardIdNumber(`INU24-MAH-2026-${Math.floor(1000 + Math.random() * 9000)}`);
     }

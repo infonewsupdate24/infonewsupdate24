@@ -105,6 +105,6 @@ export class MerchantAdBookingService {
 
   public static generateWhatsAppReceiptUrl(booking: MerchantAdBooking): string {
     const text = `📢 *नवीन जाहिरात बुकिंग पावती (InfoNewsUpdate24)*\n\n🔖 *बुकिंग क्रमांक:* ${booking.bookingNumber}\n🏪 *व्यवसायाचे नाव:* ${booking.businessName}\n👤 *संपर्क व्यक्ती:* ${booking.contactPerson} (${booking.mobileNumber})\n📍 *जाहिरात जागा:* ${booking.slotPosition}\n⏱️ *कालावधी:* ${booking.durationDays} दिवस\n💰 *भरलेली रक्कम:* ₹${booking.amountPaid.toLocaleString('mr-IN')}\n💳 *UPI UTR / Trans ID:* ${booking.upiTransactionId}\n\n👉 *माझा जाहिरात बॅनर तपासा:* ${booking.bannerImageUrl}\n🔗 *टार्गेट लिंक:* ${booking.targetUrl}\n\nकृपया जाहिरात तपासून तात्काळ लाईव्ह करावी ही विनंती!`;
-    return `https://api.whatsapp.com/send?phone=919876543210&text=${encodeURIComponent(text)}`;
+    return `https://api.whatsapp.com/send?phone=9187999333629&text=${encodeURIComponent(text)}`;
   }
 }
