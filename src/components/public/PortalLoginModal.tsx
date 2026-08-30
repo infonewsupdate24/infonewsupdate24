@@ -38,10 +38,9 @@ interface PortalLoginModalProps {
 }
 
 export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { allUsers, currentUser, switchUser, addUser } = useAuth();
-  const { setPortalMode, setCmsView } = useApp();
+  const { allUsers, currentUser, switchUser } = useAuth();
+  const { setPortalMode } = useApp();
 
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [activeLoginTab, setActiveLoginTab] = useState<'STAFF' | 'READER'>('STAFF');
   
   // Login Form States
@@ -50,16 +49,6 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Register Form States
-  const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [regRole, setRegRole] = useState<UserRole>('REPORTER');
-  const [regLocation, setRegLocation] = useState('गडचिरोली (मुख्य ब्युरो)');
-  const [showRegPassword, setShowRegPassword] = useState(false);
-
   // Loading & Feedback
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -67,7 +56,7 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  // Handle Secure Staff & User Login
+  // Handle Secure Staff Login
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -75,7 +64,7 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
 
     const cleanIdentifier = emailOrPhone.trim();
     if (!cleanIdentifier) {
-      setErrorMessage('कृपया आपला नोंदणीकृत ईमेल पत्ता किंवा युझरनेम (उदा. admin) प्रविष्ट करा.');
+      setErrorMessage('कृपया आपला नोंदणीकृत ईमेल पत्ता किंवा युझरनेम प्रविष्ट करा.');
       return;
     }
 
@@ -87,86 +76,25 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
     setIsLoading(true);
 
     try {
-      // 1. Try Firebase Cloud Authentication if identifier contains @
-      if (cleanIdentifier.includes('@')) {
-        try {
-          const authRes = await FirebaseAuthService.loginWithEmail(cleanIdentifier, password);
-          if (authRes.success) {
-            const userProfile =
-              authRes.profile ||
-              allUsers.find((u) => u.email.toLowerCase() === cleanIdentifier.toLowerCase());
-            if (userProfile && userProfile.status === 'ACTIVE') {
-              switchUser(userProfile.id);
-              setSuccessMessage(`✅ Firebase ऑथेंटिकेशन यशस्वी! स्वागत आहे, ${userProfile.name}!`);
-              setTimeout(() => {
-                onClose();
-                if (onSuccess) onSuccess();
-                if (userProfile.role !== 'USER') setPortalMode('CMS');
-              }, 600);
-              return;
-            }
-          }
-        } catch {
-          // Gracefully fallback to local directory matching
+      // Authenticate via Firebase Cloud Authentication
+      const authRes = await FirebaseAuthService.loginWithEmail(cleanIdentifier, password);
+      if (authRes.success && authRes.profile) {
+        const userProfile = authRes.profile;
+        if (userProfile.status === 'ACTIVE') {
+          switchUser(userProfile.id);
+          setSuccessMessage(`✅ ऑथेंटिकेशन यशस्वी! स्वागत आहे, ${userProfile.name}!`);
+          setTimeout(() => {
+            onClose();
+            if (onSuccess) onSuccess();
+            if (userProfile.role !== 'USER') setPortalMode('CMS');
+          }, 600);
+          return;
+        } else {
+          setErrorMessage('⛔ तुमचे खाते सक्रिय नाही. कृपया प्रशासकाशी संपर्क साधा.');
         }
+      } else {
+        setErrorMessage(authRes.error || '❌ चुकीचे क्रेडेंशियल्स किंवा खाते अस्तित्वात नाही.');
       }
-
-      // 2. Validate against Directory Users with Flexible Matching
-      const matchedUser = allUsers.find(
-        (u) =>
-          u.email.toLowerCase() === cleanIdentifier.toLowerCase() ||
-          (u.phone && u.phone.includes(cleanIdentifier)) ||
-          u.name.toLowerCase() === cleanIdentifier.toLowerCase() ||
-          u.id.toLowerCase() === cleanIdentifier.toLowerCase() ||
-          (cleanIdentifier.toLowerCase() === 'komal' && u.role === 'SUPER_ADMIN') ||
-          (cleanIdentifier.toLowerCase() === 'vicky' && u.role === 'SUPER_ADMIN') ||
-          ((cleanIdentifier.toLowerCase() === 'admin' ||
-            cleanIdentifier.toLowerCase() === 'admin@infonews.com' ||
-            cleanIdentifier.toLowerCase() === 'admin@infonewsupdate24.com') &&
-            (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN')) ||
-          (cleanIdentifier.toLowerCase() === 'superadmin' && u.role === 'SUPER_ADMIN') ||
-          (cleanIdentifier.toLowerCase() === 'editor' && u.role === 'EDITOR') ||
-          (cleanIdentifier.toLowerCase() === 'reporter' && u.role === 'REPORTER')
-      );
-
-      if (!matchedUser) {
-        setErrorMessage('❌ वापरकर्ता सापडला नाही. कृपया आपला नोंदणीकृत ईमेल किंवा मोबाईल नंबर तपासा.');
-        return;
-      }
-
-      // 3. Status Validation: Pending Approval Check
-      if (matchedUser.status === 'PENDING') {
-        setErrorMessage('⏳ तुमचे खाते सुपर ॲडमिनच्या (Super Admin) मंजुरीसाठी प्रलंबित (Pending Approval) आहे. सुपर ॲडमिनने मान्यता दिल्यावरच तुम्ही पासवर्ड वापरून लॉगिन करू शकाल.');
-        return;
-      }
-
-      // 4. Status Validation: Suspended or Inactive
-      if (matchedUser.status === 'SUSPENDED' || matchedUser.status === 'INACTIVE') {
-        setErrorMessage('⛔ तुमचे खाते निलंबित (Suspended) किंवा निष्क्रिय करण्यात आले आहे. कृपया मुख्य संपादकांशी किंवा सुपर ॲडमिनशी संपर्क साधा.');
-        return;
-      }
-
-      // 5. Password Validation Logic
-      const isPasswordCorrect = matchedUser.password
-        ? matchedUser.password === password.trim()
-        : password.trim() === 'admininfo@1234';
-
-      if (!isPasswordCorrect) {
-        setErrorMessage('❌ चुकीचा पासवर्ड! कृपया योग्य पासवर्ड प्रविष्ट करा.');
-        return;
-      }
-
-      // Successful verified login
-      switchUser(matchedUser.id);
-      setSuccessMessage(`✅ पासवर्ड पडताळणी यशस्वी! स्वागत आहे, ${matchedUser.name} (${matchedUser.role})`);
-
-      setTimeout(() => {
-        onClose();
-        if (onSuccess) onSuccess();
-        if (matchedUser.role !== 'USER') {
-          setPortalMode('CMS');
-        }
-      }, 600);
     } catch (err: any) {
       setErrorMessage(err?.message || 'लॉगिन करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.');
     } finally {
@@ -174,125 +102,27 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
     }
   };
 
-  // Handle New User Registration with Password (Requires Super Admin Approval)
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Google Sign-In with Strict Verification Gate & Pre-Registered Profile Requirement
+  const handleGoogleLogin = async () => {
     setErrorMessage('');
     setSuccessMessage('');
-
-    if (!regName.trim() || !regEmail.trim()) {
-      setErrorMessage('कृपया पूर्ण नाव आणि ईमेल पत्ता प्रविष्ट करा.');
-      return;
-    }
-
-    if (!regPassword || regPassword.length < 6) {
-      setErrorMessage('पासवर्ड किमान ६ अक्षरांचा (characters) असावा.');
-      return;
-    }
-
-    if (regPassword !== regConfirmPassword) {
-      setErrorMessage('दोन्ही पासवर्ड जुळत नाहीत (Passwords do not match).');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Register in Firebase Authentication & Firestore with PENDING status
-      const authRes = await FirebaseAuthService.registerWithEmail(
-        regEmail.trim(),
-        regPassword,
-        {
-          name: regName.trim(),
-          role: regRole,
-          phone: regPhone.trim(),
-          location: regLocation,
-          status: 'PENDING',
-          designation: regRole === 'REPORTER' ? 'जिल्हा विशेष प्रतिनिधी' : regRole === 'EDITOR' ? 'संपादक' : regRole === 'ADMIN' ? 'प्रशासक' : 'वाचक सदस्य',
-        }
-      );
-
-      if (authRes.success && authRes.profile) {
-        // Also add locally if needed
-        addUser({
-          name: regName.trim(),
-          email: regEmail.trim(),
-          role: regRole,
-          phone: regPhone.trim(),
-          status: 'PENDING',
-          password: regPassword,
-          location: regLocation,
-          designation: regRole === 'REPORTER' ? 'जिल्हा विशेष प्रतिनिधी' : regRole === 'EDITOR' ? 'संपादक' : 'पोर्टल सदस्य',
-          bio: 'अधिकृत पोर्टल सदस्य (मंजुरी प्रलंबित)',
-          avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
-        });
-
-        setSuccessMessage(`🎉 नोंदणी यशस्वी! ${regName} यांचे खाते तयार झाले असून सुपर ॲडमिनच्या (Super Admin) मंजुरीसाठी पाठवले आहे. सुपर ॲडमिनने मंजुरी (Approval) दिल्यानंतरच तुम्ही लॉगिन करू शकाल.`);
-        setRegPassword('');
-        setRegConfirmPassword('');
-        setTimeout(() => {
-          setAuthMode('LOGIN');
-          setActiveLoginTab('STAFF');
-          setEmailOrPhone(regEmail.trim());
-        }, 2500);
-      } else {
-        // Fallback local registration if offline
-        addUser({
-          name: regName.trim(),
-          email: regEmail.trim(),
-          role: regRole,
-          phone: regPhone.trim(),
-          status: 'PENDING',
-          password: regPassword,
-          location: regLocation,
-          designation: regRole === 'REPORTER' ? 'जिल्हा विशेष प्रतिनिधी' : regRole === 'EDITOR' ? 'संपादक' : 'पोर्टल सदस्य',
-          bio: 'अधिकृत पोर्टल सदस्य (मंजुरी प्रलंबित)',
-          avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
-        });
-
-        setSuccessMessage(`🎉 नोंदणी यशस्वी! ${regName} यांचे खाते नोंदवले गेले आहे. सुपर ॲडमिनने मंजुरी (Approval) दिल्यावर लॉगिन करता येईल.`);
-        setRegPassword('');
-        setRegConfirmPassword('');
-        setTimeout(() => {
-          setAuthMode('LOGIN');
-          setActiveLoginTab('STAFF');
-          setEmailOrPhone(regEmail.trim());
-        }, 2500);
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'खाते तयार करताना त्रुटी आली.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Google Sign-In
-  const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
       const res = await FirebaseAuthService.loginWithGoogle();
       if (res.success && res.profile) {
         switchUser(res.profile.id);
         setSuccessMessage(`✅ Google द्वारे (${res.profile.name}) लॉगिन यशस्वी!`);
+        setTimeout(() => {
+          onClose();
+          if (onSuccess) onSuccess();
+        }, 800);
       } else {
-        const readerUser = allUsers.find((u) => u.role === 'USER') || allUsers[allUsers.length - 1];
-        if (readerUser) {
-          switchUser(readerUser.id);
-        }
-        setSuccessMessage('✅ Google खात्याद्वारे वाचक लॉगिन यशस्वी!');
+        setErrorMessage(res.error || 'आपले खाते प्रणालीमध्ये नोंदणीकृत नाही. कृपया प्रशासकाशी संपर्क साधा.');
       }
-    } catch {
-      const readerUser = allUsers.find((u) => u.role === 'USER') || allUsers[allUsers.length - 1];
-      if (readerUser) {
-        switchUser(readerUser.id);
-      }
-      setSuccessMessage('✅ वाचक लॉगिन यशस्वी!');
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Google लॉगिन अयशस्वी झाले किंवा रद्द केले गेले.');
     } finally {
       setIsLoading(false);
-      setTimeout(() => {
-        onClose();
-        if (onSuccess) onSuccess();
-      }, 800);
     }
   };
 
@@ -327,65 +157,34 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
           <div className="h-1 w-full bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 absolute bottom-0 left-0" />
         </div>
 
-        {/* Mode Switch: Login vs Register */}
-        <div className="flex border-b border-slate-200 bg-slate-100 text-xs font-bold p-1">
+        {/* Role Tab Selector */}
+        <div className="flex border-b border-slate-200 bg-slate-50 text-[11px] font-bold">
           <button
             type="button"
-            onClick={() => { setAuthMode('LOGIN'); setErrorMessage(''); setSuccessMessage(''); }}
-            className={`flex-1 py-2.5 rounded-xl text-center flex items-center justify-center gap-2 transition cursor-pointer ${
-              authMode === 'LOGIN'
-                ? 'bg-white text-red-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+            onClick={() => { setActiveLoginTab('STAFF'); setErrorMessage(''); setSuccessMessage(''); }}
+            className={`flex-1 py-2.5 text-center flex items-center justify-center gap-2 transition cursor-pointer border-b-2 ${
+              activeLoginTab === 'STAFF'
+                ? 'border-red-600 bg-white text-red-700 font-black'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
-            <KeyRound className="w-4 h-4 text-red-600" />
-            <span>सुरक्षित लॉगिन (Sign In)</span>
+            <ShieldCheck className="w-4 h-4 text-red-600" />
+            <span>संपादक व बातमीदार (Staff Desk)</span>
           </button>
 
           <button
             type="button"
-            onClick={() => { setAuthMode('REGISTER'); setErrorMessage(''); setSuccessMessage(''); }}
-            className={`flex-1 py-2.5 rounded-xl text-center flex items-center justify-center gap-2 transition cursor-pointer ${
-              authMode === 'REGISTER'
-                ? 'bg-white text-red-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+            onClick={() => { setActiveLoginTab('READER'); setErrorMessage(''); setSuccessMessage(''); }}
+            className={`flex-1 py-2.5 text-center flex items-center justify-center gap-2 transition cursor-pointer border-b-2 ${
+              activeLoginTab === 'READER'
+                ? 'border-red-600 bg-white text-red-700 font-black'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
-            <UserPlus className="w-4 h-4 text-emerald-600" />
-            <span>नवीन खाते / पासवर्ड तयार करा</span>
+            <User className="w-4 h-4 text-blue-600" />
+            <span>अधिकृत वाचक (Reader)</span>
           </button>
         </div>
-
-        {/* If Mode is LOGIN: Role Tab Selector */}
-        {authMode === 'LOGIN' && (
-          <div className="flex border-b border-slate-200 bg-slate-50 text-[11px] font-bold">
-            <button
-              type="button"
-              onClick={() => setActiveLoginTab('STAFF')}
-              className={`flex-1 py-2.5 text-center flex items-center justify-center gap-2 transition cursor-pointer border-b-2 ${
-                activeLoginTab === 'STAFF'
-                  ? 'border-red-600 bg-white text-red-700 font-black'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 text-red-600" />
-              <span>संपादक व पत्रकार (Staff Desk)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveLoginTab('READER')}
-              className={`flex-1 py-2.5 text-center flex items-center justify-center gap-2 transition cursor-pointer border-b-2 ${
-                activeLoginTab === 'READER'
-                  ? 'border-red-600 bg-white text-red-700 font-black'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <User className="w-4 h-4 text-blue-600" />
-              <span>वाचक व नागरिक (Reader)</span>
-            </button>
-          </div>
-        )}
 
         {/* Modal Body */}
         <div className="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
@@ -404,18 +203,18 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
             </div>
           )}
 
-          {/* ================= MODE 1: LOGIN FORM ================= */}
-          {authMode === 'LOGIN' && activeLoginTab === 'STAFF' && (
+          {/* ================= TAB 1: STAFF LOGIN ================= */}
+          {activeLoginTab === 'STAFF' && (
             <div className="space-y-4">
               <form onSubmit={handleStaffLogin} className="space-y-4">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">
-                    ईमेल पत्ता / बातमीदार आयडी (Staff Email / ID)
+                    ईमेल पत्ता (Staff Email)
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
-                      type="text"
+                      type="email"
                       required
                       value={emailOrPhone}
                       onChange={(e) => setEmailOrPhone(e.target.value)}
@@ -435,228 +234,78 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px]">
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 font-medium select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-3.5 h-3.5 text-red-600 rounded"
-                  />
-                  <span>माझे लॉगिन लक्षात ठेवा</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => alert('पासवर्ड रीसेट करण्यासाठी मुख्य प्रशासकांशी (Admin) संपर्क साधा किंवा "नवीन खाते/पासवर्ड तयार करा" टॅब वापरा.')}
-                  className="font-bold text-red-600 hover:underline cursor-pointer"
-                >
-                  पासवर्ड विसरलात?
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-black text-xs shadow-md transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <span>पडताळणी होत आहे...</span>
-                ) : (
-                  <>
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>सुरक्षित लॉगिन करा (Verify & Login)</span>
-                  </>
-                )}
-              </button>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Shield className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>सुरक्षित एन्क्रिप्टेड क्रेडेंशियल्स</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('REGISTER');
-                    setErrorMessage('');
-                    setSuccessMessage('');
-                  }}
-                  className="font-bold text-red-600 hover:underline cursor-pointer"
-                >
-                  नवीन नोंदणी / पासवर्ड तयार करा &rarr;
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-          {/* ================= MODE 2: REGISTER / SET PASSWORD FORM ================= */}
-          {authMode === 'REGISTER' && (
-            <form onSubmit={handleRegister} className="space-y-3.5">
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-900 text-[11px]">
-                💡 <strong>Firebase Auth & Database:</strong> येथे नवीन खाते आणि पासवर्ड सेट केल्यास ते थेट Firebase कन्सोलवर सुरक्षित साठवले जाईल.
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  पूर्ण नाव (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  placeholder="उदा. राहुल देशमुख"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    ईमेल पत्ता (Email) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="name@infonews.com"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    मोबाईल नंबर (Phone)
-                  </label>
-                  <input
-                    type="tel"
-                    value={regPhone}
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    placeholder="98XXXXXXXX"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    रोल / पद (Account Role)
-                  </label>
-                  <select
-                    value={regRole}
-                    onChange={(e) => setRegRole(e.target.value as UserRole)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:border-red-500 outline-none"
-                  >
-                    <option value="REPORTER">वार्ताहर / Reporter</option>
-                    <option value="EDITOR">संपादक / Editor</option>
-                    <option value="ADMIN">प्रशासक / Admin</option>
-                    <option value="USER">सामान्य वाचक / Public</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    जिल्हा / तालुका ब्युरो
-                  </label>
-                  <input
-                    type="text"
-                    value={regLocation}
-                    onChange={(e) => setRegLocation(e.target.value)}
-                    placeholder="गडचिरोली / अहेरी / वडसा"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    पासवर्ड सेट करा (Password) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showRegPassword ? 'text' : 'password'}
+                      type={showPassword ? 'text' : 'password'}
                       required
-                      minLength={6}
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      placeholder="किमान ६ अक्षरे"
-                      className="w-full px-3 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowRegPassword(!showRegPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
                     >
-                      {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    पासवर्डची खात्री (Confirm) <span className="text-red-500">*</span>
+                <div className="flex items-center justify-between text-[11px]">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 font-medium select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-3.5 h-3.5 text-red-600 rounded"
+                    />
+                    <span>माझे लॉगिन लक्षात ठेवा</span>
                   </label>
-                  <input
-                    type={showRegPassword ? 'text' : 'password'}
-                    required
-                    minLength={6}
-                    value={regConfirmPassword}
-                    onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    placeholder="पासवर्ड पुन्हा प्रविष्ट करा"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-red-500 outline-none"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => alert('पासवर्ड रीसेट करण्यासाठी कृपया मुख्य संपादकांशी किंवा ॲडमिनशी संपर्क साधा.')}
+                    className="font-bold text-red-600 hover:underline cursor-pointer"
+                  >
+                    पासवर्ड विसरलात?
+                  </button>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black text-xs shadow-md transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
-              >
-                {isLoading ? (
-                  <span>Firebase वर खाते तयार होत आहे...</span>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    <span>पासवर्डसह खाते तयार करा व लॉगिन व्हा</span>
-                  </>
-                )}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-black text-xs shadow-md transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <span>पडताळणी होत आहे...</span>
+                  ) : (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>सुरक्षित लॉगिन करा (Verify & Login)</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-center text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>प्रशासक-नियंत्रित सुरक्षित ऑथेंटिकेशन</span>
+                  </span>
+                </div>
+              </form>
+            </div>
           )}
 
-          {/* ================= MODE 3: READER LOGIN ================= */}
-          {authMode === 'LOGIN' && activeLoginTab === 'READER' && (
+          {/* ================= TAB 2: READER LOGIN ================= */}
+          {activeLoginTab === 'READER' && (
             <div className="space-y-4 text-center py-2">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
                 <UserCheck className="w-6 h-6" />
               </div>
 
               <div>
-                <h3 className="font-black text-slate-900 text-sm">वाचक व नागरिक सदस्यत्व</h3>
+                <h3 className="font-black text-slate-900 text-sm">वाचक व नागरिक सदस्य लॉगिन</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  बातम्यांवर कॉमेंट्स करणे, आवडीचे लेख सेव्ह करणे व थेट ग्राउंड वार्तांकन पाठवण्यासाठी लॉगिन करा.
+                  फक्त मुख्य प्रशासकांनी आधीपासून नोंदणीकृत केलेल्या अधिकृत सदस्यांनाच प्रवेश दिला जातो.
                 </p>
               </div>
 
@@ -685,25 +334,12 @@ export const PortalLoginModal: React.FC<PortalLoginModalProps> = ({ isOpen, onCl
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                   />
                 </svg>
-                <span>Google खात्यासह १-क्लिक लॉगिन करा</span>
+                <span>Google द्वारे सुरक्षित लॉगिन करा</span>
               </button>
 
-              <div className="relative my-3">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase">
-                  <span className="bg-white px-2 text-slate-400 font-bold">किंवा ईमेल व पासवर्डने नोंदणी करा</span>
-                </div>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 text-[11px] text-left">
+                🔒 <strong>टीप:</strong> नवीन वाचक खाते नोंदणीसाठी प्रशासकीय पडताळणी आवश्यक आहे. अनोंदणीकृत खात्यांना थेट लॉगिन दिले जात नाही.
               </div>
-
-              <button
-                type="button"
-                onClick={() => setAuthMode('REGISTER')}
-                className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
-              >
-                + नवीन वाचक खाते तयार करा (Register with Password)
-              </button>
             </div>
           )}
         </div>

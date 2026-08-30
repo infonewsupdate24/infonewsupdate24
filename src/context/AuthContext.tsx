@@ -31,116 +31,92 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>(SEED_USERS);
-  const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    try {
-      return localStorage.getItem('infonews_auth_session') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    try {
-      return !!localStorage.getItem('infonews_auth_session');
-    } catch {
-      return false;
-    }
-  });
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  const FAKE_MOCK_USER_IDS = ['user-2', 'user-3', 'user-4', 'user-5', 'user-6', 'user-7', 'user-8'];
-
-  // Initialize, hydrate users via UserService and Firestore Cloud
+  // Realtime Firebase Auth & Firestore State Management
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Initial local hydration & scrubbing of fake demo users
-    const initializeAuth = async () => {
-      const rawUsers = await UserService.getAllUsers();
-      // Filter out any leftover fake mock users
-      const cleanUsers = rawUsers.filter((u) => !FAKE_MOCK_USER_IDS.includes(u.id));
-      
-      // Ensure official Super Admin is always present
-      if (!cleanUsers.some((u) => u.id === SEED_USERS[0].id)) {
-        cleanUsers.unshift(SEED_USERS[0]);
+    // 1. Single Source of Truth: Real Firebase Auth State Listener
+    const unsubscribeAuth = FirebaseAuthService.onAuthChange(async (firebaseUser) => {
+      if (!isMounted) return;
+
+      if (!firebaseUser) {
+        setIsLoggedIn(false);
+        setCurrentUserId('');
+        try {
+          localStorage.removeItem('infonews_auth_session');
+          localStorage.removeItem('infonews_current_user_v1');
+        } catch {}
+        return;
       }
 
-      // Cleanup Firestore from fake mock users
-      FAKE_MOCK_USER_IDS.forEach((fakeId) => {
-        FirestoreNewsService.deleteUserProfile(fakeId).catch(() => {});
-      });
+      try {
+        const profile = await FirestoreNewsService.getUserProfile(firebaseUser.uid);
+        const validRoles: UserRole[] = [
+          'SUPER_ADMIN',
+          'ADMIN',
+          'EDITOR',
+          'SUB_EDITOR',
+          'REPORTER',
+          'VIDEO_REPORTER',
+          'PHOTOGRAPHER',
+          'USER',
+        ];
 
-      const savedId = (() => {
-        try {
-          return localStorage.getItem('infonews_auth_session');
-        } catch {
-          return null;
-        }
-      })();
-
-      if (isMounted) {
-        setAllUsers(cleanUsers);
-        UserService.saveUsers(cleanUsers);
-
-        if (savedId && cleanUsers.some((u) => u.id === savedId)) {
-          const matched = cleanUsers.find((u) => u.id === savedId);
-          if (matched && matched.status === 'ACTIVE') {
-            setCurrentUserId(savedId);
+        if (profile && profile.status === 'ACTIVE' && validRoles.includes(profile.role)) {
+          if (isMounted) {
+            setAllUsers((prev) => {
+              const exists = prev.some((u) => u.id === profile.id);
+              return exists ? prev.map((u) => (u.id === profile.id ? profile : u)) : [profile, ...prev];
+            });
+            setCurrentUserId(profile.id);
             setIsLoggedIn(true);
-          } else {
+            try {
+              localStorage.setItem('infonews_auth_session', profile.id);
+            } catch {}
+          }
+        } else {
+          // Reject unapproved, inactive, or non-existent profile
+          await FirebaseAuthService.logout();
+          if (isMounted) {
+            setIsLoggedIn(false);
+            setCurrentUserId('');
             try {
               localStorage.removeItem('infonews_auth_session');
+              localStorage.removeItem('infonews_current_user_v1');
             } catch {}
-            setCurrentUserId('');
-            setIsLoggedIn(false);
           }
-        } else if (savedId && FAKE_MOCK_USER_IDS.includes(savedId)) {
-          // If previously logged in as a mock user, switch to Komal
-          setCurrentUserId(SEED_USERS[0].id);
-          setIsLoggedIn(true);
-          try {
-            localStorage.setItem('infonews_auth_session', SEED_USERS[0].id);
-          } catch {}
-        } else {
-          setCurrentUserId('');
+        }
+      } catch (err) {
+        console.warn('Auth state verification note:', err);
+        await FirebaseAuthService.logout();
+        if (isMounted) {
           setIsLoggedIn(false);
+          setCurrentUserId('');
         }
       }
-    };
-    initializeAuth();
+    });
 
-    // 2. Ensure Super Admin is in Firestore
-    FirestoreNewsService.saveUserProfile(SEED_USERS[0]).catch(() => {});
-
-    // 3. Realtime Firestore User Listener (auto-filtering mock users)
-    const unsubscribe = FirestoreNewsService.subscribeUsers((cloudUsers) => {
+    // 2. Realtime Firestore User Directory Listener
+    const unsubscribeUsers = FirestoreNewsService.subscribeUsers((cloudUsers) => {
       if (isMounted && cloudUsers && cloudUsers.length > 0) {
-        const filteredCloudUsers = cloudUsers.filter((u) => !FAKE_MOCK_USER_IDS.includes(u.id));
-        if (filteredCloudUsers.length > 0) {
-          // Ensure Super Admin is retained
-          if (!filteredCloudUsers.some((u) => u.id === SEED_USERS[0].id)) {
-            filteredCloudUsers.unshift(SEED_USERS[0]);
-          }
-          setAllUsers(filteredCloudUsers);
+        const filtered = cloudUsers.filter(
+          (u) => !['user-2', 'user-3', 'user-4', 'user-5', 'user-6', 'user-7', 'user-8'].includes(u.id)
+        );
+        if (filtered.length > 0) {
+          setAllUsers(filtered);
         }
       }
     });
 
     return () => {
       isMounted = false;
-      unsubscribe();
+      unsubscribeAuth();
+      unsubscribeUsers();
     };
   }, []);
-
-  // Sync users to local storage persistence layer via UserService
-  useEffect(() => {
-    UserService.saveUsers(allUsers);
-  }, [allUsers]);
-
-  // Sync current user selection via UserService only if logged in
-  useEffect(() => {
-    if (isLoggedIn && currentUserId) {
-      UserService.setCurrentUserId(currentUserId);
-    }
-  }, [currentUserId, isLoggedIn]);
 
   const guestUser: UserProfile = {
     id: 'guest-reader',
@@ -168,25 +144,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const switchRole = (role: UserRole) => {
-    if (!isLoggedIn) return;
-    const existing = allUsers.find((u) => u.role === role && u.status === 'ACTIVE');
-    if (existing) {
-      setCurrentUserId(existing.id);
-      setIsLoggedIn(true);
-      try {
-        localStorage.setItem('infonews_auth_session', existing.id);
-      } catch {}
-    } else {
-      // Create or update current user's role
-      const updated = allUsers.map((u) => (u.id === currentUser.id ? { ...u, role } : u));
-      setAllUsers(updated);
-    }
+  const switchRole = (_role: UserRole) => {
+    // Client-side arbitrary role switching is strictly disabled.
+    // Role is authoritative from Firestore profile.
   };
 
   const updateCurrentUserProfile = (updates: Partial<UserProfile>) => {
     if (!isLoggedIn) return;
-    const updatedUser = { ...currentUser, ...updates };
+    // Prevent updating role, status, or id from client-side profile helper
+    const { role, status, id, ...allowedUpdates } = updates as any;
+    const updatedUser = { ...currentUser, ...allowedUpdates };
     setAllUsers((prev) =>
       prev.map((u) => (u.id === currentUser.id ? updatedUser : u))
     );
@@ -273,66 +240,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     identifier: string,
     password?: string
   ): Promise<{ success: boolean; user?: UserProfile; message?: string }> => {
-    const clean = identifier.trim().toLowerCase();
-    const matched = allUsers.find(
-      (u) =>
-        u.email.toLowerCase() === clean ||
-        (u.phone && u.phone.includes(clean)) ||
-        u.name.toLowerCase() === clean ||
-        u.id.toLowerCase() === clean ||
-        (clean === 'komal' && u.role === 'SUPER_ADMIN') ||
-        (clean === 'vicky' && u.role === 'SUPER_ADMIN') ||
-        ((clean === 'admin' || clean === 'admin@infonews.com' || clean === 'admin@infonewsupdate24.com') && (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN')) ||
-        (clean === 'superadmin' && u.role === 'SUPER_ADMIN') ||
-        (clean === 'editor' && u.role === 'EDITOR') ||
-        (clean === 'reporter' && u.role === 'REPORTER')
-    );
-
-    if (!matched) {
+    if (!password) {
       return {
         success: false,
-        message: '❌ वापरकर्ता सापडला नाही. कृपया वैध ईमेल किंवा मोबाईल नंबर प्रविष्ट करा.',
+        message: '❌ कृपया पासवर्ड प्रविष्ट करा.',
       };
     }
 
-    // 1. Password Verification
-    if (password !== undefined) {
-      const isPasswordCorrect = matched.password
-        ? matched.password === password.trim()
-        : password.trim() === 'admininfo@1234';
-
-      if (!isPasswordCorrect) {
-        return {
-          success: false,
-          message: '❌ चुकीचा पासवर्ड! कृपया योग्य पासवर्ड प्रविष्ट करा.',
-        };
-      }
-    }
-
-    // 2. Strict Approval Verification (Super Admin Approval Required)
-    if (matched.status === 'PENDING') {
-      return {
-        success: false,
-        message: '⏳ तुमचे खाते सुपर ॲडमिनच्या (Super Admin) मंजुरीसाठी प्रलंबित (Pending Approval) आहे. सुपर ॲडमिनने मान्यता दिल्यावरच तुम्ही लॉगिन करू शकाल.',
-      };
-    }
-
-    // 3. Suspended or Inactive Verification
-    if (matched.status === 'SUSPENDED' || matched.status === 'INACTIVE') {
-      return {
-        success: false,
-        message: '⛔ तुमचे खाते निलंबित (Suspended) किंवा निष्क्रिय करण्यात आले आहे. कृपया मुख्य संपादकांशी किंवा सुपर ॲडमिनशी संपर्क साधा.',
-      };
-    }
-
-    // Verified & Active
-    setCurrentUserId(matched.id);
-    setIsLoggedIn(true);
     try {
-      localStorage.setItem('infonews_auth_session', matched.id);
-    } catch {}
-
-    return { success: true, user: matched };
+      const authRes = await FirebaseAuthService.loginWithEmail(identifier.trim(), password);
+      if (authRes.success && authRes.profile) {
+        switchUser(authRes.profile.id);
+        return { success: true, user: authRes.profile };
+      }
+      return {
+        success: false,
+        message: authRes.error || '❌ लॉगिन अयशस्वी झाले. कृपया क्रेडेंशियल्स तपासा.',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || '❌ ऑथेंटिकेशन अयशस्वी झाले.',
+      };
+    }
   };
 
   return (

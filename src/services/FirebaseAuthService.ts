@@ -10,6 +10,8 @@ import { auth, googleProvider } from './firebase';
 import { FirestoreNewsService } from './FirestoreNewsService';
 import { UserProfile } from '../types';
 
+const VALID_ROLES = ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'SUB_EDITOR', 'REPORTER', 'VIDEO_REPORTER', 'PHOTOGRAPHER', 'USER'];
+
 export class FirebaseAuthService {
   /**
    * Listen to Firebase Auth state
@@ -20,6 +22,7 @@ export class FirebaseAuthService {
 
   /**
    * Register a new user in Firebase Authentication and create profile in Firestore
+   * (Restricted for Admin User Management use only)
    */
   static async registerWithEmail(
     email: string,
@@ -60,7 +63,7 @@ export class FirebaseAuthService {
   }
 
   /**
-   * Sign In with Email and Password
+   * Sign In with Email and Password (Strict Admin-Controlled Verification)
    */
   static async loginWithEmail(
     email: string,
@@ -70,7 +73,18 @@ export class FirebaseAuthService {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const profile = await FirestoreNewsService.getUserProfile(cred.user.uid);
 
-      if (profile && profile.status === 'PENDING') {
+      // 1. Must have pre-existing Firestore profile
+      if (!profile) {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'हे खाते प्रणालीमध्ये नोंदणीकृत नाही. कृपया प्रशासकाशी संपर्क साधा.',
+        };
+      }
+
+      // 2. Must be ACTIVE status
+      if (profile.status === 'PENDING') {
+        await signOut(auth);
         return {
           success: false,
           error: '⏳ तुमचे खाते सुपर ॲडमिनच्या (Super Admin) मंजुरीसाठी प्रलंबित (Pending Approval) आहे. सुपर ॲडमिनने मान्यता दिल्यावरच तुम्ही लॉगिन करू शकाल.',
@@ -78,10 +92,21 @@ export class FirebaseAuthService {
         };
       }
 
-      if (profile && (profile.status === 'SUSPENDED' || profile.status === 'INACTIVE')) {
+      if (profile.status === 'SUSPENDED' || profile.status === 'INACTIVE' || profile.status !== 'ACTIVE') {
+        await signOut(auth);
         return {
           success: false,
-          error: '⛔ तुमचे खाते निलंबित किंवा निष्क्रिय करण्यात आले आहे. कृपया सुपर ॲडमिनशी संपर्क साधा.',
+          error: '⛔ तुमचे खाते निलंबित किंवा निष्क्रिय करण्यात आले आहे. कृपया प्रशासकाशी संपर्क साधा.',
+          profile,
+        };
+      }
+
+      // 3. Must have a valid role
+      if (!VALID_ROLES.includes(profile.role)) {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'अवैध वापरकर्ता रोल. प्रवेश नाकारला.',
           profile,
         };
       }
@@ -94,39 +119,67 @@ export class FirebaseAuthService {
   }
 
   /**
-   * Sign In with Google
+   * Sign In with Google (Strict Admin-Controlled & Verification Gate)
+   * NO AUTO USER CREATION: Requires pre-existing active Firestore profile.
    */
   static async loginWithGoogle(): Promise<{ success: boolean; user?: FirebaseUser; profile?: UserProfile; error?: string }> {
     try {
       const cred = await signInWithPopup(auth, googleProvider);
-      const uid = cred.user.uid;
-      let profile = await FirestoreNewsService.getUserProfile(uid);
 
-      if (!profile) {
-        profile = {
-          id: uid,
-          name: cred.user.displayName || 'Google User',
-          email: cred.user.email || '',
-          role: 'USER',
-          phone: cred.user.phoneNumber || '',
-          avatar: cred.user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-          location: 'Reader Community',
-          designation: 'Public Reader',
-          memberSince: new Date().toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          }),
-          status: 'ACTIVE',
-          customPermissions: [],
+      // 1. Email Verification Security Gate
+      if (!cred.user.emailVerified) {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'आपले Google खाते/ईमेल पडताळणी पूर्ण झाल्यानंतरच लॉगिन करता येईल.',
         };
-        await FirestoreNewsService.saveUserProfile(profile);
+      }
+
+      const uid = cred.user.uid;
+      const profile = await FirestoreNewsService.getUserProfile(uid);
+
+      // 2. Reject if no pre-registered Firestore user profile exists (NO AUTO CREATION)
+      if (!profile) {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'हे खाते प्रणालीमध्ये नोंदणीकृत नाही. कृपया प्रशासकाशी संपर्क साधा.',
+        };
+      }
+
+      // 3. Status Validation
+      if (profile.status === 'PENDING') {
+        await signOut(auth);
+        return {
+          success: false,
+          error: '⏳ तुमचे खाते सुपर ॲडमिनच्या (Super Admin) मंजुरीसाठी प्रलंबित (Pending Approval) आहे. सुपर ॲडमिनने मान्यता दिल्यावरच तुम्ही लॉगिन करू शकाल.',
+          profile,
+        };
+      }
+
+      if (profile.status === 'SUSPENDED' || profile.status === 'INACTIVE' || profile.status !== 'ACTIVE') {
+        await signOut(auth);
+        return {
+          success: false,
+          error: '⛔ तुमचे खाते निलंबित किंवा निष्क्रिय करण्यात आले आहे. कृपया प्रशासकाशी संपर्क साधा.',
+          profile,
+        };
+      }
+
+      // 4. Role Validation
+      if (!VALID_ROLES.includes(profile.role)) {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'अवैध वापरकर्ता रोल. प्रवेश नाकारला.',
+          profile,
+        };
       }
 
       return { success: true, user: cred.user, profile };
     } catch (err: any) {
       console.warn('Firebase Auth Google login note:', err);
-      return { success: false, error: err?.message || 'Google login failed' };
+      return { success: false, error: err?.message || 'Google लॉगिन अयशस्वी झाले किंवा रद्द केले गेले.' };
     }
   }
 

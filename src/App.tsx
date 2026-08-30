@@ -140,8 +140,9 @@ const MainRouter: React.FC = () => {
   const isStaffAuthenticated =
     isLoggedIn &&
     currentUser &&
+    currentUser.id !== 'guest-reader' &&
     currentUser.role !== 'USER' &&
-    (currentUser.status || 'ACTIVE') === 'ACTIVE';
+    currentUser.status === 'ACTIVE';
 
   if (portalMode === 'PUBLIC' || !isStaffAuthenticated) {
     return <PublicPortalView />;
