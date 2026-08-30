@@ -2920,21 +2920,42 @@ export const PublicPortalView: React.FC = () => {
                 __html: JSON.stringify({
                   '@context': 'https://schema.org',
                   '@type': 'NewsArticle',
+                  mainEntityOfPage: {
+                    '@type': 'WebPage',
+                    '@id': `https://www.infonewsupdate24.com/${encodeURIComponent(activeArticle.slug)}/`,
+                  },
                   headline: activeArticle.title,
                   description: activeArticle.excerpt || activeArticle.title,
-                  image: [activeArticle.featuredImage],
-                  datePublished: activeArticle.publishDate || new Date().toISOString(),
-                  dateModified: activeArticle.publishDate || new Date().toISOString(),
+                  image: activeArticle.featuredImage
+                    ? [activeArticle.featuredImage]
+                    : ['https://www.infonewsupdate24.com/icon-512.svg'],
+                  datePublished: (() => {
+                    const d = new Date(activeArticle.publishDate || activeArticle.createdAt || Date.now());
+                    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+                  })(),
+                  dateModified: (() => {
+                    const d = new Date(
+                      activeArticle.updatedAt ||
+                        activeArticle.publishedAt ||
+                        activeArticle.publishDate ||
+                        activeArticle.createdAt ||
+                        Date.now()
+                    );
+                    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+                  })(),
                   author: {
                     '@type': 'Person',
-                    name: activeArticle.authorName,
+                    name: activeArticle.authorName || 'InfoNewsUpdate24 विशेष प्रतिनिधी',
                   },
                   publisher: {
-                    '@type': 'Organization',
+                    '@type': 'NewsMediaOrganization',
                     name: 'InfoNewsUpdate24',
+                    url: 'https://www.infonewsupdate24.com/',
                     logo: {
                       '@type': 'ImageObject',
-                      url: 'https://infonewsupdate24.com/logo.png',
+                      url: 'https://www.infonewsupdate24.com/icon-512.svg',
+                      width: 512,
+                      height: 512,
                     },
                   },
                   articleSection:
