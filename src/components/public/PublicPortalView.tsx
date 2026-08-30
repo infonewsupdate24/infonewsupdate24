@@ -537,9 +537,37 @@ export const PublicPortalView: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Synchronize browser address bar permalinks (pushState) whenever navigation state changes
+  // Synchronize browser address bar permalinks (pushState) and dynamic metadata whenever navigation state changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    const setMetaTag = (selector: string, attr: string, value: string) => {
+      let el = document.querySelector(selector);
+      if (!el) {
+        if (selector.startsWith('meta[name=')) {
+          const name = selector.match(/meta\[name="([^"]+)"\]/)?.[1];
+          if (name) {
+            el = document.createElement('meta');
+            el.setAttribute('name', name);
+            document.head.appendChild(el);
+          }
+        } else if (selector.startsWith('meta[property=')) {
+          const prop = selector.match(/meta\[property="([^"]+)"\]/)?.[1];
+          if (prop) {
+            el = document.createElement('meta');
+            el.setAttribute('property', prop);
+            document.head.appendChild(el);
+          }
+        } else if (selector.startsWith('link[rel=')) {
+          el = document.createElement('link');
+          el.setAttribute('rel', 'canonical');
+          document.head.appendChild(el);
+        }
+      }
+      if (el) {
+        el.setAttribute(attr, value);
+      }
+    };
 
     if (publicActivePostSlug) {
       const targetPath = `/${publicActivePostSlug}/`;
@@ -547,7 +575,23 @@ export const PublicPortalView: React.FC = () => {
         window.history.pushState({ postSlug: publicActivePostSlug }, '', targetPath);
       }
       if (selectedPost) {
-        document.title = `${selectedPost.title} | InfoNewsUpdate24`;
+        const metaTitle = selectedPost.seo?.seoTitle || selectedPost.title;
+        const metaDesc = selectedPost.seo?.metaDescription || selectedPost.excerpt || selectedPost.title;
+        const postUrl = `https://www.infonewsupdate24.com/${encodeURIComponent(selectedPost.slug)}/`;
+        const postImg = selectedPost.featuredImage || 'https://www.infonewsupdate24.com/icon-512.svg';
+        const postImgAlt = selectedPost.featuredImageAlt || selectedPost.title;
+
+        document.title = `${metaTitle} | InfoNewsUpdate24`;
+        setMetaTag('meta[name="description"]', 'content', metaDesc);
+        setMetaTag('meta[property="og:title"]', 'content', metaTitle);
+        setMetaTag('meta[property="og:description"]', 'content', metaDesc);
+        setMetaTag('meta[property="og:url"]', 'content', postUrl);
+        setMetaTag('meta[property="og:image"]', 'content', postImg);
+        setMetaTag('meta[property="og:image:alt"]', 'content', postImgAlt);
+        setMetaTag('meta[name="twitter:title"]', 'content', metaTitle);
+        setMetaTag('meta[name="twitter:description"]', 'content', metaDesc);
+        setMetaTag('meta[name="twitter:image"]', 'content', postImg);
+        setMetaTag('link[rel="canonical"]', 'href', postUrl);
       }
     } else if (publicActiveCategorySlug) {
       const activeCat = categories.find((c) => c.slug === publicActiveCategorySlug || c.id === publicActiveCategorySlug);
@@ -557,6 +601,7 @@ export const PublicPortalView: React.FC = () => {
       }
       if (activeCat) {
         document.title = `${activeCat.name} | ताज्या मराठी बातम्या | InfoNewsUpdate24`;
+        setMetaTag('link[rel="canonical"]', 'href', `https://www.infonewsupdate24.com/category/${publicActiveCategorySlug}/`);
       }
     } else if (publicActivePageSlug) {
       const activePage = pages.find((pg) => pg.slug === publicActivePageSlug);
@@ -566,18 +611,33 @@ export const PublicPortalView: React.FC = () => {
       }
       if (activePage) {
         document.title = `${activePage.title} | InfoNewsUpdate24`;
+        setMetaTag('link[rel="canonical"]', 'href', `https://www.infonewsupdate24.com/page/${publicActivePageSlug}/`);
       }
     } else if (isEPaperViewOpen) {
       if (window.location.pathname !== '/epaper' && !window.location.search.includes('mode=epaper')) {
         window.history.pushState({ mode: 'epaper' }, '', '/epaper');
       }
       document.title = 'InfoNewsUpdate24 | डिजिटल ई-पेपर (E-Paper)';
+      setMetaTag('link[rel="canonical"]', 'href', 'https://www.infonewsupdate24.com/epaper');
     } else {
       // ONLY push '/' when navigation state is explicitly in Home mode
       if (window.location.pathname !== '/' && window.location.pathname !== '' && !window.location.pathname.startsWith('/cms')) {
         window.history.pushState({}, '', '/');
       }
       document.title = 'InfoNewsUpdate24 | महाराष्ट्र व गडचिरोली ताज्या मराठी बातम्या | Breaking News Portal';
+
+      // Restore default meta tags
+      const defaultDesc = 'InfoNewsUpdate24 - गडचिरोली १२ तालुके, विदर्भ, महाराष्ट्र, राजकारण, कृषी उत्पन्न बाजारभाव, पंचांग, थेट हवामान आणि ताज्या घडामोडींचे अग्रगण्य डिजिटल न्यूज नेटवर्क.';
+      const defaultTitle = 'InfoNewsUpdate24 | महाराष्ट्र व गडचिरोली ताज्या मराठी बातम्या | Breaking News Portal';
+      const defaultUrl = 'https://www.infonewsupdate24.com/';
+      const defaultImg = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=630&auto=format&fit=crop&q=80';
+
+      setMetaTag('meta[name="description"]', 'content', defaultDesc);
+      setMetaTag('meta[property="og:title"]', 'content', defaultTitle);
+      setMetaTag('meta[property="og:description"]', 'content', defaultDesc);
+      setMetaTag('meta[property="og:url"]', 'content', defaultUrl);
+      setMetaTag('meta[property="og:image"]', 'content', defaultImg);
+      setMetaTag('link[rel="canonical"]', 'href', defaultUrl);
     }
   }, [publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, selectedPost, categories, pages]);
 
@@ -2974,8 +3034,8 @@ export const PublicPortalView: React.FC = () => {
                     '@type': 'WebPage',
                     '@id': `https://www.infonewsupdate24.com/${encodeURIComponent(activeArticle.slug)}/`,
                   },
-                  headline: activeArticle.title,
-                  description: activeArticle.excerpt || activeArticle.title,
+                  headline: activeArticle.seo?.seoTitle || activeArticle.title,
+                  description: activeArticle.seo?.metaDescription || activeArticle.excerpt || activeArticle.title,
                   image: activeArticle.featuredImage
                     ? [activeArticle.featuredImage]
                     : ['https://www.infonewsupdate24.com/icon-512.svg'],

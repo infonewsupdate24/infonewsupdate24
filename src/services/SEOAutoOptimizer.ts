@@ -156,14 +156,30 @@ function extractDynamicKeywords(rawTitle: string, rawContent: string): {
   return { primary, secondary };
 }
 
+export interface OptimizeOptions {
+  preserveExistingContent?: boolean;
+  preserveExistingTitle?: boolean;
+  preserveExistingSlug?: boolean;
+  existingFocusKeyword?: string;
+  existingSeoTitle?: string;
+  existingMetaDescription?: string;
+  existingExcerpt?: string;
+  existingSlug?: string;
+  existingImageAlt?: string;
+  existingTags?: string[];
+  existingCategoryId?: string;
+  isPublished?: boolean;
+}
+
 /**
- * 1-Click Complete Auto-Optimizer guaranteeing 95-100% Rank Math SEO score
+ * 1-Click Smart Non-Destructive Auto-Optimizer based on Rank Math on-page guidelines
+ * Priority: 1. Manual Value -> 2. Existing Saved Value -> 3. Auto-Generated Value
  */
 export function optimizeNewsPostWithRankMath(
   rawTitle: string,
   rawContent: string,
   categories: Category[],
-  existingImageAlt?: string
+  options?: OptimizeOptions
 ): AutoOptimizeResult {
   const userTitle = rawTitle.trim();
   const userContent = rawContent.trim();
@@ -181,16 +197,20 @@ export function optimizeNewsPostWithRankMath(
     .replace(/\s*-\s*InfoNewsUpdate24/gi, '')
     .trim();
 
-  // 1. EXTRACT FOCUS KEYWORD
-  const { primary: focusKeyword, secondary: secondaryKeywords } = extractDynamicKeywords(
-    cleanTitle,
-    userContent
-  );
+  // 1. EXTRACT / PRESERVE FOCUS KEYWORD
+  let focusKeyword = options?.existingFocusKeyword?.trim() || '';
+  let secondaryKeywords: string[] = [];
+
+  if (!focusKeyword) {
+    const extracted = extractDynamicKeywords(cleanTitle, userContent);
+    focusKeyword = extracted.primary;
+    secondaryKeywords = extracted.secondary;
+  }
 
   // 2. DETECT LOCATION
   const detectedLocation = detectDatelineLocation(`${cleanTitle} ${userContent}`);
 
-  // 3. FORMULATE RANK MATH HIGH-CTR SEO TITLE (50-65 chars, starts with Focus Keyword, has Power Word and Number)
+  // 3. FORMULATE / PRESERVE SEO TITLE (Natural Marathi, High-CTR, 50-65 chars)
   let conciseTopic = cleanTitle.replace(focusKeyword, '').replace(/^[:\-\s]+/, '').trim();
   if (conciseTopic.length > 25) {
     conciseTopic = conciseTopic.split(/\s+/).slice(0, 4).join(' ');
@@ -199,77 +219,93 @@ export function optimizeNewsPostWithRankMath(
     conciseTopic = 'ताजी घडामोड व सविस्तर वृत्त';
   }
 
-  // Combine: "🔴 [Focus Keyword] : [Topic] - ५ महत्त्वाचे मुद्दे"
-  let optimizedTitle = `🔴 ${focusKeyword} : ${conciseTopic} - ५ महत्त्वाचे मुद्दे`;
-  if (optimizedTitle.length > 64) {
-    // Shorten if needed to stay strictly under 65 chars
+  let generatedOptimizedTitle = `🔴 ${focusKeyword} : ${conciseTopic} - ५ महत्त्वाचे मुद्दे`;
+  if (generatedOptimizedTitle.length > 64) {
     const maxTopicLen = Math.max(15, 60 - focusKeyword.length - 22);
     const shortTopic = conciseTopic.slice(0, maxTopicLen).replace(/[,;:\-\s]+$/, '');
-    optimizedTitle = `🔴 ${focusKeyword} : ${shortTopic} - ५ मोठे अपडेट्स`;
+    generatedOptimizedTitle = `🔴 ${focusKeyword} : ${shortTopic} - ५ मोठे अपडेट्स`;
   }
-  if (optimizedTitle.length > 65) {
-    optimizedTitle = optimizedTitle.slice(0, 62).trim() + '...';
+  if (generatedOptimizedTitle.length > 65) {
+    generatedOptimizedTitle = generatedOptimizedTitle.slice(0, 62).trim() + '...';
   }
 
-  const seoTitle = optimizedTitle.replace(/^[🔴⚡🚨📢🏛️🌾🎯]\s*/u, '');
+  const finalTitle = (options?.preserveExistingTitle && userTitle) ? userTitle : generatedOptimizedTitle;
+  const finalSeoTitle = options?.existingSeoTitle?.trim() || finalTitle.replace(/^[🔴⚡🚨📢🏛️🌾🎯]\s*/u, '');
 
-  // 4. GENERATE CLEAN URL SLUG WITH FOCUS KEYWORD
-  const slugKeyword = transliterateMarathiToSlug(`${focusKeyword} ${conciseTopic.slice(0, 20)}`);
-  const randomSuffix = Math.floor(100 + Math.random() * 900);
-  const slug = `${slugKeyword}-${randomSuffix}`;
-
-  // 5. GENERATE META DESCRIPTION (120-155 chars, starts with location & contains Focus Keyword)
-  const metaDescription = `${detectedLocation}: ${focusKeyword} संदर्भात मोठी घडामोड समोर आली असून शासन निर्णय व ५ महत्त्वाचे मुद्दे जाहीर झाले आहेत. सविस्तर वृत्त जाणून घ्या.`.slice(0, 155);
-
-  // 6. GENERATE EXCERPT (120-145 chars)
-  const excerpt = `${detectedLocation}: ${focusKeyword} संदर्भात ताजी बातमी समोर आली आहे. नागरिकांसाठी महत्त्वाचे निर्देश व निर्णय जाहीर झाले असून सविस्तर माहिती समोर आली आहे.`;
-
-  // 7. MATCH CATEGORY
-  let matchedCategoryId = categories[0]?.id || 'cat-1';
-  let matchedCategoryName = 'महाराष्ट्र';
-  let matchedCategorySlug = 'maharashtra';
-  const textForCat = `${cleanTitle} ${userContent}`.toLowerCase();
-
-  for (const cat of categories) {
-    const catName = cat.name.toLowerCase();
-    if (textForCat.includes(catName)) {
-      matchedCategoryId = cat.id;
-      matchedCategoryName = cat.name;
-      matchedCategorySlug = cat.slug || 'maharashtra';
-      break;
+  // 4. GENERATE / PRESERVE CLEAN URL SLUG
+  let finalSlug = options?.existingSlug?.trim() || '';
+  if (!finalSlug || (!options?.isPublished && !options?.preserveExistingSlug)) {
+    if (!finalSlug) {
+      const slugKeyword = transliterateMarathiToSlug(`${focusKeyword} ${conciseTopic.slice(0, 20)}`);
+      const randomSuffix = Math.floor(100 + Math.random() * 900);
+      finalSlug = `${slugKeyword}-${randomSuffix}`;
     }
   }
 
-  if (matchedCategoryId === categories[0]?.id) {
-    if (/ग्रामसभा|गाव|योजना|शासकीय|सरकार|प्रशासन|लाडकी बहीण/i.test(textForCat)) {
-      const mahCat = categories.find(c => /महाराष्ट्र|नागरी|शासन/i.test(c.name));
-      if (mahCat) {
-        matchedCategoryId = mahCat.id;
-        matchedCategoryName = mahCat.name;
-        matchedCategorySlug = mahCat.slug || 'maharashtra';
+  // 5. GENERATE / PRESERVE META DESCRIPTION FROM ACTUAL ARTICLE CONTENT
+  let finalMetaDescription = options?.existingMetaDescription?.trim() || '';
+  if (!finalMetaDescription) {
+    if (userContent.length > 30) {
+      // Summarize from the user's actual article text
+      const cleanBody = userContent
+        .replace(/[#*`_\[\]()]/g, ' ')
+        .replace(/\n+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const firstSentence = cleanBody.split(/[।.\n!?]/).filter(s => s.trim().length > 10)[0] || cleanBody;
+      finalMetaDescription = `${detectedLocation}: ${firstSentence.slice(0, 120).trim()}... सविस्तर वृत्त वाचा.`.slice(0, 155);
+    } else {
+      finalMetaDescription = `${detectedLocation}: ${focusKeyword} संदर्भात महत्त्वाची घडामोड समोर आली असून सविस्तर माहिती व ५ मोठे मुद्दे जाहीर झाले आहेत. सविस्तर वाचा.`.slice(0, 155);
+    }
+  }
+
+  // 6. GENERATE / PRESERVE EXCERPT
+  let finalExcerpt = options?.existingExcerpt?.trim() || '';
+  if (!finalExcerpt) {
+    if (userContent.length > 30) {
+      const cleanBody = userContent
+        .replace(/[#*`_\[\]()]/g, ' ')
+        .replace(/\n+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      finalExcerpt = cleanBody.slice(0, 140).trim();
+    } else {
+      finalExcerpt = `${detectedLocation}: ${focusKeyword} संदर्भात ताजी बातमी समोर आली असून सविस्तर वृत्त प्रसिद्ध करण्यात आले आहे.`;
+    }
+  }
+
+  // 7. MATCH / PRESERVE CATEGORY
+  let matchedCategoryId = options?.existingCategoryId || categories[0]?.id || 'cat-1';
+  if (!options?.existingCategoryId) {
+    const textForCat = `${cleanTitle} ${userContent}`.toLowerCase();
+    for (const cat of categories) {
+      const catName = cat.name.toLowerCase();
+      if (textForCat.includes(catName)) {
+        matchedCategoryId = cat.id;
+        break;
       }
-    } else if (/पाऊस|हवामान|शेतकरी|कृषी|पीक|बाजारभाव/i.test(textForCat)) {
-      const agriCat = categories.find(c => /कृषी|हवामान/i.test(c.name));
-      if (agriCat) {
-        matchedCategoryId = agriCat.id;
-        matchedCategoryName = agriCat.name;
-        matchedCategorySlug = agriCat.slug || 'krishi';
+    }
+    if (matchedCategoryId === categories[0]?.id) {
+      if (/ग्रामसभा|गाव|योजना|शासकीय|सरकार|प्रशासन|लाडकी बहीण/i.test(textForCat)) {
+        const mahCat = categories.find(c => /महाराष्ट्र|नागरी|शासन/i.test(c.name));
+        if (mahCat) matchedCategoryId = mahCat.id;
+      } else if (/पाऊस|हवामान|शेतकरी|कृषी|पीक|बाजारभाव/i.test(textForCat)) {
+        const agriCat = categories.find(c => /कृषी|हवामान/i.test(c.name));
+        if (agriCat) matchedCategoryId = agriCat.id;
       }
     }
   }
 
-  // 8. STRUCTURE RICH 200+ WORDS ARTICLE WITH FOCUS KEYWORD IN HEADINGS & FIRST 10%
-  const datelinePrefix = `**${detectedLocation} (विशेष प्रतिनिधी):**`;
-  
-  let p1Snippet = '';
-  if (userContent) {
-    p1Snippet = userContent.split('\n')[0].replace(/[#*`_]/g, '').trim();
-  }
-  if (!p1Snippet || p1Snippet.length < 15) {
-    p1Snippet = `${cleanTitle} या विषयावर स्थानिक आणि राज्य पातळीवर मोठी चर्चा सुरू झाली आहे.`;
-  }
+  // 8. PRESERVE CONTENT IF PRESENT (NON-DESTRUCTIVE)
+  let finalContent = userContent;
+  if (!finalContent || (!options?.preserveExistingContent && userContent.length < 30)) {
+    const datelinePrefix = `**${detectedLocation} (विशेष प्रतिनिधी):**`;
+    let p1Snippet = userContent ? userContent.split('\n')[0].replace(/[#*`_]/g, '').trim() : '';
+    if (!p1Snippet || p1Snippet.length < 15) {
+      p1Snippet = `${cleanTitle} या विषयावर स्थानिक आणि राज्य पातळीवर मोठी चर्चा सुरू झाली आहे.`;
+    }
 
-  const optimizedContent = `${datelinePrefix} **${focusKeyword}** संदर्भात आजची सर्वात मोठी बातमी समोर आली आहे. ${p1Snippet} या घडामोडीचे राज्यभरात मोठे पडसाद उमटत असून प्रशासनाकडून तातडीने पावले उचलण्यात आली आहेत. सर्वसामान्य नागरिकांच्या दृष्टीने हा अत्यंत महत्त्वाचा विषय मानला जात असून सर्वांचे याकडे लक्ष लागून राहिले आहे.
+    finalContent = `${datelinePrefix} **${focusKeyword}** संदर्भात आजची सर्वात मोठी बातमी समोर आली आहे. ${p1Snippet} या घडामोडीचे राज्यभरात मोठे पडसाद उमटत असून प्रशासनाकडून तातडीने पावले उचलण्यात आली आहेत. सर्वसामान्य नागरिकांच्या दृष्टीने हा अत्यंत महत्त्वाचा विषय मानला जात असून सर्वांचे याकडे लक्ष लागून राहिले आहे.
 
 ## 📌 ${focusKeyword} : सविस्तर पार्श्वभूमी व महत्त्वाची माहिती
 
@@ -287,20 +323,17 @@ export function optimizeNewsPostWithRankMath(
 ---
 
 ### 💬 नागरिक व तज्ज्ञांच्या प्रतिक्रिया
-स्थानिक नागरिकांनी या घडामोडीचे स्वागत केले असून यामुळे कामकाजात मोठी पारदर्शकता आणि सुलभता येईल असा विश्वास व्यक्त केला आहे. तज्ज्ञांच्या मते, **${focusKeyword}** च्या योग्य अंमलबजावणीमुळे दूरगामी सकारात्मक परिणाम पाहायला मिळतील.
-
----
-
-*ताज्या घडामोडी आणि अधिकृत बातम्यांच्या अपडेट्ससाठी वाचत राहा: [InfoNewsUpdate24 ${matchedCategoryName}](https://infonewsupdate24.com/category/${matchedCategorySlug})*`;
+स्थानिक नागरिकांनी या घडामोडीचे स्वागत केले असून यामुळे कामकाजात मोठी पारदर्शकता आणि सुलभता येईल असा विश्वास व्यक्त केला आहे. तज्ज्ञांच्या मते, **${focusKeyword}** च्या योग्य अंमलबजावणीमुळे दूरगामी सकारात्मक परिणाम पाहायला मिळतील.`;
+  }
 
   // 9. FEATURED IMAGE ALT TEXT (Contains Focus Keyword & Location)
-  const featuredImageAlt = `${detectedLocation} - ${focusKeyword} - ${cleanTitle.slice(0, 35)}`;
+  const finalFeaturedImageAlt = options?.existingImageAlt?.trim() || `${detectedLocation} - ${focusKeyword} - ${cleanTitle.slice(0, 35)}`;
 
   // 10. SEO TAGS
-  const tags = [
+  let finalTags = options?.existingTags && options.existingTags.length > 0 ? options.existingTags : [
     detectedLocation,
     focusKeyword.replace(/\s+/g, ''),
-    matchedCategoryName,
+    categories.find(c => c.id === matchedCategoryId)?.name || 'महाराष्ट्र',
     ...secondaryKeywords.map(s => s.replace(/\s+/g, '')),
     'MaharashtraNews',
     'InfoNews24',
@@ -309,15 +342,173 @@ export function optimizeNewsPostWithRankMath(
   return {
     focusKeyword,
     secondaryKeywords,
-    title: optimizedTitle,
-    seoTitle,
-    slug,
-    metaDescription,
-    excerpt,
-    content: optimizedContent,
-    featuredImageAlt,
+    title: finalTitle,
+    seoTitle: finalSeoTitle,
+    slug: finalSlug,
+    metaDescription: finalMetaDescription,
+    excerpt: finalExcerpt,
+    content: finalContent,
+    featuredImageAlt: finalFeaturedImageAlt,
     categoryId: matchedCategoryId,
-    tags,
+    tags: finalTags,
     estimatedScore: 98,
   };
+}
+
+/**
+ * Technical Google News Readiness Checklist Evaluator
+ */
+export function checkGoogleNewsReadiness(post: {
+  title?: string;
+  slug?: string;
+  authorName?: string;
+  publishDate?: string;
+  featuredImage?: string;
+  visibility?: string;
+  content?: string;
+}): {
+  status: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS';
+  items: { label: string; passed: boolean; tip: string }[];
+} {
+  const items = [
+    {
+      label: 'बातमीसाठी कायमस्वरूपी युनिक URL (Permanent Slug)',
+      passed: Boolean(post.slug && post.slug.length >= 3 && post.slug !== 'news-article-slug'),
+      tip: 'बातमीसाठी लहान आणि सुस्पष्ट URL असणे गुगल न्यूजसाठी आवश्यक आहे.',
+    },
+    {
+      label: 'स्पष्ट आणि माहितीपूर्ण बातमी मथळा (Headline)',
+      passed: Boolean(post.title && post.title.trim().length >= 15),
+      tip: 'मथळा किमान १५ अक्षरांचा आणि बातमीचा मुख्य विषय स्पष्ट करणारा असावा.',
+    },
+    {
+      label: 'संपादक / बातमीदार बायलाईन (Author Name)',
+      passed: Boolean(post.authorName && post.authorName.trim().length >= 2),
+      tip: 'पारदर्शकतेसाठी बातमीदाराचे किंवा संपादकीय मंडळाचे नाव आवश्यक आहे.',
+    },
+    {
+      label: 'प्रकाशन तारीख व वेळ (Valid Publish Date)',
+      passed: Boolean(post.publishDate && !isNaN(new Date(post.publishDate).getTime())),
+      tip: 'बातमीची ताजी तारीख असणे गुगल न्यूज इंडेक्सिंगसाठी अनिवार्य आहे.',
+    },
+    {
+      label: 'बातमी फोटो (Featured Image URL)',
+      passed: Boolean(post.featuredImage && post.featuredImage.startsWith('http')),
+      tip: 'गुगल न्यूज आणि डिस्कव्हरसाठी हाय-रिझोल्युशन बातमी फोटो आवश्यक आहे.',
+    },
+    {
+      label: 'सार्वजनिक उपलब्धता (Public Visibility)',
+      passed: post.visibility === 'PUBLIC' || !post.visibility,
+      tip: 'बातमी सार्वजनिक (Public) स्थितीत असावी.',
+    },
+  ];
+
+  const passedCount = items.filter(i => i.passed).length;
+  let status: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS' = 'READY';
+  if (passedCount < 4) status = 'MISSING_ELEMENTS';
+  else if (passedCount < 6) status = 'NEEDS_IMPROVEMENT';
+
+  return { status, items };
+}
+
+/**
+ * Editorial Google Discover Readiness Checklist Evaluator
+ */
+export function checkGoogleDiscoverReadiness(post: {
+  title?: string;
+  featuredImage?: string;
+  featuredImageAlt?: string;
+  content?: string;
+  excerpt?: string;
+  publishDate?: string;
+}): {
+  status: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS';
+  items: { label: string; passed: boolean; tip: string }[];
+} {
+  const wordsCount = (post.content || '').split(/\s+/).filter(Boolean).length;
+  const isImageValid = Boolean(
+    post.featuredImage &&
+    post.featuredImage.startsWith('http') &&
+    !post.featuredImage.includes('example.com') &&
+    !post.featuredImage.includes('localhost')
+  );
+
+  const items = [
+    {
+      label: 'आकर्षक व क्लिकबेट-मुक्त शीर्षक (Engaging, Non-Clickbait Title)',
+      passed: Boolean(post.title && post.title.length >= 25 && post.title.length <= 80),
+      tip: 'शीर्षक वाचकाची दिशाभूल करणारे नसावे; २५ ते ७० अक्षरांचे शीर्षक योग्य ठरते.',
+    },
+    {
+      label: 'उच्च दर्जाचा समर्पक फोटो (High-Resolution Featured Image)',
+      passed: isImageValid,
+      tip: 'किमान १२००x६७५ पिक्सेल आकाराचा खरा बातमी फोटो Google Discover मध्ये जास्त दाखवला जातो.',
+    },
+    {
+      label: 'फोटोसाठी तपशीलवार Alt Text',
+      passed: Boolean(post.featuredImageAlt && post.featuredImageAlt.length >= 5),
+      tip: 'फोटोमध्ये नेमके काय आहे याचे संक्षिप्त वर्णन Alt Text मध्ये द्या.',
+    },
+    {
+      label: 'मजबूत प्रस्तावना व बातमी सारांश (Opening Paragraph & Excerpt)',
+      passed: Boolean((post.excerpt && post.excerpt.length >= 40) || wordsCount >= 60),
+      tip: 'पहिल्या परिच्छेदात बातमीचा संदर्भ, ठिकाण आणि मुख्य घटना त्वरित समजली पाहिजे.',
+    },
+    {
+      label: 'मोबाईल-अनुकूल सुटसुटीत मांडणी (Mobile-Friendly Formatting)',
+      passed: Boolean((post.content || '').includes('\n') || wordsCount <= 100),
+      tip: 'मोबाईल वाचकांसाठी एका परिच्छेदात ३ पेक्षा जास्त वाक्ये नसावीत.',
+    },
+  ];
+
+  const passedCount = items.filter(i => i.passed).length;
+  let status: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS' = 'READY';
+  if (passedCount < 3) status = 'MISSING_ELEMENTS';
+  else if (passedCount < 5) status = 'NEEDS_IMPROVEMENT';
+
+  return { status, items };
+}
+
+/**
+ * Featured Image Safety and Integrity Checker
+ */
+export function checkFeaturedImageSafety(imageUrl?: string, imageAlt?: string): {
+  isSafe: boolean;
+  type: 'OK' | 'MISSING' | 'BROKEN' | 'PLACEHOLDER' | 'MISSING_ALT';
+  warning?: string;
+} {
+  if (!imageUrl || imageUrl.trim().length === 0) {
+    return {
+      isSafe: false,
+      type: 'MISSING',
+      warning: '⚠️ बातमीसाठी Featured Image निवडलेली नाही.',
+    };
+  }
+
+  const url = imageUrl.trim().toLowerCase();
+  if (url.includes('localhost') || url.includes('127.0.0.1')) {
+    return {
+      isSafe: false,
+      type: 'BROKEN',
+      warning: '⚠️ इमेज URL मध्ये लोकल सर्व्हर (localhost) पाथ आढळला आहे.',
+    };
+  }
+
+  if (url.includes('example.com') || url.endsWith('.svg')) {
+    return {
+      isSafe: false,
+      type: 'PLACEHOLDER',
+      warning: '⚠️ बातमीसाठी Placeholder किंवा Generic चिन्ह वापरले आहे. प्रत्यक्ष बातमीचा फोटो वापरा.',
+    };
+  }
+
+  if (!imageAlt || imageAlt.trim().length < 3) {
+    return {
+      isSafe: true,
+      type: 'MISSING_ALT',
+      warning: 'ℹ️ फोटोसाठी Alt Text दिलेला नाही (Google Search व SEO साठी Alt Text जोडा).',
+    };
+  }
+
+  return { isSafe: true, type: 'OK' };
 }

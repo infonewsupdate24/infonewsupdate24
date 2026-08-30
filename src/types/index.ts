@@ -97,6 +97,11 @@ export interface PostSEO {
     hasImageAlt: boolean;
     readabilityOk: boolean;
   };
+  newsReadiness?: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS';
+  discoverReadiness?: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS';
+  ogTitle?: string;
+  ogDescription?: string;
+  canonicalUrl?: string;
 }
 
 export interface Post {

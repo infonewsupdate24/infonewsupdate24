@@ -28,6 +28,12 @@ import {
   Award,
 } from 'lucide-react';
 
+import {
+  checkGoogleNewsReadiness,
+  checkGoogleDiscoverReadiness,
+  checkFeaturedImageSafety,
+} from '../../services/SEOAutoOptimizer';
+
 export interface RankMathProps {
   title: string;
   setTitle: (val: string) => void;
@@ -49,6 +55,7 @@ export interface RankMathProps {
   categoryName?: string;
   authorName?: string;
   publishDate?: string;
+  isPublished?: boolean;
   onAutoPopulate?: () => void;
 }
 
@@ -83,9 +90,10 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
   categoryName = 'महाराष्ट्र',
   authorName = 'संपादकीय मंडळ',
   publishDate = new Date().toLocaleDateString('mr-IN'),
+  isPublished = false,
   onAutoPopulate,
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'advanced' | 'schema' | 'social' | 'ai_tools'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'google_readiness' | 'advanced' | 'schema' | 'social' | 'ai_tools'>('general');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [secondaryKeywords, setSecondaryKeywords] = useState<string[]>([]);
   const [newKeywordInput, setNewKeywordInput] = useState('');
@@ -97,6 +105,27 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
   const [copiedSnippet, setCopiedSnippet] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+
+  // Readiness & Safety Checkers
+  const newsReadiness = checkGoogleNewsReadiness({
+    title,
+    slug,
+    authorName,
+    publishDate,
+    featuredImage,
+    content,
+  });
+
+  const discoverReadiness = checkGoogleDiscoverReadiness({
+    title,
+    featuredImage,
+    featuredImageAlt,
+    content,
+    excerpt,
+    publishDate,
+  });
+
+  const imageSafety = checkFeaturedImageSafety(featuredImage, featuredImageAlt);
 
   // Marathi Power Words for Headline CTR Booster
   const MARATHI_POWER_WORDS = [
@@ -380,7 +409,7 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden text-xs">
-      {/* 1. TOP HEADER WITH RANK MATH SPEEDOMETER SCORE */}
+      {/* 1. TOP HEADER WITH EDITORIAL SEO QUALITY SPEEDOMETER SCORE */}
       <div className={`p-5 border-b ${badge.borderColor} ${badge.bgColor} flex flex-wrap items-center justify-between gap-4`}>
         <div className="flex items-center gap-3">
           {/* Circular Score Meter */}
@@ -393,13 +422,15 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
                 <Flame className="h-4 w-4 text-red-600" />
-                <span>Rank Math SEO Suite 2.5 PRO</span>
+                <span>Editorial SEO Quality Assistant</span>
               </span>
               <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black text-white ${badge.color}`}>
                 {badge.label}
               </span>
             </div>
-            <p className="text-xs text-slate-600 mt-0.5 font-medium">{badge.message}</p>
+            <p className="text-[11px] text-slate-600 mt-0.5 font-medium">
+              {badge.message} <span className="text-slate-400 font-normal">(अंतर्गत संपादकीय गुणवत्ता मार्गदर्शक)</span>
+            </p>
           </div>
         </div>
 
@@ -410,10 +441,10 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
               type="button"
               onClick={onAutoPopulate}
               className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:from-purple-700 hover:to-indigo-700 transition-all cursor-pointer active:scale-95"
-              title="एका क्लिकवर संपूर्ण बातमी Rank Math नुसार ऑप्टिमाइझ करा"
+              title="केवळ रिकामी किंवा अपूर्ण SEO फील्ड्स भरा (मूळ मजकूर व URL सुरक्षित राहतील)"
             >
               <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300" />
-              <span>⚡ 1-Click Auto-Populate (95+)</span>
+              <span>⚡ Fill Missing SEO Fields (95+)</span>
             </button>
           )}
 
@@ -615,9 +646,14 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
       {/* 4. TABS NAVIGATION */}
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 px-4 pt-3 text-xs font-bold bg-white">
         {[
-          { id: 'general', label: '📊 SEO Diagnostics (तपासणी यादी)', count: checks.filter((c) => c.passed).length + '/' + checks.length },
-          { id: 'ai_tools', label: '🤖 AI Headline & Meta Tools', isNew: true },
-          { id: 'schema', label: '📰 NewsArticle Schema (JSON-LD)' },
+          { id: 'general', label: '📊 SEO Diagnostics', count: checks.filter((c) => c.passed).length + '/' + checks.length },
+          {
+            id: 'google_readiness',
+            label: '📰 Google News & Discover',
+            status: newsReadiness.status === 'READY' && discoverReadiness.status === 'READY' ? '🟢 Ready' : '🟡 Review',
+          },
+          { id: 'ai_tools', label: '🤖 AI Headline Tools' },
+          { id: 'schema', label: '📜 NewsArticle Schema' },
           { id: 'social', label: '📱 Social OpenGraph' },
           { id: 'advanced', label: '⚙️ Advanced Robots' },
         ].map((tab) => (
@@ -637,9 +673,9 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
                 {tab.count}
               </span>
             )}
-            {tab.isNew && (
-              <span className="rounded-full bg-amber-500 text-white px-1.5 py-0.2 text-[9px] font-black">
-                NEW
+            {tab.status && (
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[9px] font-bold text-slate-700">
+                {tab.status}
               </span>
             )}
           </button>
@@ -651,6 +687,26 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
       {/* ======================================================================= */}
       {activeTab === 'general' && (
         <div className="p-5 space-y-6">
+          {/* Published Slug Lock Warning */}
+          {isPublished && (
+            <div className="p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-900 flex items-center gap-2.5 text-xs font-semibold">
+              <span className="text-base">🔒</span>
+              <div>
+                <strong>प्रकाशित बातमी URL (Slug) सुरक्षित:</strong> ही बातमी आधीपासून प्रकाशित आहे. सोशल मीडिया व सर्च इंजिनवरील जुन्या लिंक्स चालू राहण्यासाठी मूळ URL बदलू नये.
+              </div>
+            </div>
+          )}
+
+          {/* Featured Image Safety Check Alert */}
+          {imageSafety.warning && (
+            <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs font-semibold ${
+              imageSafety.type === 'OK' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'
+            }`}>
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+              <div>{imageSafety.warning}</div>
+            </div>
+          )}
+
           {/* Section A: Basic SEO */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between border-b border-slate-100 pb-1.5">
@@ -774,6 +830,83 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
                 ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* TAB CONTENT: GOOGLE NEWS & DISCOVER READINESS */}
+      {/* ======================================================================= */}
+      {activeTab === 'google_readiness' && (
+        <div className="p-5 space-y-6">
+          {/* Section 1: Google News Technical Readiness */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-slate-900">📰 Google News Technical Readiness</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black text-white ${
+                  newsReadiness.status === 'READY' ? 'bg-emerald-600' : newsReadiness.status === 'NEEDS_IMPROVEMENT' ? 'bg-amber-500' : 'bg-red-600'
+                }`}>
+                  {newsReadiness.status === 'READY' ? '🟢 Ready (तयार)' : newsReadiness.status === 'NEEDS_IMPROVEMENT' ? '🟡 Needs Review' : '🔴 Missing Elements'}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 font-bold">
+                {newsReadiness.items.filter(i => i.passed).length} / {newsReadiness.items.length} उत्तीर्ण
+              </span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {newsReadiness.items.map((item, idx) => (
+                <div key={idx} className="py-2 flex items-start gap-2.5">
+                  {item.passed ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold ${item.passed ? 'text-slate-800' : 'text-slate-700'}`}>{item.label}</p>
+                    {!item.passed && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{item.tip}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 2: Google Discover Editorial Readiness */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-slate-900">✨ Google Discover Editorial Readiness</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black text-white ${
+                  discoverReadiness.status === 'READY' ? 'bg-emerald-600' : discoverReadiness.status === 'NEEDS_IMPROVEMENT' ? 'bg-amber-500' : 'bg-red-600'
+                }`}>
+                  {discoverReadiness.status === 'READY' ? '🟢 Ready (तयार)' : discoverReadiness.status === 'NEEDS_IMPROVEMENT' ? '🟡 Needs Review' : '🔴 Missing Elements'}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 font-bold">
+                {discoverReadiness.items.filter(i => i.passed).length} / {discoverReadiness.items.length} उत्तीर्ण
+              </span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {discoverReadiness.items.map((item, idx) => (
+                <div key={idx} className="py-2 flex items-start gap-2.5">
+                  {item.passed ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold ${item.passed ? 'text-slate-800' : 'text-slate-700'}`}>{item.label}</p>
+                    {!item.passed && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{item.tip}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-500 italic">
+            ℹ️ टीप: हे चेकलिस्ट तांत्रिक व संपादकीय दर्जा तपासण्यासाठी आहे. हे इंडेक्सिंग किंवा ट्रॅफिकची हमी देत नाही, तर बातमी गुगलच्या सर्वोत्तम नियमांनुसार तयार करण्यास मदत करते.
+          </p>
         </div>
       )}
 

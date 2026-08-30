@@ -48,7 +48,12 @@ import { BreakingNewsCardGeneratorModal } from './BreakingNewsCardGeneratorModal
 import { MediaPickerModal } from './MediaPickerModal';
 import { RankMathSEOAnalyzer } from './RankMathSEOAnalyzer';
 import { ArticleContentRenderer } from '../common/ArticleContentRenderer';
-import { optimizeNewsPostWithRankMath, transliterateMarathiToSlug } from '../../services/SEOAutoOptimizer';
+import {
+  optimizeNewsPostWithRankMath,
+  transliterateMarathiToSlug,
+  checkGoogleNewsReadiness,
+  checkGoogleDiscoverReadiness,
+} from '../../services/SEOAutoOptimizer';
 import { WebPushNotificationService } from '../../services/WebPushNotificationService';
 import { optimizeImageFile } from '../../utils/imageOptimizer';
 
@@ -136,28 +141,46 @@ export const PostEditorView: React.FC = () => {
     return () => clearInterval(timer);
   }, [title, slug, content, excerpt, featuredImage, categoryId, postTags, location, selectedPostId]);
 
-  // 1-Click Complete Auto-Populate & Rank Math 95+ Optimizer
+  // 1-Click Smart Non-Destructive Auto-Populate & Editorial SEO Assistant
+  // Priority: 1. Manual Value -> 2. Existing Saved Value -> 3. Auto-Generated Value
   const handleAutoPopulateRankMath = () => {
     setIsAutoOptimizing(true);
     setTimeout(() => {
-      const result = optimizeNewsPostWithRankMath(title, content, categories, featuredImageAlt);
-      setTitle(result.title);
-      setSeoTitle(result.seoTitle);
-      setSlug(result.slug);
-      setFocusKeyword(result.focusKeyword);
-      setMetaDescription(result.metaDescription);
-      setExcerpt(result.excerpt);
-      setContent(result.content);
-      setFeaturedImageAlt(result.featuredImageAlt);
-      setCategoryId(result.categoryId);
-      setPostTags(result.tags);
-      setIsSlugLocked(false);
+      const isPostPublished = status === 'PUBLISHED' || existingPost?.status === 'PUBLISHED';
+
+      const result = optimizeNewsPostWithRankMath(title, content, categories, {
+        preserveExistingContent: Boolean(content && content.trim().length > 25),
+        preserveExistingTitle: Boolean(title && title.trim().length > 10),
+        preserveExistingSlug: Boolean(slug && slug.trim().length > 3),
+        existingFocusKeyword: focusKeyword,
+        existingSeoTitle: seoTitle,
+        existingMetaDescription: metaDescription,
+        existingExcerpt: excerpt,
+        existingSlug: slug,
+        existingImageAlt: featuredImageAlt,
+        existingTags: postTags,
+        existingCategoryId: categoryId,
+        isPublished: isPostPublished,
+      });
+
+      // ONLY populate fields that are empty or need non-destructive filling:
+      if (!title.trim() && result.title) setTitle(result.title);
+      if (!seoTitle.trim() && result.seoTitle) setSeoTitle(result.seoTitle);
+      if (!focusKeyword.trim() && result.focusKeyword) setFocusKeyword(result.focusKeyword);
+      if (!metaDescription.trim() && result.metaDescription) setMetaDescription(result.metaDescription);
+      if (!excerpt.trim() && result.excerpt) setExcerpt(result.excerpt);
+      if (!content.trim() && result.content) setContent(result.content);
+      if (!featuredImageAlt.trim() && result.featuredImageAlt) setFeaturedImageAlt(result.featuredImageAlt);
+      if (!categoryId && result.categoryId) setCategoryId(result.categoryId);
+      if ((!postTags || postTags.length === 0) && result.tags) setPostTags(result.tags);
+      if (!slug.trim() && result.slug && !isPostPublished) setSlug(result.slug);
+
       setIsAutoOptimizing(false);
       setSaveSuccessMsg(
-        `⚡ Rank Math SEO 98+ Auto-Populate यशस्वी! Focus Keyword: "${result.focusKeyword}" सह संपूर्ण बातमी तयार झाली आहे.`
+        `✨ संपादकीय SEO सहाय्यक: आवश्यक SEO फील्ड्स भरली गेली (Focus Keyword: "${result.focusKeyword || focusKeyword}", मूळ बातमी व URL सुरक्षित).`
       );
-      setTimeout(() => setSaveSuccessMsg(''), 7000);
-    }, 450);
+      setTimeout(() => setSaveSuccessMsg(''), 6000);
+    }, 400);
   };
 
   // Reporter Voice Typing State
@@ -262,12 +285,32 @@ export const PostEditorView: React.FC = () => {
     if (checks.hasImageAlt) score += 10;
     if (checks.readabilityOk) score += 10;
 
+    const newsReadinessResult = checkGoogleNewsReadiness({
+      title,
+      slug,
+      authorName: currentUser.name,
+      publishDate: existingPost?.publishDate || new Date().toISOString(),
+      featuredImage,
+      content,
+    });
+
+    const discoverReadinessResult = checkGoogleDiscoverReadiness({
+      title,
+      featuredImage,
+      featuredImageAlt,
+      content,
+      excerpt,
+      publishDate: existingPost?.publishDate || new Date().toISOString(),
+    });
+
     return {
       focusKeyword,
       seoTitle: seoTitle || title,
       metaDescription,
       score: Math.min(100, score),
       checks,
+      newsReadiness: newsReadinessResult.status,
+      discoverReadiness: discoverReadinessResult.status,
     };
   };
 
@@ -535,7 +578,7 @@ export const PostEditorView: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left 2 Cols: Main Editor */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Quick 1-Click Rank Math Smart Banner */}
+          {/* Quick 1-Click Editorial SEO Smart Banner */}
           <div className="rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 p-3.5 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600 text-white shadow-xs shrink-0">
@@ -543,13 +586,13 @@ export const PostEditorView: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                  <span>1-Click Rank Math SEO 95+ Auto-Populate</span>
+                  <span>1-Click Editorial SEO Assistant (Fill Missing Fields)</span>
                   <span className="rounded-full bg-purple-600 text-white px-2 py-0.2 text-[9px] font-black uppercase">
-                    AI PRO
+                    PRO
                   </span>
                 </h4>
                 <p className="text-[11px] text-slate-600">
-                  फक्त कच्चा मजकूर टाका; Focus Keyword, High-CTR शीर्षक, URL, H2/H3 सबहेडिंग्ज व मेटा टॅग्ज एका सेकंदात आपोआप भरले जातील.
+                  फक्त अपूर्ण किंवा रिकामी SEO फील्ड्स (Focus Keyword, SEO Title, Meta Description, Image Alt) आपोआप भरेल. मूळ मजकूर व प्रकाशित URL सुरक्षित राहतील.
                 </p>
               </div>
             </div>
@@ -561,7 +604,7 @@ export const PostEditorView: React.FC = () => {
               className="rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              <span>{isAutoOptimizing ? 'प्रोसेसिंग...' : 'आताच Auto-Populate करा'}</span>
+              <span>{isAutoOptimizing ? 'ऑप्टिमाइझ होत आहे...' : 'Fill Missing SEO'}</span>
             </button>
           </div>
 
@@ -980,6 +1023,7 @@ export const PostEditorView: React.FC = () => {
             categoryName={categories.find((c) => c.id === categoryId)?.name || 'महाराष्ट्र'}
             authorName={currentUser.name}
             publishDate={existingPost?.publishDate}
+            isPublished={status === 'PUBLISHED' || existingPost?.status === 'PUBLISHED'}
             onAutoPopulate={handleAutoPopulateRankMath}
           />
         </div>
