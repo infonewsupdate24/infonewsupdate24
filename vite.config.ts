@@ -16,6 +16,9 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks(id) {
+            if (id.includes('importedWordPressPosts.json')) {
+              return 'seed-posts-data';
+            }
             if (id.includes('node_modules')) {
               if (
                 id.includes('/react/') ||
