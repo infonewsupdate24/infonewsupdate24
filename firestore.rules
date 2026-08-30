@@ -1,87 +1,157 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function
+
+    // -------------------------------------------------------------
+    // Reusable RBAC & Auth Helper Functions
+    // -------------------------------------------------------------
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Posts: public read, open write
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isUserActive() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getUserData().status == 'ACTIVE');
+    }
+
+    function isSuperAdmin() {
+      return isUserActive() && (getUserData().role == 'SUPER_ADMIN');
+    }
+
+    function isAdmin() {
+      return isUserActive() && (getUserData().role == 'SUPER_ADMIN' || getUserData().role == 'ADMIN');
+    }
+
+    function isEditor() {
+      return isUserActive() && (isAdmin() || getUserData().role == 'EDITOR');
+    }
+
+    function isStaff() {
+      return isUserActive() && (
+        isEditor() ||
+        getUserData().role == 'SUB_EDITOR' ||
+        getUserData().role == 'REPORTER' ||
+        getUserData().role == 'VIDEO_REPORTER' ||
+        getUserData().role == 'PHOTOGRAPHER'
+      );
+    }
+
+    // -------------------------------------------------------------
+    // 1. POSTS (News Articles & Content)
+    // -------------------------------------------------------------
     match /posts/{postId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isStaff();
+      allow update: if isEditor() || (isStaff() && resource.data.authorId == request.auth.uid && resource.data.status != 'PUBLISHED');
+      allow delete: if isAdmin() || (isStaff() && resource.data.authorId == request.auth.uid && resource.data.status == 'DRAFT');
     }
 
-    // Static Pages (WordPress-style pages): public read, open write
+    // -------------------------------------------------------------
+    // 2. STATIC PAGES (About Us, Privacy Policy, Terms, etc.)
+    // -------------------------------------------------------------
     match /pages/{pageId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Media Library (Images, Videos, Documents): public read, open write
+    // -------------------------------------------------------------
+    // 3. MEDIA LIBRARY (Images, Videos, Audio, Documents)
+    // -------------------------------------------------------------
     match /media/{mediaId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isStaff();
+      allow update, delete: if isAdmin() || (isStaff() && resource.data.uploadedBy == request.auth.uid);
     }
 
-    // Categories and Tags: public read, open write
+    // -------------------------------------------------------------
+    // 4. TAXONOMY & SITE STRUCTURE (Categories, Tags, Menus)
+    // -------------------------------------------------------------
     match /categories/{catId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isEditor();
     }
     match /tags/{tagId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isStaff();
     }
-
-    // Navigation Menus
     match /menus/{menuId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Social Media & Reels
+    // -------------------------------------------------------------
+    // 5. SOCIAL MEDIA, REELS & TICKERS
+    // -------------------------------------------------------------
     match /social_posts/{socId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isEditor();
     }
-
-    // Comments
-    match /comments/{commentId} {
-      allow read, write: if true;
-    }
-
-    // Ad Units & AdSense
-    match /ads/{adId} {
-      allow read, write: if true;
-    }
-
-    // Breaking Tickers: public read, write open
     match /tickers/{tickerId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isStaff();
     }
 
-    // Citizen Reports: public write (submit news), public read approved
+    // -------------------------------------------------------------
+    // 6. ADVERTISEMENTS & ADSENSE
+    // -------------------------------------------------------------
+    match /ads/{adId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------
+    // 7. CITIZEN NEWS REPORTS & MERCHANT ADS (Public Submissions)
+    // -------------------------------------------------------------
     match /citizen_reports/{reportId} {
-      allow read, write: if true;
+      allow create: if true;
+      allow read, update, delete: if isStaff();
     }
-
-    // Live Polls and Votes: public read and vote
-    match /polls/{pollId} {
-      allow read, write: if true;
-    }
-
-    // Merchant Ads: public read active, booking submission
     match /merchant_ads/{adId} {
-      allow read, write: if true;
+      allow create: if true;
+      allow read: if true;
+      allow update, delete: if isAdmin();
     }
 
-    // User profiles & directory
-    match /users/{userId} {
-      allow read, write: if true;
+    // -------------------------------------------------------------
+    // 8. COMMENTS & POLLS (Reader Interactions)
+    // -------------------------------------------------------------
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isEditor();
+    }
+    match /polls/{pollId} {
+      allow read: if true;
+      allow update: if true;
+      allow create, delete: if isEditor();
     }
 
-    // Global Settings (Site Settings, Theme, SEO, AdSense, E-Paper, WhatsApp)
+    // -------------------------------------------------------------
+    // 9. GLOBAL SETTINGS (SEO, Theme, AdSense, E-Paper)
+    // -------------------------------------------------------------
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Default match for any additional collections
-    match /{document=**} {
-      allow read, write: if true;
+    // -------------------------------------------------------------
+    // 10. USER PROFILES & RBAC DIRECTORY (Anti-Privilege Escalation)
+    // -------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId && (
+        !('role' in request.resource.data) || request.resource.data.role in ['USER', 'REPORTER']
+      );
+      allow update: if isSuperAdmin() || (
+        isSignedIn() && request.auth.uid == userId &&
+        (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
+        (!('customPermissions' in request.resource.data) || request.resource.data.customPermissions == resource.data.customPermissions)
+      );
+      allow delete: if isSuperAdmin();
     }
   }
 }
