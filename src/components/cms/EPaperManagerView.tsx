@@ -29,21 +29,41 @@ import {
   BarChart3,
   TrendingUp,
 } from 'lucide-react';
+import { EPaperSyncService } from '../../services/EPaperSyncService';
 
 export const EPaperManagerView: React.FC = () => {
-  const { epaperSettings, updateEPaperSettings } = useApp();
+  const { posts, categories, ads, epaperSettings, updateEPaperSettings } = useApp();
 
   const [activeTab, setActiveTab] = useState<'editions' | 'settings' | 'analytics'>('editions');
   const [editions, setEditions] = useState<EPaperEdition[]>(INITIAL_EPAPER_EDITIONS);
   const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [newEditionDate, setNewEditionDate] = useState('2026-08-29');
-  const [newEditionDistrict, setNewEditionDistrict] = useState('pune');
+  const [newEditionDate, setNewEditionDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newEditionDistrict, setNewEditionDistrict] = useState('gadchiroli');
   const [totalPagesInput, setTotalPagesInput] = useState(6);
   const [toastMsg, setToastMsg] = useState('');
 
   // Local state for Settings form
   const [formData, setFormData] = useState<EPaperSettings>(epaperSettings);
+
+  const handleAutoPopulateAllEditions = () => {
+    const todayIso = new Date().toISOString().split('T')[0];
+    const targetDistricts = ['gadchiroli', 'nagpur', 'chandrapur', 'pune', 'mumbai', 'nashik', 'sambhajinagar'];
+    const generatedEditions: EPaperEdition[] = targetDistricts.map((distCode) => {
+      return EPaperSyncService.generateDynamicEdition(
+        posts,
+        distCode,
+        todayIso,
+        categories,
+        ads
+      );
+    });
+
+    setEditions(generatedEditions);
+    const pubCount = posts.filter((p) => p.status === 'PUBLISHED' || !p.status).length;
+    setToastMsg(`✅ सर्व ७ जिल्ह्यांचे आजचे ई-पेपर अंक ${pubCount} प्रकाशित बातम्यांमधून आपोआप तयार झाले!`);
+    setTimeout(() => setToastMsg(''), 5000);
+  };
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,14 +150,26 @@ export const EPaperManagerView: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           {activeTab === 'editions' && (
-            <button
-              type="button"
-              onClick={() => setIsUploadModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-red-200 transition-all cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>नवीन ई-पेपर अंक अपलोड करा</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleAutoPopulateAllEditions}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-emerald-200 transition-all cursor-pointer"
+                title="सर्व ७ जिल्ह्यांचे आजचे ई-पेपर अंक प्रकाशित बातम्यांमधून एका सेकंदात आपोआप तयार करा"
+              >
+                <Sparkles className="h-4 w-4 text-amber-300" />
+                <span>⚡ १-क्लिक ऑटो-पॉप्युलेट (Auto-Populate from News)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsUploadModalOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-red-200 transition-all cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>नवीन ई-पेपर अंक अपलोड करा</span>
+              </button>
+            </>
           )}
         </div>
       </div>

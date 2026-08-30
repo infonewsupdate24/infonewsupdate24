@@ -82,8 +82,16 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
     ];
   }, []);
 
+  const getTodayIso = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [selectedDistrict, setSelectedDistrict] = useState<string>('gadchiroli');
-  const [selectedDate, setSelectedDate] = useState<string>('2026-08-29');
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayIso);
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isClipModeActive, setIsClipModeActive] = useState<boolean>(false);
@@ -108,14 +116,17 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState<boolean>(false);
   const [archiveSearchQuery, setArchiveSearchQuery] = useState<string>('');
 
-  // Generate 30-day past dates list
+  // Generate 30-day past dates list dynamically from today
   const past30DaysList = useMemo(() => {
     const dates = [];
-    const base = new Date('2026-08-29');
+    const base = new Date();
     for (let i = 0; i < 30; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() - i);
-      const iso = d.toISOString().split('T')[0];
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const iso = `${year}-${month}-${day}`;
       const formattedMr = formatMarathiDate(iso);
       dates.push({
         isoDate: iso,
@@ -405,6 +416,209 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
     const height = Math.abs(cropCurrent.y - cropStart.y);
     return { left, top, width, height };
   }, [cropStart, cropCurrent]);
+
+  // 100% Dynamic Newspaper Broadsheet Renderer from Auto-Populated Articles
+  const renderDynamicPage = (page: EPaperPage) => {
+    const articles = page.articles || [];
+    const leadArticle = articles[0] || {
+      id: `fallback-lead-${page.pageNumber}`,
+      pageNumber: page.pageNumber,
+      title: `${currentDistrictName} विशेष वृत्त व महत्त्वाच्या घडामोडी`,
+      headline: `${currentDistrictName}: विकासकामे व शासकीय योजनांची अंमलबजावणी गतिमान`,
+      summary: 'जिल्ह्यातील नागरिकांसाठी महत्त्वाचे निर्णय आणि विकास प्रकल्पांना प्रशासकीय मंजुरी.',
+      category: 'मुख्य मथळा',
+      authorName: 'विशेष प्रतिनिधी',
+      location: currentDistrictName.replace('हॅलो ', ''),
+      image: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80',
+    };
+
+    const sideShorts = articles.slice(3, 6);
+    const anchorArticles = articles.slice(1, 3);
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-12 gap-4">
+          {/* Left Column: # क्विक Shorts */}
+          <div className="col-span-3 border-r-2 border-slate-300 pr-3 space-y-3.5">
+            <div className="border-b-2 border-black pb-1">
+              <span className="text-sm font-black text-white bg-slate-950 px-2 py-0.5 rounded uppercase font-sans tracking-wide">
+                # क्विक Shorts
+              </span>
+            </div>
+
+            {sideShorts.length > 0 ? (
+              sideShorts.map((shortArt, sIdx) => (
+                <div
+                  key={shortArt.id || sIdx}
+                  onClick={() => handleArticleClick(shortArt)}
+                  className="space-y-1.5 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
+                >
+                  {shortArt.image && (
+                    <img
+                      src={shortArt.image}
+                      alt=""
+                      className="w-full h-16 object-cover rounded border border-slate-300 shadow-2xs"
+                    />
+                  )}
+                  <span className="text-[10px] font-black text-red-600 block uppercase">
+                    {shortArt.category || 'स्थानिक वार्ता'}
+                  </span>
+                  <h4 className="text-xs font-black text-slate-950 leading-tight">
+                    {shortArt.headline || shortArt.title}
+                  </h4>
+                  <p className="text-[10px] text-slate-700 leading-snug line-clamp-3">
+                    <strong>{shortArt.location}:</strong> {shortArt.summary}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="text-[10px] text-slate-500 py-2">
+                स्थानिक प्रतिनिधींकडून अधिक बातम्या संकलित होत आहेत.
+              </div>
+            )}
+          </div>
+
+          {/* Right 9 cols: Lead Story & Anchor Stories */}
+          <div className="col-span-9 space-y-4">
+            {/* 🔴 LEAD STORY */}
+            <div
+              onClick={() => handleArticleClick(leadArticle)}
+              className="border-b-2 border-slate-300 pb-3 cursor-pointer hover:bg-amber-50/40 p-2 rounded transition-colors"
+            >
+              <span className="bg-red-600 text-white px-2.5 py-0.5 text-[10px] font-black uppercase rounded shadow-2xs">
+                {leadArticle.category || '🔴 मुख्य मथळा (Lead Story)'}
+              </span>
+
+              <h2 className="text-xl sm:text-2xl font-black text-slate-950 leading-tight tracking-tight mt-1.5 mb-1 font-serif">
+                {leadArticle.headline || leadArticle.title}
+              </h2>
+
+              <div className="flex flex-wrap items-center justify-between text-xs text-red-700 font-bold border-y border-slate-200 py-1 mb-2.5">
+                <span className="font-black">{leadArticle.location} : विशेष वृत्तसेवा</span>
+                <span className="text-slate-600 font-normal">बायलाईन: {leadArticle.authorName || 'विशेष प्रतिनिधी'}</span>
+              </div>
+
+              <div className="grid grid-cols-12 gap-3 items-start">
+                <div className="col-span-8 text-[11px] text-slate-800 leading-relaxed text-justify space-y-2">
+                  <p className="font-bold text-slate-950 bg-amber-50/70 p-2.5 rounded border-l-3 border-amber-500">
+                    {leadArticle.summary}
+                  </p>
+                  <p className="line-clamp-4">
+                    {leadArticle.fullBody || leadArticle.summary}
+                  </p>
+                </div>
+
+                <div className="col-span-4 space-y-2">
+                  {leadArticle.image && (
+                    <img
+                      src={leadArticle.image}
+                      alt=""
+                      className="w-full h-28 object-cover rounded border border-slate-300 shadow-2xs"
+                    />
+                  )}
+                  <div className="bg-slate-100 border-l-3 border-red-600 p-2 rounded-r text-[10px]">
+                    <Quote className="h-3 w-3 text-red-600" />
+                    <p className="italic font-serif text-slate-900 leading-snug line-clamp-2">
+                      "सविस्तर माहिती आणि ताज्या घडामोडींसाठी ई-पेपरवर क्लिक करा."
+                    </p>
+                    <span className="font-bold text-slate-700 block text-right">— {leadArticle.location} ब्युरो</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ANCHOR STORIES (2 Columns) */}
+            {anchorArticles.length > 0 && (
+              <div className="grid grid-cols-12 gap-3 border-b-2 border-slate-300 pb-3">
+                {anchorArticles.map((ancArt, aIdx) => (
+                  <div
+                    key={ancArt.id || aIdx}
+                    onClick={() => handleArticleClick(ancArt)}
+                    className={`${
+                      anchorArticles.length === 1 ? 'col-span-12' : aIdx === 0 ? 'col-span-7 border-r border-slate-300 pr-3' : 'col-span-5'
+                    } space-y-1.5 cursor-pointer hover:bg-amber-50/40 p-1.5 rounded transition-colors`}
+                  >
+                    <span className="bg-slate-900 text-white px-2 py-0.5 text-[9px] font-black uppercase rounded">
+                      {ancArt.category || 'महत्त्वाची घडामोड'}
+                    </span>
+                    {ancArt.image && (
+                      <img
+                        src={ancArt.image}
+                        alt=""
+                        className="w-full h-20 object-cover rounded border border-slate-300 shadow-2xs mt-1"
+                      />
+                    )}
+                    <h3 className="text-sm font-black text-slate-950 font-serif leading-tight">
+                      {ancArt.headline || ancArt.title}
+                    </h3>
+                    <p className="text-[10px] text-slate-800 leading-relaxed text-justify line-clamp-3">
+                      <strong>{ancArt.location}:</strong> {ancArt.summary}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CLASSIFIEDS COMMERCIAL GRID */}
+        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/90 p-3 space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+            <span className="text-xs font-black text-slate-950 flex items-center gap-1.5 uppercase font-sans">
+              <Briefcase className="h-3.5 w-3.5 text-red-600" />
+              स्थानिक वर्गीकृत वृत्तपत्रीय जाहिराती (Classifieds Commercial Grid)
+            </span>
+            <a
+              href={`https://api.whatsapp.com/send?phone=918799933629&text=${encodeURIComponent('नमस्कार, मला InfoNewsUpdate24 ई-पेपरच्या वर्गीकृत विभागात जाहिरात बुक करायची आहे.')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded shadow-2xs hover:bg-red-700 flex items-center gap-1 cursor-pointer"
+            >
+              <span>📲 येथे जाहिरात द्या (फक्त ₹२९९) &rarr;</span>
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[10px]">
+            <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
+              <strong className="text-red-700 flex items-center gap-1">
+                <HeartPulse className="h-3 w-3" /> डॉ. इंगळे हॉस्पिटल
+              </strong>
+              <p className="text-slate-700 leading-snug">
+                {currentDistrictName.replace('हॅलो ', '')}: २४ तास इमर्जन्सी व ट्रॉमा केअर सुविधा उपलब्ध.
+              </p>
+            </div>
+
+            <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
+              <strong className="text-blue-700 flex items-center gap-1">
+                <GraduationCap className="h-3 w-3" /> लक्ष्य अकॅडमी
+              </strong>
+              <p className="text-slate-700 leading-snug">
+                पोलीस भरती व स्पर्धा परीक्षा नवीन बॅच प्रवेश सुरू.
+              </p>
+            </div>
+
+            <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
+              <strong className="text-emerald-700 flex items-center gap-1">
+                <Building className="h-3 w-3" /> NA लेआउट प्लॉट विक्रीस
+              </strong>
+              <p className="text-slate-700 leading-snug">
+                हायवे टच, तात्काळ ताबा व बँक कर्ज सुविधा उपलब्ध.
+              </p>
+            </div>
+
+            <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
+              <strong className="text-purple-700 flex items-center gap-1">
+                <PhoneCall className="h-3 w-3" /> सौर कृषी पंप एजन्सी
+              </strong>
+              <p className="text-slate-700 leading-snug">
+                ९०% अनुदानावर सौर पंप बसवून मिळतील.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -721,10 +935,14 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
                     </div>
                   </div>
 
-                  {/* Calendar Date Box */}
+                  {/* Dynamic Calendar Date Box */}
                   <div className="rounded border-2 border-black bg-white px-2 py-0.5 text-center shadow-2xs">
-                    <span className="text-lg font-black text-black block leading-none">२९</span>
-                    <span className="text-[9px] font-bold text-black uppercase block">ऑगस्ट २०२६</span>
+                    <span className="text-lg font-black text-black block leading-none">
+                      {selectedDate.split('-')[2] || new Date().getDate()}
+                    </span>
+                    <span className="text-[9px] font-bold text-black uppercase block">
+                      {activeEdition.formattedDateMarathi.split(' ')[2] || 'ऑगस्ट'} {selectedDate.split('-')[0] || new Date().getFullYear()}
+                    </span>
                   </div>
 
                   {/* Iconic Red & Black 'हॅलो [जिल्हा]' Title */}
@@ -797,631 +1015,9 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
             </div>
 
             {/* ========================================================================= */}
-            {/* 3.2 DYNAMIC BROADSHEET PAGES */}
+            {/* 3.2 DYNAMIC BROADSHEET PAGES (100% AUTO-POPULATED FROM CMS POSTS) */}
             {/* ========================================================================= */}
-
-            {/* PAGE 1: मुख्य पान */}
-            {currentPageIndex === 0 && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-12 gap-4">
-                  {/* Left Column: # क्विक Shorts */}
-                  <div className="col-span-3 border-r-2 border-slate-300 pr-3 space-y-3.5">
-                    <div className="border-b-2 border-black pb-1">
-                      <span className="text-sm font-black text-white bg-slate-950 px-2 py-0.5 rounded uppercase font-sans tracking-wide">
-                        # क्विक Shorts
-                      </span>
-                    </div>
-
-                    <div
-                      onClick={() =>
-                        handleArticleClick({
-                          id: 'p1-short-1',
-                          pageNumber: 1,
-                          title: 'घरावर छापा टाकून चार हजारांची दारू जप्त',
-                          headline: 'घरावर छापा टाकून चार हजारांची दारू जप्त',
-                          summary: 'धानोरा तालुक्यातील मौजा उदेपूर येथे धाड टाकून पोलिसांनी देशी दारूच्या ४० बाटल्या जप्त केल्या आहेत.',
-                          fullBody: 'धानोरा : तालुक्यातील मौजा उदेपूर येथे धानोरा पोलिसांनी गुप्त माहितीच्या आधारे एका घरावर छापा टाकून देशी दारूच्या ४० बाटल्या आणि रोख रक्कम जप्त केली.',
-                          category: 'स्थानिक वार्ता',
-                          authorName: 'InfoNews प्रतिनिधी',
-                          location: 'धानोरा',
-                        })
-                      }
-                      className="space-y-1 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
-                    >
-                      <h4 className="text-xs font-black text-slate-950 leading-tight">
-                        घरावर छापा टाकून चार हजारांची दारू जप्त
-                      </h4>
-                      <p className="text-[10px] text-slate-700 leading-snug">
-                        <strong>धानोरा:</strong> उदेपूर येथे पोलिसांनी ४ हजारांची दारू जप्त केली.
-                      </p>
-                    </div>
-
-                    <div
-                      onClick={() =>
-                        handleArticleClick({
-                          id: 'p1-short-2',
-                          pageNumber: 1,
-                          title: 'मद्यपी चालकावर गुन्हा दाखल',
-                          headline: 'मद्यपी चालकावर गुन्हा दाखल',
-                          summary: 'गडचिरोली शहरात मद्यधुंद अवस्थेत भरधाव वेगाने वाहन चालविणाऱ्या चालकावर पोलिसांनी कडक कारवाई केली.',
-                          fullBody: 'गडचिरोली : शहरातील मुख्य रस्त्यावर दारूच्या नशेत निष्काळजीपणे चारचाकी चालवून पादचाऱ्यांच्या जीवितास धोका निर्माण करणाऱ्या एका चालकास पोलिसांनी ताब्यात घेतले.',
-                          category: 'गुन्हे वार्ता',
-                          authorName: 'InfoNews प्रतिनिधी',
-                          location: 'गडचिरोली',
-                        })
-                      }
-                      className="space-y-1 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
-                    >
-                      <span className="text-[10px] font-black text-red-600 block uppercase">गुन्हे वार्ता</span>
-                      <h4 className="text-xs font-black text-slate-950 leading-tight">
-                        मद्यपी चालकावर गुन्हा दाखल
-                      </h4>
-                      <p className="text-[10px] text-slate-700 leading-snug">
-                        <strong>गडचिरोली:</strong> भरधाव वाहन चालवणाऱ्या चालकावर कारवाई.
-                      </p>
-                    </div>
-
-                    <div
-                      onClick={() =>
-                        handleArticleClick({
-                          id: 'p1-short-3',
-                          pageNumber: 1,
-                          title: 'कर्णकर्कश हॉर्नमुळे वाढले ध्वनिप्रदूषण',
-                          headline: 'कर्णकर्कश हॉर्नमुळे वाढले ध्वनिप्रदूषण; कारवाईची मागणी',
-                          summary: 'देसाईगंज शहरातील मुख्य चौकांमध्ये कर्णकर्कश हॉर्न आणि मोडिफाइड सायलेन्सरमुळे नागरिक त्रस्त.',
-                          fullBody: 'देसाईगंज (वडसा) : शहरातील मुख्य बाजारपेठ आणि शाळा-रुग्णालय परिसरात दुचाकी व अवजड वाहनांचे कर्णकर्कश हॉर्न वाजवले जात असल्याने ध्वनिप्रदूषणात प्रचंड वाढ झाली आहे.',
-                          category: 'देसाईगंज वार्ता',
-                          authorName: 'वडसा प्रतिनिधी',
-                          location: 'देसाईगंज',
-                          image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=400&auto=format&fit=crop&q=80',
-                        })
-                      }
-                      className="space-y-1.5 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
-                    >
-                      <img
-                        src="https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=400&auto=format&fit=crop&q=80"
-                        alt=""
-                        className="w-full h-16 object-cover rounded border border-slate-300"
-                      />
-                      <h4 className="text-xs font-black text-slate-950 leading-tight">
-                        कर्णकर्कश हॉर्नमुळे वाढले ध्वनिप्रदूषण
-                      </h4>
-                      <p className="text-[10px] text-slate-700 leading-snug">
-                        <strong>देसाईगंज:</strong> वडसा मुख्य चौकात कर्णकर्कश हॉर्नवर बंदीची मागणी.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right 9 cols: Lead & Anchor */}
-                  <div className="col-span-9 space-y-4">
-                    <div
-                      onClick={() =>
-                        handleArticleClick({
-                          id: 'p1-lead',
-                          pageNumber: 1,
-                          title: 'जिल्हा रुग्णालयात रक्ताच्या एका पिशवीसाठी वृद्ध महिला ताटकळत!',
-                          headline: 'जिल्हा रुग्णालयात रक्ताच्या एका पिशवीसाठी वृद्ध महिला ताटकळत!',
-                          summary: 'रक्तपेढी व ट्रॉमा विभागात समन्वयाचा अभाव : नातेवाईक हतबल, प्रशासनाची गंभीर अनास्था समोर आल्याने तीव्र संताप.',
-                          fullBody: 'गडचिरोली : येथील शासकीय जिल्हा रुग्णालयात गंभीर अवस्थेत दाखल झालेल्या एका ७२ वर्षीय वृद्ध महिलेला रक्ताची तातडीने गरज असताना रक्तपेढी व ट्रॉमा विभागातील कर्मचाऱ्यांच्या निष्काळजीपणामुळे तब्बल पाच तास ताटकळत बसावे लागल्याचा धक्कादायक प्रकार समोर आला आहे.',
-                          category: 'InfoNews विशेष वृत्त',
-                          authorName: 'विशेष प्रतिनिधी, InfoNewsUpdate24',
-                          location: 'गडचिरोली',
-                          image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&auto=format&fit=crop&q=80',
-                        })
-                      }
-                      className="border-b-2 border-slate-300 pb-3 cursor-pointer hover:bg-amber-50/40 p-2 rounded transition-colors"
-                    >
-                      <h2 className="text-xl sm:text-2xl font-black text-slate-950 leading-tight tracking-tight mb-1 font-serif">
-                        जिल्हा रुग्णालयात रक्ताच्या एका पिशवीसाठी वृद्ध महिला ताटकळत!
-                      </h2>
-
-                      <div className="flex flex-wrap items-center justify-between text-xs text-red-700 font-bold border-y border-slate-200 py-1 mb-2.5">
-                        <span className="font-black">रक्तपेढी व ट्रॉमा विभागात समन्वयाचा अभाव</span>
-                        <span className="text-slate-600 font-normal">गडचिरोली : विशेष प्रतिनिधी</span>
-                      </div>
-
-                      <div className="grid grid-cols-12 gap-3 items-start">
-                        <div className="col-span-8 text-[11px] text-slate-800 leading-relaxed text-justify space-y-1.5">
-                          <p>
-                            <strong>गडचिरोली:</strong> शासकीय जिल्हा रुग्णालयात तातडीच्या उपचारासाठी दाखल वृद्ध महिलेला रक्ताची पिशवी वेळेत न मिळाल्याने नातेवाईकांना ५ तास मनस्ताप सहन करावा लागला.
-                          </p>
-                          <p>
-                            प्रशासनाच्या समन्वयाच्या अभावामुळे रुग्णांचे हाल होत असल्याची तीव्र प्रतिक्रिया नागरिकांमधून व्यक्त होत आहे.
-                          </p>
-                        </div>
-
-                        <div className="col-span-4 space-y-2">
-                          <img
-                            src="https://images.unsplash.com/photo-1516549655169-df83a0774514?w=400&auto=format&fit=crop&q=80"
-                            alt=""
-                            className="w-full h-24 object-cover rounded border border-slate-300 shadow-2xs"
-                          />
-                          <div className="bg-slate-100 border-l-3 border-red-600 p-2 rounded-r text-[10px]">
-                            <Quote className="h-3 w-3 text-red-600" />
-                            <p className="italic font-serif text-slate-900 leading-snug">
-                              "या प्रकरणाची चौकशी सुरू असून दोषींवर कारवाई केली जाईल."
-                            </p>
-                            <span className="font-bold text-slate-700 block text-right">— जिल्हा शल्यचिकित्सक</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Anchor & Sports */}
-                    <div className="grid grid-cols-12 gap-3 border-b-2 border-slate-300 pb-3">
-                      <div
-                        onClick={() =>
-                          handleArticleClick({
-                            id: 'p1-anchor-meter',
-                            pageNumber: 1,
-                            title: '‘स्मार्ट’ धक्का: बिल थकले की आता वीज होणार गुल!',
-                            headline: '‘स्मार्ट’ धक्का: बिल थकले की आता वीज होणार गुल!',
-                            summary: 'दोन लाख मीटर सर्किटला जोडले : थकबाकीदार ग्राहकांची वाढली अडचण, महावितरणची मोहीम गतिमान.',
-                            fullBody: 'गडचिरोली : महावितरणच्या वतीने संपूर्ण जिल्ह्यात ‘स्मार्ट प्री-पेड मीटर’ बसविण्याचे काम वेगाने पूर्ण झाले असून आता बिल थकल्यास थेट सिस्टीममधून वीज आपोआप खंडित होण्यास सुरुवात झाली आहे.',
-                            category: 'InfoNews विशेष वृत्त',
-                            authorName: 'विशेष प्रतिनिधी',
-                            location: 'गडचिरोली',
-                            image: 'https://images.unsplash.com/photo-1558441719-8b489c634a1b?w=600&auto=format&fit=crop&q=80',
-                          })
-                        }
-                        className="col-span-7 border-r border-slate-300 pr-3 space-y-1.5 cursor-pointer hover:bg-amber-50/40 p-1 rounded"
-                      >
-                        <span className="bg-red-600 text-white px-2 py-0.5 text-[10px] font-black uppercase rounded">
-                          विशेष शोध बातमी
-                        </span>
-                        <h3 className="text-base font-black text-slate-950 font-serif">
-                          ‘स्मार्ट’ धक्का: बिल थकले की आता वीज होणार गुल!
-                        </h3>
-                        <p className="text-[10px] text-slate-800 leading-relaxed text-justify">
-                          महावितरणतर्फे सुरू असलेल्या स्मार्ट मीटर मोहिमेत बिल थकल्यास सिस्टीमद्वारे वीज स्वयंचलित खंडित केली जात आहे.
-                        </p>
-                      </div>
-
-                      <div
-                        onClick={() =>
-                          handleArticleClick({
-                            id: 'p1-rakhi',
-                            pageNumber: 1,
-                            title: 'बंध प्रेमाचा... जपला राखीच्या धाग्यात !',
-                            headline: 'बंध प्रेमाचा... जपला राखीच्या धाग्यात !',
-                            summary: 'रक्षाबंधनानिमित्त बहीण-भावाच्या नात्याचा गोडवा; गडचिरोलीत उत्साहाचे वातावरण.',
-                            fullBody: 'गडचिरोली : श्रावण पौर्णिमेच्या पावन पर्वावर रक्षाबंधनाचा सण संपूर्ण जिल्ह्यात मोठ्या उत्साहात साजरा झाला.',
-                            category: 'सण व उत्सव',
-                            authorName: 'विशेष वार्ताहर',
-                            location: 'गडचिरोली',
-                            image: 'https://images.unsplash.com/photo-1629853381442-99cb633519b7?w=600&auto=format&fit=crop&q=80',
-                          })
-                        }
-                        className="col-span-5 space-y-1 cursor-pointer hover:bg-amber-50/40 p-1 rounded"
-                      >
-                        <img
-                          src="https://images.unsplash.com/photo-1629853381442-99cb633519b7?w=600&auto=format&fit=crop&q=80"
-                          alt=""
-                          className="w-full h-24 object-cover rounded border border-slate-300 shadow-2xs"
-                        />
-                        <h4 className="text-xs font-black text-slate-950">बंध प्रेमाचा... जपला राखीच्या धाग्यात !</h4>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ========================================================================= */}
-                {/* OPTION 4: AUTHENTIC NEWSPAPER CLASSIFIEDS GRID (वर्गीकृत जाहिराती) */}
-                {/* ========================================================================= */}
-                <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/90 p-3 space-y-2">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                    <span className="text-xs font-black text-slate-950 flex items-center gap-1.5 uppercase font-sans">
-                      <Briefcase className="h-3.5 w-3.5 text-red-600" />
-                      स्थानिक वर्गीकृत वृत्तपत्रीय जाहिराती (Classifieds Commercial Grid)
-                    </span>
-                    <a
-                      href={`https://api.whatsapp.com/send?phone=918799933629&text=${encodeURIComponent('नमस्कार, मला InfoNewsUpdate24 ई-पेपरच्या वर्गीकृत विभागात जाहिरात बुक करायची आहे.')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded shadow-2xs hover:bg-red-700 flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>📲 येथे जाहिरात द्या (फक्त ₹२९९) &rarr;</span>
-                    </a>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[10px]">
-                    <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
-                      <strong className="text-red-700 flex items-center gap-1">
-                        <HeartPulse className="h-3 w-3" /> डॉ. इंगळे हॉस्पिटल
-                      </strong>
-                      <p className="text-slate-700 leading-snug">
-                        गडचिरोली: २४ तास इमर्जन्सी व ट्रॉमा केअर सुविधा उपलब्ध. संपर्क: ९८XXXXXXXX
-                      </p>
-                    </div>
-
-                    <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
-                      <strong className="text-blue-700 flex items-center gap-1">
-                        <GraduationCap className="h-3 w-3" /> लक्ष्य अकॅडमी गडचिरोली
-                      </strong>
-                      <p className="text-slate-700 leading-snug">
-                        पोलीस भरती व MPSC नवीन बॅच प्रवेश सुरू. संपर्क: ९४XXXXXXXX
-                      </p>
-                    </div>
-
-                    <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
-                      <strong className="text-emerald-700 flex items-center gap-1">
-                        <Building className="h-3 w-3" /> NA लेआउट प्लॉट विक्रीस
-                      </strong>
-                      <p className="text-slate-700 leading-snug">
-                        आरमोरी हायवे टच, तात्काळ ताबा व बँक कर्ज सुविधा. संपर्क: ९९XXXXXXXX
-                      </p>
-                    </div>
-
-                    <div className="bg-white p-2 rounded border border-slate-200 shadow-2xs space-y-1">
-                      <strong className="text-purple-700 flex items-center gap-1">
-                        <PhoneCall className="h-3 w-3" /> सौर कृषी पंप एजन्सी
-                      </strong>
-                      <p className="text-slate-700 leading-snug">
-                        ९०% अनुदानावर सौर पंप बसवून मिळतील. संपर्क: ९७XXXXXXXX
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 2: महाराष्ट्र व शासन निर्णय */}
-            {currentPageIndex === 1 && (
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-3 border-r-2 border-slate-300 pr-3 space-y-3.5">
-                  <div className="border-b-2 border-red-600 pb-1">
-                    <span className="text-sm font-black text-white bg-red-700 px-2 py-0.5 rounded uppercase font-sans">
-                      # राज्य घडामोडी
-                    </span>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p2-short-1',
-                        pageNumber: 2,
-                        title: 'पोलीस भरती अंतिम गुणवत्ता यादी जाहीर',
-                        headline: 'पोलीस भरती अंतिम गुणवत्ता यादी जाहीर; उमेदवारांमध्ये उत्साह',
-                        summary: 'राज्यातील १७,००० पोलीस शिपाई पदांच्या भरती प्रक्रियेचा निकाल प्रसिद्ध.',
-                        fullBody: 'मुंबई : गृह विभागामार्फत राबविण्यात आलेल्या १७ हजार ४७१ पोलीस शिपाई व चालक पदांच्या भरतीचा अंतिम निकाल जाहीर करण्यात आला आहे.',
-                        category: 'भरती व नोकरी',
-                        authorName: 'मुंबई ब्युरो',
-                        location: 'मुंबई',
-                      })
-                    }
-                    className="space-y-1 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
-                  >
-                    <h4 className="text-xs font-black text-slate-950">पोलीस भरती अंतिम गुणवत्ता यादी जाहीर</h4>
-                    <p className="text-[10px] text-slate-700">१७,००० पदांचा निकाल अधिकृत पोर्टलवर प्रसिद्ध.</p>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p2-short-2',
-                        pageNumber: 2,
-                        title: 'एसटी महामंडळाच्या ताफ्यात ५०० नवीन बसेस',
-                        headline: 'एसटीच्या ताफ्यात ५०० नव्या पर्यावरणपूरक बसेस दाखल',
-                        summary: 'ग्रामीण भागातील प्रवाशांच्या सोयीसाठी राज्य परिवहन महामंडळाचा मोठा निर्णय.',
-                        fullBody: 'पुणे : एसटी महामंडळाच्या ताफ्यात ५०० नव्या बसेस दाखल झाल्या असून ग्रामीण मार्गांवर फेऱ्या वाढविल्या जाणार आहेत.',
-                        category: 'परिवहन विशेष',
-                        authorName: 'पुणे प्रतिनिधी',
-                        location: 'पुणे',
-                      })
-                    }
-                    className="space-y-1 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
-                  >
-                    <h4 className="text-xs font-black text-slate-950">एसटीच्या ताफ्यात ५०० नवीन बसेस</h4>
-                    <p className="text-[10px] text-slate-700">ग्रामीण भागातील प्रवाशांना दिलासा.</p>
-                  </div>
-                </div>
-
-                <div className="col-span-9 space-y-4">
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p2-lead-ladki-bahin',
-                        pageNumber: 2,
-                        title: 'मुख्यमंत्री माझी लाडकी बहीण योजना: पुढील हप्ता थेट खात्यात जमा',
-                        headline: 'मुख्यमंत्री माझी लाडकी बहीण योजना: पुढील हप्ता थेट बँक खात्यात वर्ग सुरू!',
-                        summary: 'राज्यातील १.८ कोटी पात्र महिलांच्या खात्यात प्रत्येकी ₹१,५०० जमा.',
-                        fullBody: 'मुंबई : राज्य शासनाच्या महत्त्वाकांक्षी ‘मुख्यमंत्री माझी लाडकी बहीण योजने’चा पुढील हप्ता थेट लाभ हस्तांतरणाद्वारे (DBT) महिलांच्या आधार लिंक बँक खात्यात वर्ग करण्यास सुरुवात झाली आहे.',
-                        category: 'महाराष्ट्र विशेष',
-                        authorName: 'मंत्रालय प्रतिनिधी',
-                        location: 'मुंबई',
-                        image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&auto=format&fit=crop&q=80',
-                      })
-                    }
-                    className="border-b-2 border-slate-300 pb-3 cursor-pointer hover:bg-amber-50/40 p-2 rounded transition-colors"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-red-600 text-white px-2 py-0.5 text-[10px] font-black uppercase rounded">
-                        मंत्रिमंडळ निर्णय
-                      </span>
-                      <span className="text-xs font-bold text-red-700">१.८ कोटी महिलांना लाभ</span>
-                    </div>
-
-                    <h2 className="text-xl sm:text-2xl font-black text-slate-950 font-serif leading-tight">
-                      मुख्यमंत्री माझी लाडकी बहीण योजना: पुढील हप्ता थेट बँक खात्यात वर्ग सुरू!
-                    </h2>
-
-                    <div className="grid grid-cols-12 gap-3 items-start mt-2">
-                      <div className="col-span-8 text-[11px] text-slate-800 leading-relaxed text-justify space-y-2">
-                        <p>
-                          <strong>मुंबई:</strong> शासनाच्या कल्याणकारी योजनेचा लाभ थेट महिलांच्या बँक खात्यात जमा होत असून जिल्हास्तरावर तक्रार निवारण कक्ष स्थापन करण्यात आले आहेत.
-                        </p>
-                      </div>
-
-                      <div className="col-span-4">
-                        <img
-                          src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80"
-                          alt=""
-                          className="w-full h-24 object-cover rounded border border-slate-300 shadow-2xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 3: लोकमंथन व संपादकीय */}
-            {currentPageIndex === 2 && (
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-7 border-r-2 border-slate-300 pr-3 space-y-3">
-                  <div className="border-b-2 border-black pb-1 flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-950 flex items-center gap-1 font-serif">
-                      <PenTool className="h-4 w-4 text-red-600" />
-                      आजचा अग्रलेख (Editorial)
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-bold">InfoNewsUpdate24 विचारमंथन</span>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p3-editorial-main',
-                        pageNumber: 3,
-                        title: 'अग्रलेख: विकासाची नवी पहाट आणि सर्वसामान्यांचे मूलभूत प्रश्न',
-                        headline: 'अग्रलेख: विकासाची नवी पहाट आणि सर्वसामान्यांचे मूलभूत प्रश्न',
-                        summary: 'औद्योगिक क्रांती आणि वनसंपदेचे संवर्धन यांचा योग्य समतोल साधत स्थानिक तरुणांना रोजगार देणे हीच खरी प्रगती ठरेल.',
-                        fullBody: 'गडचिरोली व विदर्भाचा सर्वांगीण विकास साधत असताना स्थानिक आदिवासी बांधवांचे हक्क, पर्यावरण आणि रोजगार या तिन्ही घटकांचा समतोल राखणे काळाची गरज आहे.',
-                        category: 'संपादकीय अग्रलेख',
-                        authorName: 'मुख्य संपादक, InfoNewsUpdate24',
-                        location: 'गडचिरोली',
-                      })
-                    }
-                    className="space-y-2 cursor-pointer hover:bg-amber-50/40 p-2 rounded transition-colors"
-                  >
-                    <h2 className="text-lg sm:text-xl font-black text-slate-950 font-serif leading-snug">
-                      विकासाची नवी पहाट आणि सर्वसामान्यांचे मूलभूत प्रश्न
-                    </h2>
-                    <p className="text-[11px] text-slate-800 leading-relaxed text-justify">
-                      विदर्भाच्या समृद्ध वनसंपदा आणि खनिज संपत्तीचा लाभ स्थानिक जनतेला मिळायला हवा. आरोग्य, शिक्षण आणि सिंचन या मूलभूत सुविधांवर भर देणे गरजेचे आहे.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="col-span-5 space-y-3">
-                  <div className="border border-slate-300 rounded p-2 bg-slate-50 text-center space-y-1">
-                    <span className="text-[10px] font-black uppercase text-red-600 block">
-                      🎨 व्यंगचित्र कोपरा (Cartoon of the Day)
-                    </span>
-                    <img
-                      src="https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&auto=format&fit=crop&q=80"
-                      alt=""
-                      className="w-full h-28 object-cover rounded border border-slate-200 shadow-2xs"
-                    />
-                    <p className="text-[9px] text-slate-600 italic">"स्मार्ट मीटरचा करंट आणि वीजबिलाचा शॉक!"</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 4: अर्थविश्व व कृषी */}
-            {currentPageIndex === 3 && (
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-7 border-r-2 border-slate-300 pr-3 space-y-3">
-                  <div className="border-b-2 border-emerald-600 pb-1">
-                    <span className="text-sm font-black text-white bg-emerald-700 px-2 py-0.5 rounded uppercase font-sans">
-                      🌾 कृषी पंढरी
-                    </span>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p4-agri-lead',
-                        pageNumber: 4,
-                        title: 'सोयाबीन व कापूस हमीभावात वाढ; खरेदी केंद्रांवर टोकन पद्धत',
-                        headline: 'सोयाबीन व कापूस हमीभावात भरघोस वाढ; खरेदी केंद्रांवर टोकन पद्धत लागू!',
-                        summary: 'शेतकऱ्यांना हमीभावापेक्षा कमी दरात माल विकावा लागणार नाही.',
-                        fullBody: 'गडचिरोली : खरीप हंगामातील सोयाबीन, कापूस व धानाच्या खरेदीसाठी जिल्हाभरात ५० हून अधिक शासकीय खरेदी केंद्रे सुरू करण्यात आली आहेत.',
-                        category: 'कृषी बाजारभाव',
-                        authorName: 'कृषी प्रतिनिधी',
-                        location: 'गडचिरोली',
-                      })
-                    }
-                    className="space-y-1.5 cursor-pointer hover:bg-amber-50/40 p-2 rounded"
-                  >
-                    <h2 className="text-lg sm:text-xl font-black text-slate-950 font-serif">
-                      सोयाबीन व कापूस हमीभावात भरघोस वाढ; खरेदी केंद्रांवर टोकन पद्धत!
-                    </h2>
-                    <p className="text-[11px] text-slate-800 leading-relaxed text-justify">
-                      शेतकऱ्यांच्या सोयीसाठी यंदा ऑनलाईन टोकन प्रणाली सुरू करण्यात आली असून खात्यावर ४८ तासांत थेट रक्कम जमा होईल.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="col-span-5 space-y-3">
-                  <div className="border border-slate-300 rounded-lg overflow-hidden shadow-2xs">
-                    <div className="bg-emerald-700 text-white p-1.5 text-xs font-black uppercase text-center">
-                      📊 APMC कृषी बाजारभाव दरपत्रक (प्रति क्विंटल)
-                    </div>
-                    <table className="w-full text-[10px] text-left">
-                      <thead className="bg-slate-100 border-b border-slate-300 text-slate-800 font-bold">
-                        <tr>
-                          <th className="p-1.5">शेतमाल</th>
-                          <th className="p-1.5">किमान दर</th>
-                          <th className="p-1.5">कमाल दर</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        <tr>
-                          <td className="p-1.5 font-bold text-slate-900">सोयाबीन</td>
-                          <td className="p-1.5">₹४,३००</td>
-                          <td className="p-1.5 font-bold text-emerald-700">₹४,८५०</td>
-                        </tr>
-                        <tr>
-                          <td className="p-1.5 font-bold text-slate-900">कापूस</td>
-                          <td className="p-1.5">₹७,१००</td>
-                          <td className="p-1.5 font-bold text-emerald-700">₹७,७५०</td>
-                        </tr>
-                        <tr>
-                          <td className="p-1.5 font-bold text-slate-900">तूर</td>
-                          <td className="p-1.5">₹९,५००</td>
-                          <td className="p-1.5 font-bold text-emerald-700">₹१०,४००</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 5: क्रीडा व मनोरंजन */}
-            {currentPageIndex === 4 && (
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-8 border-r-2 border-slate-300 pr-3 space-y-3">
-                  <div className="border-b-2 border-blue-600 pb-1">
-                    <span className="text-sm font-black text-white bg-blue-700 px-2 py-0.5 rounded uppercase font-sans">
-                      🏆 क्रीडाविश्व
-                    </span>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p5-sports-lead',
-                        pageNumber: 5,
-                        title: 'आशियाई क्रीडा स्पर्धेत महाराष्ट्राच्या खेळाडूंचे ऐतिहासिक सुवर्णयश',
-                        headline: 'आशियाई क्रीडा स्पर्धा: महाराष्ट्राच्या खेळाडूंचे ऐतिहासिक सुवर्णयश!',
-                        summary: 'धनुर्विद्या व ऍथलेटिक्समध्ये भारताचा डंका; पदक विजेत्या खेळाडूंचे स्वागत.',
-                        fullBody: 'नवी दिल्ली : आंतरराष्ट्रीय आशियाई क्रीडा स्पर्धेत भारतीय चमूने ऐतिहासिक कामगिरी करत विक्रमी पदके जिंकली आहेत.',
-                        category: 'क्रीडा विशेष',
-                        authorName: 'क्रीडा प्रतिनिधी',
-                        location: 'नवी दिल्ली',
-                        image: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&auto=format&fit=crop&q=80',
-                      })
-                    }
-                    className="space-y-2 cursor-pointer hover:bg-amber-50/40 p-2 rounded transition-colors"
-                  >
-                    <h2 className="text-lg sm:text-xl font-black text-slate-950 font-serif">
-                      आशियाई क्रीडा स्पर्धा: महाराष्ट्राच्या खेळाडूंचे ऐतिहासिक सुवर्णयश!
-                    </h2>
-                    <img
-                      src="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=600&auto=format&fit=crop&q=80"
-                      alt=""
-                      className="w-full h-36 object-cover rounded border border-slate-300 shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="col-span-4 space-y-3">
-                  <div className="border-b-2 border-purple-600 pb-1">
-                    <span className="text-sm font-black text-white bg-purple-700 px-2 py-0.5 rounded uppercase font-sans">
-                      🎬 सिनेरंग
-                    </span>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p5-cinema-1',
-                        pageNumber: 5,
-                        title: 'राष्ट्रीय चित्रपट महोत्सवात मराठी चित्रपटांचा गौरव',
-                        headline: 'राष्ट्रीय चित्रपट महोत्सव: मराठी चित्रपटांनी पटकावले मानाचे पुरस्कार',
-                        summary: 'ग्रामीण जीवन व संस्कृतीवर आधारित चित्रपटांचे कौतुक.',
-                        fullBody: 'मुंबई : यंदाच्या राष्ट्रीय चित्रपट पुरस्कार सोहळ्यात मराठी चित्रपटांनी आपली छाप पाडली.',
-                        category: 'सिनेमा व मनोरंजन',
-                        authorName: 'मनोरंजन वार्ताहर',
-                        location: 'मुंबई',
-                      })
-                    }
-                    className="space-y-1.5 cursor-pointer hover:bg-amber-50/40 p-1 rounded"
-                  >
-                    <img
-                      src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&auto=format&fit=crop&q=80"
-                      alt=""
-                      className="w-full h-24 object-cover rounded border border-slate-300 shadow-2xs"
-                    />
-                    <h3 className="text-xs font-black text-slate-950">राष्ट्रीय चित्रपट महोत्सवात मराठी चित्रपटांचा गौरव</h3>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 6: देश-विदेश */}
-            {currentPageIndex === 5 && (
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-8 border-r-2 border-slate-300 pr-3 space-y-3">
-                  <div className="border-b-2 border-slate-950 pb-1">
-                    <span className="text-sm font-black text-white bg-slate-950 px-2 py-0.5 rounded uppercase font-sans">
-                      🌐 देश-विदेश
-                    </span>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p6-isro-lead',
-                        pageNumber: 6,
-                        title: 'इस्रोची ऐतिहासिक भरारी: नव्या उपग्रहाचे यशस्वी प्रक्षेपण',
-                        headline: 'इस्रोची ऐतिहासिक भरारी: आधुनिक उपग्रह यशस्वीरीत्या कक्षेत स्थापित!',
-                        summary: 'हवामान अंदाज आणि आपत्ती व्यवस्थापन क्षेत्रात भारताची प्रगती.',
-                        fullBody: 'श्रीहरिकोटा : भारतीय अंतराळ संशोधन संस्थेने (ISRO) पीएसएलव्ही रॉकेटच्या साहाय्याने अत्याधुनिक उपग्रहाचे यशस्वी प्रक्षेपण केले.',
-                        category: 'राष्ट्रीय विज्ञान',
-                        authorName: 'विशेष प्रतिनिधी',
-                        location: 'श्रीहरिकोटा',
-                        image: 'https://images.unsplash.com/photo-1517976487507-5b6533d8465c?w=800&auto=format&fit=crop&q=80',
-                      })
-                    }
-                    className="space-y-2 cursor-pointer hover:bg-amber-50/40 p-2 rounded transition-colors"
-                  >
-                    <h2 className="text-lg sm:text-xl font-black text-slate-950 font-serif">
-                      इस्रोची ऐतिहासिक भरारी: आधुनिक उपग्रह यशस्वीरीत्या कक्षेत स्थापित!
-                    </h2>
-                    <img
-                      src="https://images.unsplash.com/photo-1517976487507-5b6533d8465c?w=600&auto=format&fit=crop&q=80"
-                      alt=""
-                      className="w-full h-36 object-cover rounded border border-slate-300 shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="col-span-4 space-y-3">
-                  <div
-                    onClick={() =>
-                      handleArticleClick({
-                        id: 'p6-defense-1',
-                        pageNumber: 6,
-                        title: 'संरक्षण दलांच्या ताफ्यात स्वदेशी क्षेपणास्त्रांचा समावेश',
-                        headline: 'संरक्षण दलांच्या ताफ्यात नवीन स्वदेशी क्षेपणास्त्रांचा समावेश',
-                        summary: 'DRDO चे मोठे यश.',
-                        fullBody: 'नवी दिल्ली : भारतीय सैन्यात स्वदेशी क्षेपणास्त्रे दाखल झाली आहेत.',
-                        category: 'संरक्षण वार्ता',
-                        authorName: 'राष्ट्रीय प्रतिनिधी',
-                        location: 'नवी दिल्ली',
-                      })
-                    }
-                    className="space-y-1.5 cursor-pointer hover:bg-amber-50/40 p-1 rounded"
-                  >
-                    <h3 className="text-xs font-black text-slate-950">संरक्षण दलांच्या ताफ्यात स्वदेशी क्षेपणास्त्रांचा समावेश</h3>
-                    <p className="text-[10px] text-slate-700">सीमावर्ती भागात सुरक्षा यंत्रणा अधिक सतर्क.</p>
-                  </div>
-                </div>
-              </div>
-            )}
+            {renderDynamicPage(currentPage)}
 
             {/* 3.3 BOTTOM CMYK REGISTRATION MARKS & PRINT FOOTER */}
             <div className="mt-4 border-t-2 border-black pt-2 flex flex-wrap items-center justify-between text-[10px] font-sans font-bold text-slate-700">
