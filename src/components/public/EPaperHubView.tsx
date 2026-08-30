@@ -100,8 +100,6 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
   const [copyToast, setCopyToast] = useState<string>('');
   const [isSpeakingClip, setIsSpeakingClip] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [isGeneratingFullPdf, setIsGeneratingFullPdf] = useState<boolean>(false);
-  const [pdfProgressMsg, setPdfProgressMsg] = useState<string>('');
 
   // =========================================================================
   // OPTION 2: VISUAL DRAG-AND-CROP INTERACTION STATE
@@ -280,69 +278,9 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
   };
 
   const handlePrint = () => {
+    setCopyToast('🖨️ प्रिंट व PDF सेव्ह विंडो उघडत आहे (सर्व ६ पाने)...');
+    setTimeout(() => setCopyToast(''), 3000);
     window.print();
-  };
-
-  const handleDownloadFullEditionPdf = async () => {
-    if (isGeneratingFullPdf) return;
-    try {
-      setIsGeneratingFullPdf(true);
-      setPdfProgressMsg('📄 PDF इंजिन सुरू होत आहे...');
-      // Allow state update to render active DOM nodes
-      await new Promise((r) => setTimeout(r, 350));
-
-      const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      const totalPages = activeEdition.pages.length;
-
-      for (let i = 0; i < totalPages; i++) {
-        setPdfProgressMsg(`📄 पान ${i + 1}/${totalPages} कॅप्चर होत आहे...`);
-        const pageEl = document.getElementById(`epaper-page-print-${i}`);
-        if (pageEl) {
-          try {
-            const canvas = await html2canvas(pageEl, {
-              scale: 1.5,
-              useCORS: true,
-              allowTaint: false,
-              backgroundColor: '#ffffff',
-              logging: false,
-              imageTimeout: 6000,
-              windowWidth: 1050,
-            });
-
-            const imgData = canvas.toDataURL('image/jpeg', 0.85);
-            if (i > 0) {
-              pdf.addPage('a4', 'p');
-            }
-            pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-          } catch (pageErr) {
-            console.warn(`Error capturing page ${i + 1}:`, pageErr);
-          }
-        }
-      }
-
-      setPdfProgressMsg('💾 सर्व ६ पाने एकत्रित PDF मध्ये सेव्ह होत आहेत...');
-      const cleanDist = currentDistrictName.replace('हॅलो ', '');
-      pdf.save(`InfoNewsUpdate24_EPaper_${cleanDist}_${selectedDate}_All6Pages.pdf`);
-
-      setCopyToast(`✅ संपूर्ण ${totalPages} पानांची एकत्रित PDF यशस्वीरीत्या डाऊनलोड झाली!`);
-      setTimeout(() => setCopyToast(''), 4500);
-    } catch (err) {
-      console.error('Error generating multi-page PDF:', err);
-      setCopyToast('⚠️ थेट प्रिंट विंडो उघडत आहे...');
-      window.print();
-    } finally {
-      setIsGeneratingFullPdf(false);
-      setPdfProgressMsg('');
-    }
   };
 
   const handleDownloadPagePdf = () => {
@@ -910,16 +848,15 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
               <span>{isClipModeActive ? '✂️ कात्रण ओढा (Active)' : 'कात्रण कापा (Crop)'}</span>
             </button>
 
-            {/* 📥 1-Click Full 6-Page Unified PDF Download Button */}
+            {/* 🖨️ Print & Save All 6 Pages Button (Native Browser Multi-Page PDF) */}
             <button
               type="button"
-              disabled={isGeneratingFullPdf}
-              onClick={handleDownloadFullEditionPdf}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white px-3.5 py-1.5 text-xs font-black shadow-md shadow-red-900/40 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-              title="सर्व ६ पानांची एकत्रित PDF डाऊनलोड करा (Full 6-Page Newspaper PDF)"
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white px-3.5 py-1.5 text-xs font-black shadow-md shadow-red-900/40 transition-all active:scale-95 cursor-pointer"
+              title="सर्व ६ पाने PDF स्वरूपात सेव्ह करा किंवा थेट प्रिंट करा"
             >
-              <Download className={`h-3.5 w-3.5 ${isGeneratingFullPdf ? 'animate-spin text-amber-300' : 'text-amber-300 animate-bounce'}`} />
-              <span>{isGeneratingFullPdf ? (pdfProgressMsg || 'PDF तयार होत आहे...') : '📥 संपूर्ण अंक (All 6 Pages PDF)'}</span>
+              <Printer className="h-4 w-4 text-amber-300" />
+              <span>🖨️ प्रिंट / PDF सेव्ह करा</span>
             </button>
 
             {/* 🖼️ High-Res Image Download Button */}
@@ -931,17 +868,6 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
             >
               <ImageIcon className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">इमेज (JPG)</span>
-            </button>
-
-            {/* 🖨️ Print All 6 Pages Button (Native Browser Multi-Page PDF) */}
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 hover:text-white px-3 py-1.5 text-xs font-bold shadow-xs transition-colors cursor-pointer"
-              title="ब्राउझरच्या प्रिंट इंजिनने सर्व ६ पाने PDF सेव्ह करा"
-            >
-              <Printer className="h-3.5 w-3.5 text-amber-400" />
-              <span className="hidden sm:inline">प्रिंट / सेव्ह</span>
             </button>
 
             {/* 📥 Single A4 Page PDF Download Button */}
@@ -1611,45 +1537,10 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
         </div>
       )}
 
-      {/* 📄 FULL 6-PAGE PDF EXPORT MODAL / OVERLAY */}
-      {isGeneratingFullPdf && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md text-white p-4">
-          <div className="bg-slate-900 border border-red-600/50 p-6 rounded-2xl max-w-md w-full shadow-2xl text-center space-y-4">
-            <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30">
-              <Download className="h-8 w-8 animate-bounce text-red-500" />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-white">संपूर्ण ६ पानांची PDF तयार होत आहे...</h3>
-              <p className="text-xs text-amber-400 font-bold mt-1 font-mono">{pdfProgressMsg || 'कृपया काही सेकंद प्रतीक्षा करा...'}</p>
-            </div>
-            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-              <div className="bg-gradient-to-r from-red-600 to-amber-500 h-2 rounded-full animate-pulse w-full"></div>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              सर्व ६ पानांचे हाय-डेफिनिशन वृत्तपत्र एकत्र करून डाऊनलोड केले जात आहे.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* 🖨️ MULTI-PAGE PRINT & PDF CONTAINER (Active in Print & PDF Mode) */}
       <div
         id="epaper-multi-page-print-container"
-        style={
-          isGeneratingFullPdf
-            ? {
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '1000px',
-                zIndex: -50,
-                opacity: 1,
-                pointerEvents: 'none',
-                background: '#ffffff',
-              }
-            : undefined
-        }
-        className={isGeneratingFullPdf ? '' : 'hidden print:block'}
+        className="hidden print:block"
       >
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
