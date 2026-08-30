@@ -299,25 +299,20 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
       });
 
       const totalPages = activeEdition.pages.length;
-      const initialPage = currentPageIndex;
 
       for (let i = 0; i < totalPages; i++) {
-        setPdfProgressMsg(`📄 पान ${i + 1}/${totalPages} तयार होत आहे...`);
-        setCurrentPageIndex(i);
-        // Wait for state render tick
-        await new Promise((r) => setTimeout(r, 450));
-
-        const canvasElement = document.getElementById('epaper-canvas-main');
-        if (canvasElement) {
-          const canvas = await html2canvas(canvasElement, {
-            scale: 2,
+        setPdfProgressMsg(`📄 पान ${i + 1}/${totalPages} कॅप्चर होत आहे...`);
+        const pageEl = document.getElementById(`epaper-page-print-${i}`);
+        if (pageEl) {
+          const canvas = await html2canvas(pageEl, {
+            scale: 1.8,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
           });
 
-          const imgData = canvas.toDataURL('image/jpeg', 0.92);
+          const imgData = canvas.toDataURL('image/jpeg', 0.88);
           if (i > 0) {
             pdf.addPage('a4', 'p');
           }
@@ -325,10 +320,7 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
         }
       }
 
-      // Restore initial page
-      setCurrentPageIndex(initialPage);
-
-      setPdfProgressMsg('💾 PDF फाईल सेव्ह होत आहे...');
+      setPdfProgressMsg('💾 सर्व ६ पाने एकत्रित सेव्ह होत आहेत...');
       const cleanDist = currentDistrictName.replace('हॅलो ', '');
       pdf.save(`InfoNewsUpdate24_EPaper_${cleanDist}_${selectedDate}_All6Pages.pdf`);
 
@@ -336,7 +328,7 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
       setTimeout(() => setCopyToast(''), 4500);
     } catch (err) {
       console.error('Error generating multi-page PDF:', err);
-      setCopyToast('⚠️ प्रिंट व डाऊनलोड विंडो उघडत आहे...');
+      setCopyToast('⚠️ थेट प्रिंट विंडो उघडत आहे...');
       window.print();
     } finally {
       setIsGeneratingFullPdf(false);
@@ -677,6 +669,122 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
                 ९०% अनुदानावर सौर पंप बसवून मिळतील.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Full Multi-Page Printable BroadSheet Renderer for guaranteed 6-Page PDF Generation
+  const renderFullBroadsheetPage = (page: EPaperPage, pageIdx: number) => {
+    return (
+      <div
+        id={`epaper-page-print-${pageIdx}`}
+        key={page.id || pageIdx}
+        className="w-[1000px] min-h-[1420px] bg-white text-slate-900 p-8 font-serif text-left select-none relative mb-12 shadow-2xl"
+        style={{ boxSizing: 'border-box' }}
+      >
+        {/* TOP MASTHEAD */}
+        <div className="border-b-4 border-black pb-2 mb-3">
+          <div className="flex items-center justify-between gap-4 border-b border-black pb-2">
+            {/* Left Brand Badge + Huge 'हॅलो [जिल्हा]' */}
+            <div className="flex items-center gap-3.5">
+              <div className="flex items-center gap-2 border-r-2 border-slate-300 pr-3.5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-600 text-white font-black shadow-md text-xl font-sans">
+                  24
+                </div>
+                <div>
+                  <div className="flex items-center text-xl font-black tracking-tight text-slate-950 uppercase font-sans">
+                    <span>info</span>
+                    <span className="text-red-600">News</span>
+                    <span className="ml-1 text-[9px] bg-slate-950 text-white px-1.5 py-0.5 rounded font-black">
+                      UPDATE24
+                    </span>
+                  </div>
+                  <p className="text-[8px] font-bold tracking-wider text-slate-500 uppercase font-sans">
+                    महाराष्ट्राचे डिजिटल वृत्तपत्र
+                  </p>
+                </div>
+              </div>
+
+              {/* Dynamic Calendar Date Box */}
+              <div className="rounded border-2 border-black bg-white px-2 py-0.5 text-center shadow-2xs font-sans">
+                <span className="text-lg font-black text-black block leading-none">
+                  {selectedDate.split('-')[2] || new Date().getDate()}
+                </span>
+                <span className="text-[9px] font-bold text-black uppercase block">
+                  {activeEdition.formattedDateMarathi.split(' ')[2] || 'ऑगस्ट'} {selectedDate.split('-')[0] || new Date().getFullYear()}
+                </span>
+              </div>
+
+              {/* Iconic Red & Black 'हॅलो [जिल्हा]' Title */}
+              <div className="flex items-center shadow-xs">
+                <div className="bg-red-600 text-white px-3.5 py-1 text-2xl sm:text-4xl font-black font-sans uppercase tracking-tight rounded-l-md">
+                  हॅलो
+                </div>
+                <div className="bg-slate-950 text-white px-4 py-1 text-2xl sm:text-4xl font-black font-sans uppercase tracking-tight rounded-r-md">
+                  {selectedDistrict === 'gadchiroli' ? 'गडचिरोली' : currentDistrictName.replace('हॅलो ', '')}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Page Number */}
+            <div className="flex items-center gap-3 font-sans">
+              <div className="text-right">
+                <span className="text-[10px] font-black text-red-600 block uppercase font-sans">
+                  {getPageSectionTitle(pageIdx)}
+                </span>
+                <span className="text-[9px] text-slate-500 font-sans">
+                  {activeEdition.formattedDateMarathi}
+                </span>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white font-black text-base shadow-md font-sans">
+                {page.pageNumber}
+              </div>
+            </div>
+          </div>
+
+          {/* Telemetry Bar */}
+          <div className="flex flex-wrap items-center justify-between text-[11px] font-sans font-bold text-slate-800 pt-1.5 px-1">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-950 font-black">
+                🌤️ थेट तापमान (जि. {selectedDistrict === 'gadchiroli' ? 'गडचिरोली' : currentDistrictName.replace('हॅलो ', '')}): {districtWeather.temp}°C
+              </span>
+              <span>|</span>
+              <span>सूर्योदय {districtWeather.sunrise}</span>
+              <span>|</span>
+              <span>सूर्यास्त {districtWeather.sunset}</span>
+              <span>|</span>
+              <span className="text-emerald-800">{districtWeather.conditionText}</span>
+            </div>
+
+            <div className="flex items-center gap-2 text-slate-600">
+              <span>epaper.infonewsupdate24.com</span>
+              <span>•</span>
+              <span>{epaperSettings?.rniNumber || 'RNI No. MAHMAR/2026/89412'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3.2 DYNAMIC BROADSHEET ARTICLES */}
+        {renderDynamicPage(page)}
+
+        {/* 3.3 BOTTOM REGISTRATION MARKS */}
+        <div className="mt-4 border-t-2 border-black pt-2 flex flex-wrap items-center justify-between text-[10px] font-sans font-bold text-slate-700">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-900 font-black uppercase">Color Registration:</span>
+            <span className="h-3 w-3 bg-black inline-block rounded-xs"></span>
+            <span className="h-3 w-3 bg-cyan-500 inline-block rounded-xs"></span>
+            <span className="h-3 w-3 bg-fuchsia-600 inline-block rounded-xs"></span>
+            <span className="h-3 w-3 bg-yellow-400 inline-block rounded-xs"></span>
+          </div>
+
+          <span>InfoNewsUpdate24 Digital Broadsheet • {getPageSectionTitle(pageIdx)}</span>
+
+          <div className="flex items-center gap-1">
+            <span>पृष्ठ क्र. {page.pageNumber}/६</span>
+            <span>•</span>
+            <span className="text-red-700 font-black">InfoNewsUpdate24 Broadsheet</span>
           </div>
         </div>
       </div>
@@ -1482,6 +1590,23 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
           </div>
         </div>
       )}
+
+      {/* HIDDEN OFFSCREEN FULL 6-PAGE PRINT CONTAINER FOR GUARANTEED MULTI-PAGE PDF */}
+      <div
+        id="epaper-multi-page-hidden-container"
+        className="epaper-no-print"
+        style={{
+          position: 'absolute',
+          left: '-99999px',
+          top: 0,
+          width: '1000px',
+          zIndex: -1,
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        {activeEdition.pages.map((p, idx) => renderFullBroadsheetPage(p, idx))}
+      </div>
     </div>
   );
 };
