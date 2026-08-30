@@ -2961,7 +2961,7 @@ export const PublicPortalView: React.FC = () => {
               <div className="flex flex-wrap items-center justify-between border-y border-slate-200 py-3.5 text-xs text-slate-600 gap-3">
                 <div className="flex items-center gap-3">
                   <img
-                    src={activeArticle.authorAvatar || DEFAULT_REPORTER_AVATAR}
+                    src={activeArticle.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                     alt={activeArticle.authorName}
                     className="h-10 w-10 rounded-full object-cover ring-2 ring-red-500/30"
                   />
