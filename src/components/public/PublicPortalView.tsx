@@ -1138,7 +1138,6 @@ export const PublicPortalView: React.FC = () => {
                               <span>ऐका</span>
                             </button>
                           )}
-                          <span>{post.views} views</span>
                         </div>
                       </div>
                     </div>
@@ -1533,7 +1532,6 @@ export const PublicPortalView: React.FC = () => {
                                 <span>ऐका</span>
                               </button>
                             )}
-                            <span className="font-mono text-[10px]">{post.views}</span>
                           </div>
                         </div>
                       </div>
@@ -1618,7 +1616,6 @@ export const PublicPortalView: React.FC = () => {
                                   <span>ऐका</span>
                                 </button>
                               )}
-                              <span>{post.views} views</span>
                             </div>
                           </div>
                         </div>
@@ -3074,10 +3071,6 @@ export const PublicPortalView: React.FC = () => {
                     <Clock className="h-3.5 w-3.5 text-slate-500" />
                     <span>{activeArticle.readingTimeMinutes || 2} मिनिटे वाचन वेळ</span>
                   </span>
-                  <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md">
-                    <Eye className="h-3.5 w-3.5 text-slate-500" />
-                    <span>{(activeArticle.views || 0).toLocaleString()} वाचक</span>
-                  </span>
                 </div>
               </div>
 
@@ -3376,9 +3369,6 @@ export const PublicPortalView: React.FC = () => {
                         <h4 className="text-xs font-bold text-slate-900 group-hover:text-red-600 line-clamp-2 leading-snug">
                           {formatNewsTitle(rPost.title)}
                         </h4>
-                        <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1 font-mono">
-                          👁️ {rPost.views} व्ह्यूज
-                        </p>
                       </div>
                     </div>
                   ))}
