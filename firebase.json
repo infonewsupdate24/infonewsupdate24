@@ -12,6 +12,148 @@
       "**/wp-content/**",
       "**/news-media/**"
     ],
+    "redirects": [
+      {
+        "source": "/sitemap_index.xml",
+        "destination": "/sitemap.xml",
+        "type": 301
+      },
+      {
+        "source": "/post-sitemap.xml",
+        "destination": "/sitemap.xml",
+        "type": 301
+      },
+      {
+        "source": "/category-sitemap.xml",
+        "destination": "/sitemap.xml",
+        "type": 301
+      },
+      {
+        "source": "/news-sitemap.xml",
+        "destination": "/sitemap-news.xml",
+        "type": 301
+      },
+      {
+        "source": "/rss.xml",
+        "destination": "/feed/",
+        "type": 301
+      },
+      {
+        "source": "/rss",
+        "destination": "/feed/",
+        "type": 301
+      },
+      {
+        "source": "/category/news",
+        "destination": "/category/maharashtra",
+        "type": 301
+      },
+      {
+        "source": "/category/news/",
+        "destination": "/category/maharashtra",
+        "type": 301
+      },
+      {
+        "source": "/category/local-news",
+        "destination": "/category/gadchiroli",
+        "type": 301
+      },
+      {
+        "source": "/category/local-news/",
+        "destination": "/category/gadchiroli",
+        "type": 301
+      },
+      {
+        "source": "/category/gadget",
+        "destination": "/category/technology",
+        "type": 301
+      },
+      {
+        "source": "/category/gadget/",
+        "destination": "/category/technology",
+        "type": 301
+      },
+      {
+        "source": "/category/games",
+        "destination": "/category/sports",
+        "type": 301
+      },
+      {
+        "source": "/category/games/",
+        "destination": "/category/sports",
+        "type": 301
+      },
+      {
+        "source": "/category/reviews",
+        "destination": "/category/technology",
+        "type": 301
+      },
+      {
+        "source": "/category/reviews/",
+        "destination": "/category/technology",
+        "type": 301
+      },
+      {
+        "source": "/about",
+        "destination": "/page/about-us",
+        "type": 301
+      },
+      {
+        "source": "/about/",
+        "destination": "/page/about-us",
+        "type": 301
+      },
+      {
+        "source": "/about-us",
+        "destination": "/page/about-us",
+        "type": 301
+      },
+      {
+        "source": "/contact",
+        "destination": "/page/contact-us",
+        "type": 301
+      },
+      {
+        "source": "/contact/",
+        "destination": "/page/contact-us",
+        "type": 301
+      },
+      {
+        "source": "/contact-us",
+        "destination": "/page/contact-us",
+        "type": 301
+      },
+      {
+        "source": "/privacy-policy-2",
+        "destination": "/page/privacy-policy",
+        "type": 301
+      },
+      {
+        "source": "/privacy-policy-2/",
+        "destination": "/page/privacy-policy",
+        "type": 301
+      },
+      {
+        "source": "/terms-and-conditions",
+        "destination": "/page/terms-and-conditions",
+        "type": 301
+      },
+      {
+        "source": "/terms-and-conditions/",
+        "destination": "/page/terms-and-conditions",
+        "type": 301
+      },
+      {
+        "source": "/live-portal",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/live-portal/",
+        "destination": "/",
+        "type": 301
+      }
+    ],
     "headers": [
       {
         "source": "**",
@@ -28,6 +170,32 @@
           {
             "key": "Cache-Control",
             "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/(sitemap*.xml|robots.txt)",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/xml; charset=utf-8"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/feed/**",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/rss+xml; charset=utf-8"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600, must-revalidate"
           }
         ]
       }
