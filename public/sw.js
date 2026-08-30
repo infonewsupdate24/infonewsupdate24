@@ -1,19 +1,7 @@
 // Service Worker for InfoNewsUpdate24 PWA
-const CACHE_NAME = 'infonews-pwa-v1';
-const OFFLINE_URLS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.svg',
-  '/icon-512.svg'
-];
+const CACHE_NAME = 'infonews-pwa-v3';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(OFFLINE_URLS);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -31,37 +19,40 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first with fallback to cache for news updates
-  if (event.request.mode === 'navigate') {
+  // Always use Network-First for HTML navigation and JS/CSS assets
+  if (
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'script' ||
+    event.request.destination === 'style' ||
+    event.request.url.includes('/assets/')
+  ) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/') || caches.match('/index.html');
-      })
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
 
+  // Stale-while-revalidate for images & fonts
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request).then((networkResponse) => {
-        // Cache static images and fonts dynamically
-        if (
-          networkResponse.status === 200 &&
-          (event.request.url.includes('/assets/') ||
-           event.request.url.includes('unsplash.com') ||
-           event.request.url.endsWith('.svg') ||
-           event.request.url.endsWith('.png') ||
-           event.request.url.endsWith('.jpg'))
-        ) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return networkResponse;
-      });
-    }).catch(() => {
-      // offline fallback
+    caches.match(event.request).then((cached) => {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
     })
   );
 });
