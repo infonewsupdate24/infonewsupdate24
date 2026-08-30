@@ -242,6 +242,141 @@ export const PublicPortalView: React.FC = () => {
 
   const [isPWAInstallModalOpen, setIsPWAInstallModalOpen] = useState(false);
 
+  // Published posts and pages only for public view (with fallback to all active posts)
+  const publishedPosts = posts.filter(
+    (p) => p.status === 'PUBLISHED' || !p.status || (p.status as string).toUpperCase() === 'PUBLISHED'
+  );
+  const publishedPages = pages.filter((p) => p.status === 'PUBLISHED' || !p.status);
+
+  // Unified Route Navigators (Guarantees zero silent redirects & clean URLs)
+  const navigateToPost = (slugOrPost: Post | string) => {
+    const targetSlug = typeof slugOrPost === 'string' ? slugOrPost : slugOrPost.slug;
+    if (!targetSlug) return;
+    setPublicActivePostSlug(targetSlug.trim().toLowerCase());
+    setPublicActiveCategorySlug(null);
+    setPublicActivePageSlug(null);
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToCategory = (slug: string) => {
+    if (!slug || slug === 'ALL' || slug === '/') {
+      setPublicActiveCategorySlug(null);
+      setActiveCategoryFilter('ALL');
+    } else {
+      const cleanSlug = slug.replace('/category/', '').trim().toLowerCase();
+      setPublicActiveCategorySlug(cleanSlug);
+      setActiveCategoryFilter(cleanSlug);
+    }
+    setPublicActivePostSlug(null);
+    setPublicActivePageSlug(null);
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToPage = (slug: string) => {
+    if (!slug) return;
+    const cleanSlug = slug.replace('/page/', '').trim().toLowerCase();
+    setPublicActivePageSlug(cleanSlug);
+    setPublicActivePostSlug(null);
+    setPublicActiveCategorySlug(null);
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToHome = () => {
+    setPublicActivePostSlug(null);
+    setPublicActiveCategorySlug(null);
+    setPublicActivePageSlug(null);
+    setActiveCategoryFilter('ALL');
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const selectedPost = useMemo(() => {
+    if (!publicActivePostSlug) return null;
+    const target = decodeURIComponent(publicActivePostSlug).trim().toLowerCase();
+
+    // 1. Direct slug or ID matching (case-insensitive)
+    const found = publishedPosts.find((p) => {
+      const pSlug = (p.slug || '').trim().toLowerCase();
+      const pId = (p.id || '').trim().toLowerCase();
+      return (
+        pSlug === target ||
+        pId === target ||
+        pId === `post-${target}` ||
+        (target.length > 6 && pSlug.includes(target)) ||
+        (pSlug.length > 6 && target.includes(pSlug))
+      );
+    }) || posts.find((p) => {
+      const pSlug = (p.slug || '').trim().toLowerCase();
+      const pId = (p.id || '').trim().toLowerCase();
+      return pSlug === target || pId === target;
+    });
+
+    if (found) return found;
+
+    // 2. Check spotlight stories
+    const spotlightMatch = GADCHIROLI_SPOTLIGHT_STORIES.find((s) => {
+      const sSlug = (s.slug || '').trim().toLowerCase();
+      const sId = (s.id || '').trim().toLowerCase();
+      return sSlug === target || sId === target;
+    });
+
+    if (spotlightMatch) {
+      return {
+        id: spotlightMatch.id,
+        title: spotlightMatch.title,
+        slug: spotlightMatch.slug,
+        content: spotlightMatch.fullBody,
+        excerpt: spotlightMatch.excerpt,
+        featuredImage: spotlightMatch.image,
+        categoryId: 'cat-1-1',
+        authorName: spotlightMatch.author,
+        authorRole: 'REPORTER' as const,
+        publishDate: '29 Aug 2026',
+        status: 'PUBLISHED' as const,
+        visibility: 'PUBLIC' as const,
+        views: 2450,
+        likes: 180,
+        readingTimeMinutes: 3,
+        isBreaking: false,
+        isTrending: true,
+        isFeatured: true,
+        isVideoNews: false,
+        tags: ['गडचिरोली', spotlightMatch.taluka],
+        workflowHistory: [],
+        createdAt: '2026-08-29T08:00:00Z',
+        updatedAt: '2026-08-29T08:00:00Z',
+      };
+    }
+    return null;
+  }, [publicActivePostSlug, publishedPosts, posts]);
+
+  // Related / Recommended Stories for Single Article View
+  const relatedPosts = useMemo(() => {
+    if (!selectedPost) return [];
+    return publishedPosts
+      .filter((p) => p.id !== selectedPost.id)
+      .filter(
+        (p) =>
+          p.categoryId === selectedPost.categoryId ||
+          (Array.isArray(p.tags) &&
+            Array.isArray(selectedPost.tags) &&
+            p.tags.some((t) => selectedPost.tags.includes(t)))
+      )
+      .slice(0, 4);
+  }, [selectedPost, publishedPosts]);
+
+  const selectedPage = publicActivePageSlug
+    ? (publishedPages.find((p) => (p.slug || '').toLowerCase() === publicActivePageSlug.toLowerCase()) ||
+       pages.find((p) => (p.slug || '').toLowerCase() === publicActivePageSlug.toLowerCase()))
+    : null;
+
+  const breakingPost = publishedPosts.find((p) => p.isBreaking) || publishedPosts[0];
+  const heroPosts = publishedPosts.slice(0, 5);
+  const trendingPosts = publishedPosts.filter((p) => p.isTrending || p.views > 5000);
+
   // --- Universal Route & WordPress Legacy URL Resolver ---
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -466,141 +601,6 @@ export const PublicPortalView: React.FC = () => {
 
     return `${dayName}, ${day} ${month} ${year}`;
   };
-
-  // Published posts and pages only for public view (with fallback to all active posts)
-  const publishedPosts = posts.filter(
-    (p) => p.status === 'PUBLISHED' || !p.status || (p.status as string).toUpperCase() === 'PUBLISHED'
-  );
-  const publishedPages = pages.filter((p) => p.status === 'PUBLISHED' || !p.status);
-
-  // Unified Route Navigators (Guarantees zero silent redirects & clean URLs)
-  const navigateToPost = (slugOrPost: Post | string) => {
-    const targetSlug = typeof slugOrPost === 'string' ? slugOrPost : slugOrPost.slug;
-    if (!targetSlug) return;
-    setPublicActivePostSlug(targetSlug.trim().toLowerCase());
-    setPublicActiveCategorySlug(null);
-    setPublicActivePageSlug(null);
-    setIsEPaperViewOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const navigateToCategory = (slug: string) => {
-    if (!slug || slug === 'ALL' || slug === '/') {
-      setPublicActiveCategorySlug(null);
-      setActiveCategoryFilter('ALL');
-    } else {
-      const cleanSlug = slug.replace('/category/', '').trim().toLowerCase();
-      setPublicActiveCategorySlug(cleanSlug);
-      setActiveCategoryFilter(cleanSlug);
-    }
-    setPublicActivePostSlug(null);
-    setPublicActivePageSlug(null);
-    setIsEPaperViewOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const navigateToPage = (slug: string) => {
-    if (!slug) return;
-    const cleanSlug = slug.replace('/page/', '').trim().toLowerCase();
-    setPublicActivePageSlug(cleanSlug);
-    setPublicActivePostSlug(null);
-    setPublicActiveCategorySlug(null);
-    setIsEPaperViewOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const navigateToHome = () => {
-    setPublicActivePostSlug(null);
-    setPublicActiveCategorySlug(null);
-    setPublicActivePageSlug(null);
-    setActiveCategoryFilter('ALL');
-    setIsEPaperViewOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const selectedPost = useMemo(() => {
-    if (!publicActivePostSlug) return null;
-    const target = decodeURIComponent(publicActivePostSlug).trim().toLowerCase();
-
-    // 1. Direct slug or ID matching (case-insensitive)
-    const found = publishedPosts.find((p) => {
-      const pSlug = (p.slug || '').trim().toLowerCase();
-      const pId = (p.id || '').trim().toLowerCase();
-      return (
-        pSlug === target ||
-        pId === target ||
-        pId === `post-${target}` ||
-        (target.length > 6 && pSlug.includes(target)) ||
-        (pSlug.length > 6 && target.includes(pSlug))
-      );
-    }) || posts.find((p) => {
-      const pSlug = (p.slug || '').trim().toLowerCase();
-      const pId = (p.id || '').trim().toLowerCase();
-      return pSlug === target || pId === target;
-    });
-
-    if (found) return found;
-
-    // 2. Check spotlight stories
-    const spotlightMatch = GADCHIROLI_SPOTLIGHT_STORIES.find((s) => {
-      const sSlug = (s.slug || '').trim().toLowerCase();
-      const sId = (s.id || '').trim().toLowerCase();
-      return sSlug === target || sId === target;
-    });
-
-    if (spotlightMatch) {
-      return {
-        id: spotlightMatch.id,
-        title: spotlightMatch.title,
-        slug: spotlightMatch.slug,
-        content: spotlightMatch.fullBody,
-        excerpt: spotlightMatch.excerpt,
-        featuredImage: spotlightMatch.image,
-        categoryId: 'cat-1-1',
-        authorName: spotlightMatch.author,
-        authorRole: 'REPORTER' as const,
-        publishDate: '29 Aug 2026',
-        status: 'PUBLISHED' as const,
-        visibility: 'PUBLIC' as const,
-        views: 2450,
-        likes: 180,
-        readingTimeMinutes: 3,
-        isBreaking: false,
-        isTrending: true,
-        isFeatured: true,
-        isVideoNews: false,
-        tags: ['गडचिरोली', spotlightMatch.taluka],
-        workflowHistory: [],
-        createdAt: '2026-08-29T08:00:00Z',
-        updatedAt: '2026-08-29T08:00:00Z',
-      };
-    }
-    return null;
-  }, [publicActivePostSlug, publishedPosts, posts]);
-
-  // Related / Recommended Stories for Single Article View
-  const relatedPosts = useMemo(() => {
-    if (!selectedPost) return [];
-    return publishedPosts
-      .filter((p) => p.id !== selectedPost.id)
-      .filter(
-        (p) =>
-          p.categoryId === selectedPost.categoryId ||
-          (Array.isArray(p.tags) &&
-            Array.isArray(selectedPost.tags) &&
-            p.tags.some((t) => selectedPost.tags.includes(t)))
-      )
-      .slice(0, 4);
-  }, [selectedPost, publishedPosts]);
-
-  const selectedPage = publicActivePageSlug
-    ? (publishedPages.find((p) => (p.slug || '').toLowerCase() === publicActivePageSlug.toLowerCase()) ||
-       pages.find((p) => (p.slug || '').toLowerCase() === publicActivePageSlug.toLowerCase()))
-    : null;
-
-  const breakingPost = publishedPosts.find((p) => p.isBreaking) || publishedPosts[0];
-  const heroPosts = publishedPosts.slice(0, 5);
-  const trendingPosts = publishedPosts.filter((p) => p.isTrending || p.views > 5000);
 
   // Helper for menu item navigation
   const handleNavMenuItemClick = (item: any) => {
