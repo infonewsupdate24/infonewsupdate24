@@ -258,10 +258,17 @@ export const PublicPortalView: React.FC = () => {
   const [isFetchingDirectPost, setIsFetchingDirectPost] = useState(false);
 
   // Published posts and pages only for public view (with fallback to all active posts)
-  const publishedPosts = posts.filter(
-    (p) => p.status === 'PUBLISHED' || !p.status || (p.status as string).toUpperCase() === 'PUBLISHED'
+  const publishedPosts = useMemo(
+    () =>
+      posts.filter(
+        (p) => p.status === 'PUBLISHED' || !p.status || (p.status as string).toUpperCase() === 'PUBLISHED'
+      ),
+    [posts]
   );
-  const publishedPages = pages.filter((p) => p.status === 'PUBLISHED' || !p.status);
+  const publishedPages = useMemo(
+    () => pages.filter((p) => p.status === 'PUBLISHED' || !p.status),
+    [pages]
+  );
 
   // Unified Route Navigators (Guarantees zero silent redirects & clean URLs)
   const navigateToPost = (slugOrPost: Post | string) => {

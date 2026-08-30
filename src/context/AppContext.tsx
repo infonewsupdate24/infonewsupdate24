@@ -336,6 +336,22 @@ function parseTimestampToMillis(val: any): number {
   return 0;
 }
 
+export function sortPostsNewestFirst(postsList: Post[]): Post[] {
+  return postsList.slice().sort((a, b) => {
+    const timeA = Math.max(
+      parseTimestampToMillis(a.createdAt),
+      parseTimestampToMillis(a.publishDate),
+      parseTimestampToMillis(a.updatedAt)
+    );
+    const timeB = Math.max(
+      parseTimestampToMillis(b.createdAt),
+      parseTimestampToMillis(b.publishDate),
+      parseTimestampToMillis(b.updatedAt)
+    );
+    return timeB - timeA;
+  });
+}
+
 function smartMergePosts(localPosts: Post[], cloudPosts: Post[], deletedIds: Set<string>): Post[] {
   const postMap = new Map<string, Post>();
 
@@ -373,23 +389,7 @@ function smartMergePosts(localPosts: Post[], cloudPosts: Post[], deletedIds: Set
     }
   });
 
-  const merged = Array.from(postMap.values());
-  // Sort newest first
-  merged.sort((a, b) => {
-    const timeA = Math.max(
-      parseTimestampToMillis(a.createdAt),
-      parseTimestampToMillis(a.publishDate),
-      parseTimestampToMillis(a.updatedAt)
-    );
-    const timeB = Math.max(
-      parseTimestampToMillis(b.createdAt),
-      parseTimestampToMillis(b.publishDate),
-      parseTimestampToMillis(b.updatedAt)
-    );
-    return timeB - timeA;
-  });
-
-  return merged;
+  return sortPostsNewestFirst(Array.from(postMap.values()));
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -416,7 +416,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     stored.forEach((p) => {
       if (!deletedIds.has(p.id)) postMap.set(p.id, p);
     });
-    const result = Array.from(postMap.values());
+    const result = sortPostsNewestFirst(Array.from(postMap.values()));
     try {
       localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(result));
     } catch {}
@@ -432,7 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     posts.forEach((p) => {
       if (!deletedIds.has(p.id)) postMap.set(p.id, p);
     });
-    const result = Array.from(postMap.values());
+    const result = sortPostsNewestFirst(Array.from(postMap.values()));
     setPosts(result);
     try {
       localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(result));
@@ -1515,7 +1515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetToDefaultSeed = () => {
-    setPosts(SEED_POSTS);
+    setPosts(sortPostsNewestFirst(SEED_POSTS));
     setCategories(SEED_CATEGORIES);
     setTags(SEED_TAGS);
     setMenus(SEED_MENUS);
