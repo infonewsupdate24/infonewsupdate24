@@ -460,20 +460,21 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
                   onClick={() => handleArticleClick(shortArt)}
                   className="space-y-1.5 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
                 >
-                  {shortArt.image && (
-                    <img
-                      src={shortArt.image}
-                      alt=""
-                      className="w-full h-16 object-cover rounded border border-slate-300 shadow-2xs"
-                    />
-                  )}
+                  <img
+                    src={shortArt.image || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80'}
+                    alt=""
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80';
+                    }}
+                    className="w-full h-18 object-cover rounded border border-slate-300 shadow-2xs"
+                  />
                   <span className="text-[10px] font-black text-red-600 block uppercase">
                     {shortArt.category || 'स्थानिक वार्ता'}
                   </span>
                   <h4 className="text-xs font-black text-slate-950 leading-tight">
                     {shortArt.headline || shortArt.title}
                   </h4>
-                  <p className="text-[10px] text-slate-700 leading-snug line-clamp-3">
+                  <p className="text-[10.5px] text-slate-700 leading-snug">
                     <strong>{shortArt.location}:</strong> {shortArt.summary}
                   </p>
                 </div>
@@ -507,26 +508,35 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
 
               <div className="grid grid-cols-12 gap-3 items-start">
                 <div className="col-span-8 text-[11px] text-slate-800 leading-relaxed text-justify space-y-2">
-                  <p className="font-bold text-slate-950 bg-amber-50/70 p-2.5 rounded border-l-3 border-amber-500">
+                  <p className="font-bold text-slate-950 bg-amber-50/80 p-2.5 rounded border-l-3 border-amber-500">
                     {leadArticle.summary}
                   </p>
-                  <p className="line-clamp-4">
-                    {leadArticle.fullBody || leadArticle.summary}
-                  </p>
+                  <div className="columns-1 sm:columns-2 gap-3 text-[10.5px] leading-relaxed text-slate-900 font-serif">
+                    {(leadArticle.fullBody || leadArticle.summary)
+                      .split('\n\n')
+                      .filter(Boolean)
+                      .slice(0, 5)
+                      .map((para, pIdx) => (
+                        <p key={pIdx} className="mb-2 text-justify">
+                          {para}
+                        </p>
+                      ))}
+                  </div>
                 </div>
 
                 <div className="col-span-4 space-y-2">
-                  {leadArticle.image && (
-                    <img
-                      src={leadArticle.image}
-                      alt=""
-                      className="w-full h-28 object-cover rounded border border-slate-300 shadow-2xs"
-                    />
-                  )}
+                  <img
+                    src={leadArticle.image || 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&auto=format&fit=crop&q=80'}
+                    alt=""
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&auto=format&fit=crop&q=80';
+                    }}
+                    className="w-full h-36 object-cover rounded border border-slate-300 shadow-2xs"
+                  />
                   <div className="bg-slate-100 border-l-3 border-red-600 p-2 rounded-r text-[10px]">
                     <Quote className="h-3 w-3 text-red-600" />
-                    <p className="italic font-serif text-slate-900 leading-snug line-clamp-2">
-                      "सविस्तर माहिती आणि ताज्या घडामोडींसाठी ई-पेपरवर क्लिक करा."
+                    <p className="italic font-serif text-slate-900 leading-snug">
+                      "सविस्तर बातमी व ऑडिओसाठी येथे क्लिक करा."
                     </p>
                     <span className="font-bold text-slate-700 block text-right">— {leadArticle.location} ब्युरो</span>
                   </div>
@@ -548,18 +558,19 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
                     <span className="bg-slate-900 text-white px-2 py-0.5 text-[9px] font-black uppercase rounded">
                       {ancArt.category || 'महत्त्वाची घडामोड'}
                     </span>
-                    {ancArt.image && (
-                      <img
-                        src={ancArt.image}
-                        alt=""
-                        className="w-full h-20 object-cover rounded border border-slate-300 shadow-2xs mt-1"
-                      />
-                    )}
-                    <h3 className="text-sm font-black text-slate-950 font-serif leading-tight">
+                    <img
+                      src={ancArt.image || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80'}
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80';
+                      }}
+                      className="w-full h-24 object-cover rounded border border-slate-300 shadow-2xs mt-1"
+                    />
+                    <h3 className="text-sm font-black text-slate-950 font-serif leading-tight mt-1">
                       {ancArt.headline || ancArt.title}
                     </h3>
-                    <p className="text-[10px] text-slate-800 leading-relaxed text-justify line-clamp-3">
-                      <strong>{ancArt.location}:</strong> {ancArt.summary}
+                    <p className="text-[10.5px] text-slate-800 leading-relaxed text-justify">
+                      <strong>{ancArt.location}:</strong> {ancArt.summary || ancArt.fullBody?.slice(0, 200)}
                     </p>
                   </div>
                 ))}

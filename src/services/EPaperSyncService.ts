@@ -12,6 +12,56 @@ export class EPaperSyncService {
   ];
 
   /**
+   * Cleans WordPress raw snippets, HTML tags, [&hellip;] entities and special characters.
+   */
+  public static cleanText(raw: string): string {
+    if (!raw) return '';
+    return raw
+      .replace(/<[^>]*>?/gm, ' ')
+      .replace(/\[&hellip;\]/g, '')
+      .replace(/&hellip;/g, '...')
+      .replace(/&#8217;/g, "'")
+      .replace(/&#8216;/g, "'")
+      .replace(/&#8220;/g, '"')
+      .replace(/&#8221;/g, '"')
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&#038;/g, '&')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\[caption[^\]]*\][\s\S]*?\[\/caption\]/gi, '')
+      .replace(/\[[^\]]+\]/g, '')
+      .replace(/[*#_~`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Returns a guaranteed high-res image URL for any news article.
+   */
+  public static getValidImage(featuredImage: string | undefined, category: string = '', idx: number = 0): string {
+    if (featuredImage && typeof featuredImage === 'string' && featuredImage.trim().startsWith('http')) {
+      return featuredImage.trim();
+    }
+    const cat = (category || '').toLowerCase();
+    if (cat.includes('गुन्हे') || cat.includes('crime') || cat.includes('पोलीस') || cat.includes('दारू') || cat.includes('कारवाई')) {
+      return 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&auto=format&fit=crop&q=80';
+    }
+    if (cat.includes('शेती') || cat.includes('कृषी') || cat.includes('agri') || cat.includes('बाजार') || cat.includes('कापूस') || cat.includes('सोयाबीन')) {
+      return 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&auto=format&fit=crop&q=80';
+    }
+    if (cat.includes('क्रीडा') || cat.includes('sport') || cat.includes('क्रिकेट') || cat.includes('सामना')) {
+      return 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=800&auto=format&fit=crop&q=80';
+    }
+    if (cat.includes('शासन') || cat.includes('मंत्रिमंडळ') || cat.includes('राज्य') || cat.includes('राजकारण') || cat.includes('विकास') || cat.includes('योजना')) {
+      return 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&auto=format&fit=crop&q=80';
+    }
+    if (cat.includes('आरोग्य') || cat.includes('रुग्णालय') || cat.includes('डॉक्टर') || cat.includes('रक्त')) {
+      return 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&auto=format&fit=crop&q=80';
+    }
+    return this.THEMATIC_IMAGES[idx % this.THEMATIC_IMAGES.length];
+  }
+
+  /**
    * Generates a complete 6-page Digital E-Paper Edition dynamically from published CMS Posts & Ads.
    */
   public static generateDynamicEdition(
@@ -51,7 +101,7 @@ export class EPaperSyncService {
         (districtCode === 'nashik' && (loc.includes('नाशिक') || loc.includes('अहिल्यानगर'))) ||
         (districtCode === 'sambhajinagar' && (loc.includes('संभाजीनगर') || loc.includes('मराठवाडा') || loc.includes('औरंगाबाद'))) ||
         (districtCode === 'kolhapur' && (loc.includes('कोल्हापूर') || loc.includes('सांगली'))) ||
-        (districtCode === 'gadchiroli' && (loc.includes('गडचिरोली') || loc.includes('चंद्रपूर')))
+        (districtCode === 'gadchiroli' && (loc.includes('गडचिरोली') || loc.includes('चंद्रपूर') || loc.includes('एटापल्ली') || loc.includes('धानोरा') || loc.includes('अहेरी')))
       );
     });
 
@@ -114,27 +164,29 @@ export class EPaperSyncService {
       );
     });
 
-    // Helper to convert Post to EPaperArticleClip with Guaranteed Featured Image
+    // Helper to convert Post to EPaperArticleClip with Guaranteed Clean Text and Active Image
     const mapPostToClip = (
       p: Post,
       pageNum: number,
       idx: number,
       categoryName: string
     ): EPaperArticleClip => {
-      const cleanSummary = p.excerpt || p.content.replace(/<[^>]*>?/gm, '').slice(0, 180) + '...';
-      const cleanFull = p.content.replace(/<[^>]*>?/gm, '').replace(/[*#]/g, '');
+      const cleanTitle = this.cleanText(p.title);
+      const cleanFull = this.cleanText(p.content || '');
+      const rawExcerpt = p.excerpt ? this.cleanText(p.excerpt) : '';
+      const cleanSummary = rawExcerpt || (cleanFull.length > 250 ? cleanFull.slice(0, 250) + '...' : cleanFull);
 
       return {
         id: `dyn-art-${p.id}-${pageNum}-${idx}`,
         pageNumber: pageNum,
-        title: p.title,
+        title: cleanTitle,
         category: categoryName || 'विशेष बातमी',
-        headline: p.title,
+        headline: cleanTitle,
         summary: cleanSummary,
-        fullBody: cleanFull,
+        fullBody: cleanFull || cleanSummary,
         authorName: p.authorName || 'विशेष प्रतिनिधी',
         location: p.location || distCleanName,
-        image: p.featuredImage || this.THEMATIC_IMAGES[idx % this.THEMATIC_IMAGES.length],
+        image: this.getValidImage(p.featuredImage, categoryName || p.categoryId, idx),
         bounds: {
           x: 5,
           y: idx === 0 ? 10 : 50,
