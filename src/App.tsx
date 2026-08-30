@@ -267,13 +267,25 @@ class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundary
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('AppErrorBoundary caught error:', error, errorInfo);
+    if (
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('dynamically imported module') ||
+      error?.name === 'ChunkLoadError'
+    ) {
+      const reloaded = sessionStorage.getItem('infonews_chunk_reloaded');
+      if (!reloaded) {
+        sessionStorage.setItem('infonews_chunk_reloaded', '1');
+        window.location.reload();
+      }
+    }
   }
 
   handleReload = () => {
     try {
       localStorage.removeItem('infonews_theme_mode');
+      sessionStorage.clear();
     } catch {}
-    window.location.href = '/';
+    window.location.reload();
   };
 
   render() {

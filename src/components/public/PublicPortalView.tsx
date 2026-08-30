@@ -698,18 +698,18 @@ export const PublicPortalView: React.FC = () => {
       if (activeCategoryFilter !== 'ALL') {
         const cat = categories.find((c) => c.slug === activeCategoryFilter || c.id === activeCategoryFilter);
         if (cat) {
-          const childCatIds = categories.filter((c) => c.parentId === cat.id).map((c) => c.id);
+          const childCatIds = (categories || []).filter((c) => c.parentId === cat.id).map((c) => c.id);
           const isMatch =
             p.categoryId === cat.id ||
             p.subCategoryId === cat.id ||
             childCatIds.includes(p.categoryId) ||
             (p.subCategoryId && childCatIds.includes(p.subCategoryId)) ||
-            p.tags?.some((t) => t.toLowerCase() === cat.slug.toLowerCase());
+            (Array.isArray(p.tags) && p.tags.some((t) => typeof t === 'string' && t.toLowerCase() === cat.slug.toLowerCase()));
           if (!isMatch) return false;
         } else {
           const isMatch =
-            p.tags?.some((t) => t.toLowerCase().includes(activeCategoryFilter.toLowerCase())) ||
-            p.location?.toLowerCase().includes(activeCategoryFilter.toLowerCase());
+            (Array.isArray(p.tags) && p.tags.some((t) => typeof t === 'string' && t.toLowerCase().includes(activeCategoryFilter.toLowerCase()))) ||
+            (typeof p.location === 'string' && p.location.toLowerCase().includes(activeCategoryFilter.toLowerCase()));
           if (!isMatch) return false;
         }
       }
@@ -3177,23 +3177,24 @@ export const PublicPortalView: React.FC = () => {
             <AdSlotRenderer position="ARTICLE_BOTTOM" />
 
             {/* Tags (Clickable Search Links) */}
-            <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-500">संबंधित विषय (टॅग्ज):</span>
-              {selectedPost.tags.map((tag) => (
-                <button
-                  type="button"
-                  key={tag}
-                  onClick={() => {
-                    setArticleSearch(tag);
-                    setPublicActivePostSlug(null);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
-                >
-                  #{tag}
-                </button>
-              ))}
-            </div>
+            {Array.isArray(selectedPost.tags) && selectedPost.tags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-500">संबंधित विषय (टॅग्ज):</span>
+                {selectedPost.tags.map((tag) => (
+                  <button
+                    type="button"
+                    key={tag}
+                    onClick={() => {
+                      setArticleSearch(tag);
+                      navigateToHome();
+                    }}
+                    className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Related / Recommended Stories Section */}
             {relatedPosts.length > 0 && (

@@ -314,7 +314,12 @@ function getStoredOrDefault<T>(key: string, defaultValue: T): T {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation State
-  const [portalMode, setPortalMode] = useState<PortalMode>('CMS');
+  const [portalMode, setPortalMode] = useState<PortalMode>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/cms')) {
+      return 'CMS';
+    }
+    return 'PUBLIC';
+  });
   const [cmsView, setCmsView] = useState<CmsView>('dashboard');
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [publicActiveCategorySlug, setPublicActiveCategorySlug] = useState<string | null>(null);
