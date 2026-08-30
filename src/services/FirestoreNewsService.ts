@@ -12,6 +12,7 @@ import {
   deleteDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
@@ -115,6 +116,28 @@ export class FirestoreNewsService {
     } catch (err) {
       console.error('Failed to save post to Firestore:', err);
       throw err;
+    }
+  }
+
+  static async getPostBySlugOrId(slugOrId: string): Promise<Post | null> {
+    try {
+      const cleanTarget = decodeURIComponent(slugOrId).trim().toLowerCase().replace(/^\/+|\/+$/g, '');
+      // 1. Try direct doc ID
+      const docSnap = await getDoc(doc(db, 'posts', cleanTarget));
+      if (docSnap.exists()) {
+        return { ...docSnap.data(), id: docSnap.id } as Post;
+      }
+      // 2. Try query by slug field
+      const q = query(collection(db, 'posts'), where('slug', '==', cleanTarget), limit(1));
+      const qSnap = await getDocs(q);
+      if (!qSnap.empty) {
+        const foundDoc = qSnap.docs[0];
+        return { ...foundDoc.data(), id: foundDoc.id } as Post;
+      }
+      return null;
+    } catch (err) {
+      console.warn('Firestore getPostBySlugOrId lookup note:', err);
+      return null;
     }
   }
 

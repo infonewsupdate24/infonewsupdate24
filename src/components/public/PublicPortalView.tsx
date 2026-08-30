@@ -241,6 +241,8 @@ export const PublicPortalView: React.FC = () => {
   };
 
   const [isPWAInstallModalOpen, setIsPWAInstallModalOpen] = useState(false);
+  const [asyncFetchedPost, setAsyncFetchedPost] = useState<Post | null>(null);
+  const [isFetchingDirectPost, setIsFetchingDirectPost] = useState(false);
 
   // Published posts and pages only for public view (with fallback to all active posts)
   const publishedPosts = posts.filter(
@@ -360,20 +362,57 @@ export const PublicPortalView: React.FC = () => {
     return null;
   }, [publicActivePostSlug, publishedPosts, posts]);
 
+  const activeArticle = selectedPost || asyncFetchedPost;
+
+  // Real-time direct Firestore fetch fallback for deep article links opened from cold cache
+  useEffect(() => {
+    if (!publicActivePostSlug) {
+      setAsyncFetchedPost(null);
+      setIsFetchingDirectPost(false);
+      return;
+    }
+
+    if (selectedPost) {
+      setAsyncFetchedPost(null);
+      setIsFetchingDirectPost(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsFetchingDirectPost(true);
+
+    FirestoreNewsService.getPostBySlugOrId(publicActivePostSlug)
+      .then((cloudDoc) => {
+        if (isMounted) {
+          if (cloudDoc) {
+            setAsyncFetchedPost(cloudDoc);
+          }
+          setIsFetchingDirectPost(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setIsFetchingDirectPost(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [publicActivePostSlug, selectedPost]);
+
   // Related / Recommended Stories for Single Article View
   const relatedPosts = useMemo(() => {
-    if (!selectedPost) return [];
+    if (!activeArticle) return [];
     return publishedPosts
-      .filter((p) => p.id !== selectedPost.id)
+      .filter((p) => p.id !== activeArticle.id)
       .filter(
         (p) =>
-          p.categoryId === selectedPost.categoryId ||
+          p.categoryId === activeArticle.categoryId ||
           (Array.isArray(p.tags) &&
-            Array.isArray(selectedPost.tags) &&
-            p.tags.some((t) => selectedPost.tags.includes(t)))
+            Array.isArray(activeArticle.tags) &&
+            p.tags.some((t) => activeArticle.tags.includes(t)))
       )
       .slice(0, 4);
-  }, [selectedPost, publishedPosts]);
+  }, [activeArticle, publishedPosts]);
 
   const selectedPage = publicActivePageSlug
     ? (publishedPages.find((p) => (p.slug || '').toLowerCase() === publicActivePageSlug.toLowerCase()) ||
@@ -2848,7 +2887,7 @@ export const PublicPortalView: React.FC = () => {
               </div>
             )}
           </div>
-        ) : selectedPost ? (
+        ) : activeArticle ? (
           <div className="space-y-6 max-w-4xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
             {/* GOOGLE NEWS ARTICLE JSON-LD STRUCTURED DATA */}
             <script
@@ -2857,14 +2896,14 @@ export const PublicPortalView: React.FC = () => {
                 __html: JSON.stringify({
                   '@context': 'https://schema.org',
                   '@type': 'NewsArticle',
-                  headline: selectedPost.title,
-                  description: selectedPost.excerpt || selectedPost.title,
-                  image: [selectedPost.featuredImage],
-                  datePublished: selectedPost.publishDate || new Date().toISOString(),
-                  dateModified: selectedPost.publishDate || new Date().toISOString(),
+                  headline: activeArticle.title,
+                  description: activeArticle.excerpt || activeArticle.title,
+                  image: [activeArticle.featuredImage],
+                  datePublished: activeArticle.publishDate || new Date().toISOString(),
+                  dateModified: activeArticle.publishDate || new Date().toISOString(),
                   author: {
                     '@type': 'Person',
-                    name: selectedPost.authorName,
+                    name: activeArticle.authorName,
                   },
                   publisher: {
                     '@type': 'Organization',
@@ -2875,7 +2914,7 @@ export const PublicPortalView: React.FC = () => {
                     },
                   },
                   articleSection:
-                    categories.find((c) => c.id === selectedPost.categoryId)?.name || 'महाराष्ट्र',
+                    categories.find((c) => c.id === activeArticle.categoryId)?.name || 'महाराष्ट्र',
                 }),
               }}
             />
@@ -2895,13 +2934,13 @@ export const PublicPortalView: React.FC = () => {
               {/* Google Verified Fact-Check & Category Bar */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-md bg-red-600 px-3 py-1 text-xs font-black text-white uppercase tracking-wider shadow-2xs">
-                  {categories.find((c) => c.id === selectedPost.categoryId)?.name || 'महाराष्ट्र'}
+                  {categories.find((c) => c.id === activeArticle.categoryId)?.name || 'महाराष्ट्र'}
                 </span>
 
-                {selectedPost.location && (
+                {activeArticle.location && (
                   <span className="flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
                     <MapPin className="h-3 w-3 text-red-600" />
-                    <span>{selectedPost.location} ब्युरो</span>
+                    <span>{activeArticle.location} ब्युरो</span>
                   </span>
                 )}
 
@@ -2914,23 +2953,23 @@ export const PublicPortalView: React.FC = () => {
 
               {/* Headline */}
               <h1 className="text-2xl sm:text-3.5xl font-black text-slate-950 leading-tight tracking-tight">
-                {formatNewsTitle(selectedPost.title)}
+                {formatNewsTitle(activeArticle.title)}
               </h1>
 
               {/* Author & Publication Details (Google E-E-A-T Transparency) */}
               <div className="flex flex-wrap items-center justify-between border-y border-slate-200 py-3.5 text-xs text-slate-600 gap-3">
                 <div className="flex items-center gap-3">
                   <img
-                    src={selectedPost.authorAvatar}
-                    alt={selectedPost.authorName}
+                    src={activeArticle.authorAvatar || DEFAULT_REPORTER_AVATAR}
+                    alt={activeArticle.authorName}
                     className="h-10 w-10 rounded-full object-cover ring-2 ring-red-500/30"
                   />
                   <div>
                     <p className="font-bold text-slate-900 text-sm">
-                      {selectedPost.authorName}
+                      {activeArticle.authorName}
                     </p>
                     <p className="text-[11px] text-slate-500 font-medium">
-                      विशेष प्रतिनिधी &bull; {formatMarathiDate(selectedPost.publishDate || selectedPost.createdAt)}
+                      विशेष प्रतिनिधी &bull; {formatMarathiDate(activeArticle.publishDate || activeArticle.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -2938,11 +2977,11 @@ export const PublicPortalView: React.FC = () => {
                 <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
                   <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md">
                     <Clock className="h-3.5 w-3.5 text-slate-500" />
-                    <span>{selectedPost.readingTimeMinutes} मिनिटे वाचन वेळ</span>
+                    <span>{activeArticle.readingTimeMinutes || 2} मिनिटे वाचन वेळ</span>
                   </span>
                   <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md">
                     <Eye className="h-3.5 w-3.5 text-slate-500" />
-                    <span>{selectedPost.views.toLocaleString()} वाचक</span>
+                    <span>{(activeArticle.views || 0).toLocaleString()} वाचक</span>
                   </span>
                 </div>
               </div>
@@ -2953,7 +2992,7 @@ export const PublicPortalView: React.FC = () => {
                   {/* WhatsApp Big Direct Button */}
                   <a
                     href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                      `🔴 *${selectedPost.title}*\n\n${selectedPost.excerpt || ''}\n\n👉 संपूर्ण बातमी सविस्तर वाचा:\n${typeof window !== 'undefined' ? window.location.href : ''}`
+                      `🔴 *${activeArticle.title}*\n\n${activeArticle.excerpt || ''}\n\n👉 संपूर्ण बातमी सविस्तर वाचा:\n${typeof window !== 'undefined' ? window.location.href : ''}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -2979,7 +3018,7 @@ export const PublicPortalView: React.FC = () => {
                   {/* X (Twitter) */}
                   <a
                     href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                      selectedPost.title
+                      activeArticle.title
                     )}&url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -3065,23 +3104,23 @@ export const PublicPortalView: React.FC = () => {
                   {/* Live Like / Reactions Button */}
                   <button
                     type="button"
-                    onClick={() => handleToggleLike(selectedPost.id)}
+                    onClick={() => handleToggleLike(activeArticle.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      likedPostIds.includes(selectedPost.id)
+                      likedPostIds.includes(activeArticle.id)
                         ? 'bg-red-50 text-red-600 border border-red-200 shadow-2xs'
                         : 'bg-white text-slate-700 border border-slate-200 hover:bg-red-50 hover:text-red-600'
                     }`}
                   >
                     <Heart
                       className={`h-4 w-4 ${
-                        likedPostIds.includes(selectedPost.id)
+                        likedPostIds.includes(activeArticle.id)
                           ? 'fill-red-600 text-red-600 animate-bounce'
                           : 'text-slate-500'
                       }`}
                     />
                     <span>
-                      {likedPostIds.includes(selectedPost.id) ? 'आवडली!' : 'उपयुक्त'} (
-                      {selectedPost.likes + (likedPostIds.includes(selectedPost.id) ? 1 : 0)})
+                      {likedPostIds.includes(activeArticle.id) ? 'आवडली!' : 'उपयुक्त'} (
+                      {(activeArticle.likes || 0) + (likedPostIds.includes(activeArticle.id) ? 1 : 0)})
                     </span>
                   </button>
 
@@ -3100,7 +3139,7 @@ export const PublicPortalView: React.FC = () => {
             </div>
 
             {/* GOOGLE CONVERSATIONAL VOICES AI NEWS READER (Mandatory Section 17 & 21 Compliance) */}
-            <AIVoiceNewsPlayer post={selectedPost} />
+            <AIVoiceNewsPlayer post={activeArticle} />
 
             {/* Top In-Article Ad Slot */}
             <AdSlotRenderer position="ARTICLE_TOP" />
@@ -3108,23 +3147,23 @@ export const PublicPortalView: React.FC = () => {
             {/* Featured Image */}
             <div className="space-y-1.5">
               <img
-                src={getSafeImageUrl(selectedPost.featuredImage)}
-                alt={selectedPost.featuredImageAlt || selectedPost.title}
+                src={getSafeImageUrl(activeArticle.featuredImage)}
+                alt={activeArticle.featuredImageAlt || activeArticle.title}
                 onError={(e) => {
                   e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                 }}
                 className="w-full rounded-xl object-cover max-h-96 shadow-sm"
               />
-              {selectedPost.featuredImageCaption && (
+              {activeArticle.featuredImageCaption && (
                 <p className="text-center text-[11px] text-slate-500 italic">
-                  {selectedPost.featuredImageCaption}
+                  {activeArticle.featuredImageCaption}
                 </p>
               )}
             </div>
 
             {/* Excerpt Callout */}
             <div className="rounded-xl border-l-4 border-red-600 bg-slate-50 p-4 text-sm font-semibold text-slate-800 leading-relaxed font-sans">
-              {cleanExcerpt(selectedPost.excerpt, selectedPost.content, 260)}
+              {cleanExcerpt(activeArticle.excerpt, activeArticle.content, 260)}
             </div>
 
             {/* Full Body Markdown Content with Structured Headings & Dynamic Font Size */}
@@ -3137,11 +3176,11 @@ export const PublicPortalView: React.FC = () => {
                   : 'text-sm leading-normal'
               }`}
             >
-              <ArticleContentRenderer content={selectedPost.content} />
+              <ArticleContentRenderer content={activeArticle.content} />
             </div>
 
             {/* Official GR / Document PDF Attachment Download Card */}
-            {selectedPost.attachmentUrl && (
+            {activeArticle.attachmentUrl && (
               <div className="my-6 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-sky-50 to-indigo-50 p-5 shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3.5">
@@ -3156,7 +3195,7 @@ export const PublicPortalView: React.FC = () => {
                         <span className="text-[11px] text-blue-700 font-bold">PDF Attachment</span>
                       </div>
                       <h4 className="text-sm font-bold text-slate-900 mt-1">
-                        {selectedPost.attachmentName || 'अधिकृत शासन निर्णय / परिपत्रक'}
+                        {activeArticle.attachmentName || 'अधिकृत शासन निर्णय / परिपत्रक'}
                       </h4>
                       <p className="text-xs text-slate-600 mt-0.5">
                         वाचकांच्या माहितीसाठी अधिकृत शासकीय आदेश व नियमावली उपलब्ध.
@@ -3165,7 +3204,7 @@ export const PublicPortalView: React.FC = () => {
                   </div>
 
                   <a
-                    href={selectedPost.attachmentUrl}
+                    href={activeArticle.attachmentUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-bold shadow-md transition-transform active:scale-95 shrink-0"
@@ -3184,10 +3223,10 @@ export const PublicPortalView: React.FC = () => {
             <AdSlotRenderer position="ARTICLE_BOTTOM" />
 
             {/* Tags (Clickable Search Links) */}
-            {Array.isArray(selectedPost.tags) && selectedPost.tags.length > 0 && (
+            {Array.isArray(activeArticle.tags) && activeArticle.tags.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
                 <span className="text-xs font-bold text-slate-500">संबंधित विषय (टॅग्ज):</span>
-                {selectedPost.tags.map((tag) => (
+                {activeArticle.tags.map((tag) => (
                   <button
                     type="button"
                     key={tag}
@@ -3298,7 +3337,7 @@ export const PublicPortalView: React.FC = () => {
               {/* List Comments for this post */}
               <div className="space-y-3 pt-2">
                 {comments
-                  .filter((c) => c.postId === selectedPost.id && c.status === 'APPROVED')
+                  .filter((c) => c.postId === activeArticle.id && c.status === 'APPROVED')
                   .map((com) => (
                     <div key={com.id} className="flex gap-3 text-xs p-3 rounded-lg bg-white border border-slate-100">
                       <img
@@ -3317,6 +3356,135 @@ export const PublicPortalView: React.FC = () => {
                   ))}
               </div>
             </div>
+          </div>
+        ) : isFetchingDirectPost ? (
+          /* LOADING SPINNER WHILE FETCHING DIRECT CLOUD POST */
+          <div className="max-w-3xl mx-auto bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 my-8">
+            <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-red-600 border-r-transparent"></div>
+            <p className="text-sm font-bold text-slate-800 font-serif">ताज्या बातम्या क्लाऊडवरून लोड होत आहेत...</p>
+            <p className="text-xs text-slate-500 font-mono">Fetching live article from Firestore...</p>
+          </div>
+        ) : publicActivePostSlug ? (}
+            {relatedPosts.length > 0 && (
+              <div className="pt-8 border-t border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-slate-950 flex items-center gap-2">
+                    <span className="h-5 w-1.5 bg-red-600 rounded-full" />
+                    <span>याच विषयावरील इतर महत्त्वाच्या बातम्या</span>
+                  </h3>
+                  <span className="text-xs font-bold text-red-600">वाचा पुढील बातम्या &rarr;</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {relatedPosts.map((rPost) => (
+                    <div
+                      key={rPost.id}
+                      onClick={() => navigateToPost(rPost.slug)}
+                      className="group cursor-pointer rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all flex flex-col"
+                    >
+                      <div className="relative h-32 w-full overflow-hidden bg-slate-100">
+                        <img
+                          src={rPost.featuredImage}
+                          alt=""
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <span className="absolute bottom-1.5 left-1.5 rounded bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5">
+                          {rPost.publishDate}
+                        </span>
+                      </div>
+                      <div className="p-3 flex-1 flex flex-col justify-between">
+                        <h4 className="text-xs font-bold text-slate-900 group-hover:text-red-600 line-clamp-2 leading-snug">
+                          {formatNewsTitle(rPost.title)}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1 font-mono">
+                          👁️ {rPost.views} व्ह्यूज
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Comments Section */}
+            <div className="pt-8 border-t border-slate-200 space-y-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-red-600" />
+                <h3 className="text-base font-bold text-slate-900">
+                  वाचकांच्या प्रतिक्रिया (Reader Comments)
+                </h3>
+              </div>
+
+              {/* Leave a Comment Form */}
+              <form onSubmit={handlePostComment} className="space-y-3 rounded-xl bg-slate-50 p-4 border border-slate-200">
+                <h4 className="text-xs font-bold text-slate-800">तुमचे मत / प्रतिक्रिया नोंदवा</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <input
+                    type="text"
+                    placeholder="तुमचे नाव *"
+                    value={commentName}
+                    onChange={(e) => setCommentName(e.target.value)}
+                    required
+                    className="h-8 rounded-md border border-slate-200 bg-white px-2.5"
+                  />
+                  <input
+                    type="email"
+                    placeholder="तुमचा ईमेल (पर्यायी)"
+                    value={commentEmail}
+                    onChange={(e) => setCommentEmail(e.target.value)}
+                    className="h-8 rounded-md border border-slate-200 bg-white px-2.5"
+                  />
+                </div>
+                <textarea
+                  rows={3}
+                  placeholder="बातमीवर आपले विचार येथे मांडा..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  required
+                  className="w-full rounded-md border border-slate-200 bg-white p-2.5 text-xs"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-red-700 cursor-pointer shadow-2xs"
+                >
+                  प्रतिक्रिया पाठवा
+                </button>
+                {commentSuccess && (
+                  <span className="ml-3 text-xs font-bold text-emerald-600">
+                    धन्यवाद! तुमची प्रतिक्रिया यशस्वीरित्या नोंदवली गेली आहे.
+                  </span>
+                )}
+              </form>
+
+              {/* List Comments for this post */}
+              <div className="space-y-3 pt-2">
+                {comments
+                  .filter((c) => c.postId === activeArticle.id && c.status === 'APPROVED')
+                  .map((com) => (
+                    <div key={com.id} className="flex gap-3 text-xs p-3 rounded-lg bg-white border border-slate-100">
+                      <img
+                        src={com.authorAvatar}
+                        alt=""
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900">{com.authorName}</span>
+                          <span className="text-slate-400">{com.createdAt}</span>
+                        </div>
+                        <p className="text-slate-700 mt-1">{com.content}</p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        ) : isFetchingDirectPost ? (
+          /* LOADING SPINNER WHILE FETCHING DIRECT CLOUD POST */
+          <div className="max-w-3xl mx-auto bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 my-8">
+            <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-red-600 border-r-transparent"></div>
+            <p className="text-sm font-bold text-slate-800 font-serif">ताज्या बातम्या क्लाऊडवरून लोड होत आहेत...</p>
+            <p className="text-xs text-slate-500 font-mono">Fetching live article from Firestore...</p>
           </div>
         ) : publicActivePostSlug ? (
           /* VIEW C: ARTICLE 404 OR LOADING STATE - NEVER SILENTLY REDIRECT TO HOME */
