@@ -267,25 +267,24 @@ class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundary
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('AppErrorBoundary caught error:', error, errorInfo);
-    if (
-      error?.message?.includes('Failed to fetch dynamically imported module') ||
-      error?.message?.includes('dynamically imported module') ||
-      error?.name === 'ChunkLoadError'
-    ) {
-      const reloaded = sessionStorage.getItem('infonews_chunk_reloaded');
-      if (!reloaded) {
-        sessionStorage.setItem('infonews_chunk_reloaded', '1');
-        window.location.reload();
-      }
-    }
   }
 
   handleReload = () => {
     try {
-      localStorage.removeItem('infonews_theme_mode');
+      localStorage.clear();
       sessionStorage.clear();
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const r of regs) r.unregister();
+        });
+      }
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        caches.keys().then((names) => {
+          for (const name of names) caches.delete(name);
+        });
+      }
     } catch {}
-    window.location.reload();
+    window.location.replace('/');
   };
 
   render() {
@@ -298,14 +297,19 @@ class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundary
             </div>
             <h2 className="text-xl font-black text-slate-900">InfoNewsUpdate24</h2>
             <p className="text-xs text-slate-600 leading-relaxed">
-              पेज लोड होताना तात्पुरती अडचण आली आहे. कृपया खालील बटण दाबून ताज्या बातम्या पुन्हा लोड करा.
+              पेज लोड होताना तात्पुरती अडचण आली आहे. खालील बटण दाबून कॅश पूर्ण साफ करून ताज्या बातम्या उघडा.
             </p>
+            {this.state.error && (
+              <div className="text-left bg-slate-100 p-3 rounded-xl text-[11px] text-red-700 font-mono overflow-auto max-h-32 border border-slate-200">
+                {this.state.error.message || String(this.state.error)}
+              </div>
+            )}
             <button
               type="button"
               onClick={this.handleReload}
               className="w-full py-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
             >
-              🔄 ताज्या बातम्या पुन्हा उघडा (Refresh News Portal)
+              🔄 कॅश साफ करून ताज्या बातम्या उघडा (Clean Cache & Open Portal)
             </button>
           </div>
         </div>
