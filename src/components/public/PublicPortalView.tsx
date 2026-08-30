@@ -295,32 +295,39 @@ export const PublicPortalView: React.FC = () => {
 
   const selectedPost = useMemo(() => {
     if (!publicActivePostSlug) return null;
-    const target = decodeURIComponent(publicActivePostSlug).trim().toLowerCase();
+    const target = decodeURIComponent(publicActivePostSlug).trim().toLowerCase().replace(/^\/+|\/+$/g, '');
+    const cleanTargetNormalized = target.replace(/[^a-z0-9\u0900-\u097F]/gi, '');
 
     // 1. Direct slug or ID matching (case-insensitive)
-    const found = publishedPosts.find((p) => {
-      const pSlug = (p.slug || '').trim().toLowerCase();
+    const matchPost = (p: Post) => {
+      const pSlug = (p.slug || '').trim().toLowerCase().replace(/^\/+|\/+$/g, '');
       const pId = (p.id || '').trim().toLowerCase();
+      const pSlugNormalized = pSlug.replace(/[^a-z0-9\u0900-\u097F]/gi, '');
+
       return (
         pSlug === target ||
         pId === target ||
         pId === `post-${target}` ||
+        `post-${pId}` === target ||
+        (cleanTargetNormalized.length >= 4 && pSlugNormalized === cleanTargetNormalized) ||
         (target.length > 6 && pSlug.includes(target)) ||
         (pSlug.length > 6 && target.includes(pSlug))
       );
-    }) || posts.find((p) => {
-      const pSlug = (p.slug || '').trim().toLowerCase();
-      const pId = (p.id || '').trim().toLowerCase();
-      return pSlug === target || pId === target;
-    });
+    };
 
+    const found = publishedPosts.find(matchPost) || posts.find(matchPost);
     if (found) return found;
 
     // 2. Check spotlight stories
     const spotlightMatch = GADCHIROLI_SPOTLIGHT_STORIES.find((s) => {
-      const sSlug = (s.slug || '').trim().toLowerCase();
+      const sSlug = (s.slug || '').trim().toLowerCase().replace(/^\/+|\/+$/g, '');
       const sId = (s.id || '').trim().toLowerCase();
-      return sSlug === target || sId === target;
+      const sSlugNormalized = sSlug.replace(/[^a-z0-9\u0900-\u097F]/gi, '');
+      return (
+        sSlug === target ||
+        sId === target ||
+        (cleanTargetNormalized.length >= 4 && sSlugNormalized === cleanTargetNormalized)
+      );
     });
 
     if (spotlightMatch) {

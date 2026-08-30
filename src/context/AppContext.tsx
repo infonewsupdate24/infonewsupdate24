@@ -312,6 +312,86 @@ function getStoredOrDefault<T>(key: string, defaultValue: T): T {
   return defaultValue;
 }
 
+function parseTimestampToMillis(val: any): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (typeof val === 'object' && val !== null) {
+    if (typeof val.toMillis === 'function') {
+      try { return val.toMillis(); } catch {}
+    }
+    if (typeof val.toDate === 'function') {
+      try { return val.toDate().getTime(); } catch {}
+    }
+    if (typeof val.seconds === 'number') {
+      return val.seconds * 1000 + Math.floor((val.nanoseconds || 0) / 1000000);
+    }
+    if (val instanceof Date) {
+      return val.getTime();
+    }
+  }
+  if (typeof val === 'string') {
+    const parsed = Date.parse(val);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function smartMergePosts(localPosts: Post[], cloudPosts: Post[], deletedIds: Set<string>): Post[] {
+  const postMap = new Map<string, Post>();
+
+  // 1. First add all cloud posts that are not deleted
+  cloudPosts.forEach((cp) => {
+    if (!deletedIds.has(cp.id)) {
+      postMap.set(cp.id, cp);
+    }
+  });
+
+  // 2. Merge local posts (preserve all un-synced published/draft/pending posts, keep newer edits)
+  localPosts.forEach((lp) => {
+    if (deletedIds.has(lp.id)) return;
+
+    if (!postMap.has(lp.id)) {
+      // Local post not in cloud yet (e.g. freshly published or offline) -> ALWAYS PRESERVE IT!
+      postMap.set(lp.id, lp);
+    } else {
+      // Post exists in both: compare timestamps
+      const cloudPost = postMap.get(lp.id)!;
+      const localTime = Math.max(
+        parseTimestampToMillis(lp.updatedAt),
+        parseTimestampToMillis(lp.createdAt),
+        parseTimestampToMillis(lp.publishDate)
+      );
+      const cloudTime = Math.max(
+        parseTimestampToMillis(cloudPost.updatedAt),
+        parseTimestampToMillis(cloudPost.createdAt),
+        parseTimestampToMillis(cloudPost.publishDate)
+      );
+      if (localTime > cloudTime) {
+        // Local is newer -> use local
+        postMap.set(lp.id, lp);
+      }
+    }
+  });
+
+  const merged = Array.from(postMap.values());
+  // Sort newest first
+  merged.sort((a, b) => {
+    const timeA = Math.max(
+      parseTimestampToMillis(a.createdAt),
+      parseTimestampToMillis(a.publishDate),
+      parseTimestampToMillis(a.updatedAt)
+    );
+    const timeB = Math.max(
+      parseTimestampToMillis(b.createdAt),
+      parseTimestampToMillis(b.publishDate),
+      parseTimestampToMillis(b.updatedAt)
+    );
+    return timeB - timeA;
+  });
+
+  return merged;
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation State
   const [portalMode, setPortalMode] = useState<PortalMode>(() => {
@@ -352,6 +432,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deletedIds = getDeletedPostIds();
     const postMap = new Map<string, Post>();
     SEED_POSTS.forEach((p) => {
+      if (!deletedIds.has(p.id)) postMap.set(p.id, p);
+    });
+    posts.forEach((p) => {
       if (!deletedIds.has(p.id)) postMap.set(p.id, p);
     });
     const result = Array.from(postMap.values());
@@ -497,13 +580,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribePosts = FirestoreNewsService.subscribePosts((cloudPosts) => {
       if (cloudPosts && cloudPosts.length > 0) {
         const deletedIds = getDeletedPostIds();
-        const filteredCloud = cloudPosts.filter((p) => !deletedIds.has(p.id));
         setPosts((currentLocal) => {
-          // Keep only legitimate local drafts, NEVER resurrect deleted posts
-          const localOnlyDrafts = currentLocal.filter(
-            (lp) => lp.status === 'DRAFT' && !deletedIds.has(lp.id) && !filteredCloud.some((cp) => cp.id === lp.id)
-          );
-          return [...filteredCloud, ...localOnlyDrafts];
+          return smartMergePosts(currentLocal, cloudPosts, deletedIds);
         });
       }
     });
@@ -585,9 +663,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     postData: Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'workflowHistory'>
   ): Post => {
     const now = new Date().toISOString();
+    const uniqueId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const newPost: Post = {
       ...postData,
-      id: `post-${Date.now()}`,
+      id: uniqueId,
       workflowHistory: [
         {
           id: `wf-${Date.now()}`,
@@ -602,7 +681,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: now,
       updatedAt: now,
     };
-    setPosts((prev) => [newPost, ...prev]);
+    setPosts((prev) => {
+      const next = [newPost, ...prev.filter((p) => p.id !== newPost.id)];
+      try {
+        localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
     // Recalculate category post count
     setCategories((prev) =>
@@ -619,8 +704,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updatePost = (id: string, updates: Partial<Post>, note?: string) => {
     let targetUpdated: Post | null = null;
-    setPosts((prev) =>
-      prev.map((p) => {
+    setPosts((prev) => {
+      const next = prev.map((p) => {
         if (p.id !== id) return p;
         const updated: Post = {
           ...p,
@@ -643,8 +728,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         targetUpdated = updated;
         return updated;
-      })
-    );
+      });
+      try {
+        localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
     if (targetUpdated) {
       FirestoreNewsService.savePost(targetUpdated).catch((err) => {

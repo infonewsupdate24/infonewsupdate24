@@ -39,6 +39,42 @@ import type {
   MerchantAdBooking,
 } from '../types';
 
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return null as unknown as T;
+  }
+  // Preserve Date objects
+  if (data instanceof Date) {
+    return data;
+  }
+  // Preserve Firestore Timestamp, FieldValue, serverTimestamp
+  if (
+    typeof data === 'object' &&
+    data !== null &&
+    (typeof (data as any).toMillis === 'function' ||
+      typeof (data as any).toDate === 'function' ||
+      (data as any)._methodName ||
+      (data as any)._delegate)
+  ) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object' && data !== null) {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      }
+    }
+    return cleaned;
+  }
+  return data;
+}
+
 export class FirestoreNewsService {
   // -------------------------------------------------------------
   // 1. POSTS (News Articles & Content)
@@ -67,10 +103,11 @@ export class FirestoreNewsService {
   static async savePost(post: Post): Promise<void> {
     try {
       const postRef = doc(db, 'posts', post.id);
+      const cleanData = sanitizeForFirestore(post);
       await setDoc(
         postRef,
         {
-          ...post,
+          ...cleanData,
           _syncedAt: serverTimestamp(),
         },
         { merge: true }
@@ -95,8 +132,9 @@ export class FirestoreNewsService {
       const snapshot = await getDocs(collection(db, 'posts'));
       if (snapshot.empty && initialPosts.length > 0) {
         for (const p of initialPosts) {
+          const cleanPost = sanitizeForFirestore(p);
           await setDoc(doc(db, 'posts', p.id), {
-            ...p,
+            ...cleanPost,
             _syncedAt: serverTimestamp(),
           });
         }
