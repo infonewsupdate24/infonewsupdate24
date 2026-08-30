@@ -68,7 +68,7 @@ export const CitizenNewsDeskManagerView: React.FC = () => {
     setTimeout(() => setToastMsg(''), 3500);
   };
 
-  const handleConvertToPublishedPost = (report: CitizenNewsReport) => {
+  const handleConvertToPublishedPost = async (report: CitizenNewsReport) => {
     // 1. Create a live Post in the Newsroom
     const newPostSlug = `citizen-${report.headline
       .toLowerCase()
@@ -76,7 +76,7 @@ export const CitizenNewsDeskManagerView: React.FC = () => {
       .replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`;
 
     const targetCat = categories[0] || { id: 'cat-1', name: 'महाराष्ट्र' };
-    createPost({
+    await createPost({
       title: report.headline,
       slug: newPostSlug,
       excerpt: report.description.slice(0, 180) + '...',

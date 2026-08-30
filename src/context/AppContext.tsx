@@ -139,9 +139,9 @@ interface AppContextType {
   updateSiteSettings: (updates: Partial<SiteGlobalSettings>) => void;
 
   // Post Actions
-  createPost: (post: Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'workflowHistory'>) => Post;
-  updatePost: (id: string, updates: Partial<Post>, note?: string) => void;
-  deletePost: (id: string) => void;
+  createPost: (post: Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'workflowHistory'>) => Promise<Post>;
+  updatePost: (id: string, updates: Partial<Post>, note?: string) => Promise<Post | null>;
+  deletePost: (id: string) => Promise<void>;
   duplicatePost: (id: string) => Post | null;
   syncAllSeedPosts: () => void;
   changePostStatus: (
@@ -153,23 +153,23 @@ interface AppContextType {
   ) => void;
 
   // Category Actions
-  addCategory: (cat: Omit<Category, 'id' | 'postCount'>) => Category;
-  updateCategory: (id: string, updates: Partial<Category>) => void;
-  deleteCategory: (id: string) => { success: boolean; message?: string };
+  addCategory: (cat: Omit<Category, 'id' | 'postCount'>) => Promise<Category>;
+  updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<{ success: boolean; message?: string }>;
 
   // Tag Actions
-  addTag: (name: string, slug?: string, description?: string) => Tag;
-  updateTag: (id: string, updates: Partial<Tag>) => void;
-  deleteTag: (id: string) => void;
+  addTag: (name: string, slug?: string, description?: string) => Promise<Tag>;
+  updateTag: (id: string, updates: Partial<Tag>) => Promise<void>;
+  deleteTag: (id: string) => Promise<void>;
   bulkDeleteTags: (ids: string[]) => void;
 
   // Menu Actions
   updateMenu: (menuId: string, items: any[]) => void;
 
   // Page Actions (InfoNewsUpdate24 Custom Pages)
-  createPage: (page: Omit<StaticPage, 'id' | 'createdAt' | 'updatedAt'>) => StaticPage;
-  updatePage: (id: string, updates: Partial<StaticPage>) => void;
-  deletePage: (id: string) => void;
+  createPage: (page: Omit<StaticPage, 'id' | 'createdAt' | 'updatedAt'>) => Promise<StaticPage>;
+  updatePage: (id: string, updates: Partial<StaticPage>) => Promise<void>;
+  deletePage: (id: string) => Promise<void>;
   duplicatePage: (id: string) => StaticPage | null;
 
   // Social & Reels Media Manager Actions
@@ -571,11 +571,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Firestore initial media sync note:', err);
     });
 
-    // 2. Subscribe to Real-Time Post updates from cloud
+    // 2. Subscribe to Real-Time Post updates from cloud with Auto-Recovery
     const unsubscribePosts = FirestoreNewsService.subscribePosts((cloudPosts) => {
       if (cloudPosts && cloudPosts.length > 0) {
         const deletedIds = getDeletedPostIds();
         setPosts((currentLocal) => {
+          // Auto-recover orphaned posts that were saved locally but missed cloud sync
+          const orphanedPosts = currentLocal.filter(
+            (lp) =>
+              !cloudPosts.some((cp) => cp.id === lp.id) &&
+              !deletedIds.has(lp.id) &&
+              !SEED_POSTS.some((sp) => sp.id === lp.id) &&
+              lp.id.startsWith('post-')
+          );
+          if (orphanedPosts.length > 0) {
+            orphanedPosts.forEach((orphan) => {
+              FirestoreNewsService.savePost(orphan).catch((err) => {
+                console.warn(`[AutoRecovery] Post ${orphan.id} sync note:`, err);
+              });
+            });
+          }
           return smartMergePosts(currentLocal, cloudPosts, deletedIds);
         });
       }
@@ -596,9 +611,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
+    // 4. Subscribe to Real-Time Pages from cloud
+    const unsubscribePages = FirestoreNewsService.subscribePages((cloudPages) => {
+      if (cloudPages && cloudPages.length > 0) {
+        setPages((currentLocal) => {
+          const pageMap = new Map<string, StaticPage>();
+          cloudPages.forEach((cp) => pageMap.set(cp.id, cp));
+          currentLocal.forEach((lp) => {
+            if (!pageMap.has(lp.id)) pageMap.set(lp.id, lp);
+          });
+          return Array.from(pageMap.values());
+        });
+      }
+    });
+
+    // 5. Subscribe to Real-Time Categories from cloud
+    const unsubscribeCats = FirestoreNewsService.subscribeCategories((cloudCats) => {
+      if (cloudCats && cloudCats.length > 0) {
+        setCategories((currentLocal) => {
+          const catMap = new Map<string, Category>();
+          cloudCats.forEach((cc) => catMap.set(cc.id, cc));
+          currentLocal.forEach((lc) => {
+            if (!catMap.has(lc.id)) catMap.set(lc.id, lc);
+          });
+          return Array.from(catMap.values());
+        });
+      }
+    });
+
+    // 6. Subscribe to Real-Time Tags from cloud
+    const unsubscribeTags = FirestoreNewsService.subscribeTags((cloudTags) => {
+      if (cloudTags && cloudTags.length > 0) {
+        setTags((currentLocal) => {
+          const tagMap = new Map<string, Tag>();
+          cloudTags.forEach((ct) => tagMap.set(ct.id, ct));
+          currentLocal.forEach((lt) => {
+            if (!tagMap.has(lt.id)) tagMap.set(lt.id, lt);
+          });
+          return Array.from(tagMap.values());
+        });
+      }
+    });
+
+    // 7. Subscribe to Real-Time Menus from cloud
+    const unsubscribeMenus = FirestoreNewsService.subscribeMenus((cloudMenus) => {
+      if (cloudMenus && cloudMenus.length > 0) {
+        setMenus((currentLocal) => {
+          const menuMap = new Map<string, Menu>();
+          cloudMenus.forEach((cm) => menuMap.set(cm.id, cm));
+          currentLocal.forEach((lm) => {
+            if (!menuMap.has(lm.id)) menuMap.set(lm.id, lm);
+          });
+          return Array.from(menuMap.values());
+        });
+      }
+    });
+
     return () => {
       unsubscribePosts();
       unsubscribeMedia();
+      unsubscribePages();
+      unsubscribeCats();
+      unsubscribeTags();
+      unsubscribeMenus();
     };
   }, []);
 
@@ -654,9 +729,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ]);
 
   // Post Methods
-  const createPost = (
+  const createPost = async (
     postData: Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'workflowHistory'>
-  ): Post => {
+  ): Promise<Post> => {
     const now = new Date().toISOString();
     const uniqueId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const newPost: Post = {
@@ -676,8 +751,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: now,
       updatedAt: now,
     };
+
+    // 1. Authoritative Cloud Persistence First (Await Firestore)
+    await FirestoreNewsService.savePost(newPost);
+
+    // 2. Update React State and Local Cache
     setPosts((prev) => {
-      const next = [newPost, ...prev.filter((p) => p.id !== newPost.id)];
+      const next = sortPostsNewestFirst([newPost, ...prev.filter((p) => p.id !== newPost.id)]);
       try {
         localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(next));
       } catch {}
@@ -689,63 +769,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((c) => (c.id === newPost.categoryId ? { ...c, postCount: (c.postCount || 0) + 1 } : c))
     );
 
-    // Save to Firestore Cloud Real-time
-    FirestoreNewsService.savePost(newPost).catch((err) => {
-      console.warn('Cloud post write note:', err);
-    });
-
     return newPost;
   };
 
-  const updatePost = (id: string, updates: Partial<Post>, note?: string) => {
-    let targetUpdated: Post | null = null;
+  const updatePost = async (id: string, updates: Partial<Post>, note?: string): Promise<Post | null> => {
+    const currentPost = posts.find((p) => p.id === id);
+    if (!currentPost) throw new Error(`Post ${id} not found`);
+
+    const updated: Post = {
+      ...currentPost,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    if (note) {
+      updated.workflowHistory = [
+        {
+          id: `wf-${Date.now()}`,
+          fromStatus: currentPost.status,
+          toStatus: updates.status || currentPost.status,
+          changedBy: updates.authorName || currentPost.authorName,
+          changedByRole: updates.authorRole || currentPost.authorRole,
+          timestamp: new Date().toLocaleString('en-GB'),
+          note,
+        },
+        ...currentPost.workflowHistory,
+      ];
+    }
+
+    // 1. Authoritative Cloud Persistence First (Await Firestore)
+    await FirestoreNewsService.savePost(updated);
+
+    // 2. Update React State and Local Cache
     setPosts((prev) => {
-      const next = prev.map((p) => {
-        if (p.id !== id) return p;
-        const updated: Post = {
-          ...p,
-          ...updates,
-          updatedAt: new Date().toISOString(),
-        };
-        if (note) {
-          updated.workflowHistory = [
-            {
-              id: `wf-${Date.now()}`,
-              fromStatus: p.status,
-              toStatus: updates.status || p.status,
-              changedBy: updates.authorName || p.authorName,
-              changedByRole: updates.authorRole || p.authorRole,
-              timestamp: new Date().toLocaleString('en-GB'),
-              note,
-            },
-            ...p.workflowHistory,
-          ];
-        }
-        targetUpdated = updated;
-        return updated;
-      });
+      const next = sortPostsNewestFirst(prev.map((p) => (p.id === id ? updated : p)));
       try {
         localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(next));
       } catch {}
       return next;
     });
 
-    if (targetUpdated) {
-      FirestoreNewsService.savePost(targetUpdated).catch((err) => {
-        console.warn('Cloud post update note:', err);
-      });
-    }
+    return updated;
   };
 
-  const deletePost = (id: string) => {
+  const deletePost = async (id: string): Promise<void> => {
     recordDeletedPostId(id);
-    setPosts((prev) => prev.filter((p) => p.id !== id));
-    try {
-      const remaining = posts.filter((p) => p.id !== id);
-      localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(remaining));
-    } catch {}
-    FirestoreNewsService.deletePost(id).catch((err) => {
-      console.warn('Cloud post delete note:', err);
+    await FirestoreNewsService.deletePost(id);
+
+    setPosts((prev) => {
+      const remaining = prev.filter((p) => p.id !== id);
+      try {
+        localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(remaining));
+      } catch {}
+      return remaining;
     });
   };
 
@@ -809,21 +884,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Category Methods
-  const addCategory = (catData: Omit<Category, 'id' | 'postCount'>): Category => {
+  const addCategory = async (catData: Omit<Category, 'id' | 'postCount'>): Promise<Category> => {
     const newCat: Category = {
       ...catData,
       id: `cat-${Date.now()}`,
       postCount: 0,
     };
+    await FirestoreNewsService.saveCategory(newCat);
     setCategories((prev) => [...prev, newCat]);
     return newCat;
   };
 
-  const updateCategory = (id: string, updates: Partial<Category>) => {
-    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+  const updateCategory = async (id: string, updates: Partial<Category>): Promise<void> => {
+    const target = categories.find((c) => c.id === id);
+    if (!target) return;
+    const updated = { ...target, ...updates };
+    await FirestoreNewsService.saveCategory(updated);
+    setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
   };
 
-  const deleteCategory = (id: string): { success: boolean; message?: string } => {
+  const deleteCategory = async (id: string): Promise<{ success: boolean; message?: string }> => {
     // Check if posts or child categories exist
     const hasPosts = posts.some((p) => p.categoryId === id || p.subCategoryId === id);
     if (hasPosts) {
@@ -833,12 +913,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (hasChildren) {
       return { success: false, message: 'Cannot delete category: Sub-categories exist under it.' };
     }
+    await FirestoreNewsService.deleteCategory(id);
     setCategories((prev) => prev.filter((c) => c.id !== id));
     return { success: true };
   };
 
   // Tag Methods
-  const addTag = (name: string, customSlug?: string, description?: string): Tag => {
+  const addTag = async (name: string, customSlug?: string, description?: string): Promise<Tag> => {
     const cleanName = name.trim();
     const slug = (customSlug?.trim() || cleanName)
       .toLowerCase()
@@ -855,17 +936,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: description?.trim() || '',
       count: 0,
     };
+    await FirestoreNewsService.saveTag(newTag);
     setTags((prev) => [...prev, newTag]);
     return newTag;
   };
 
-  const updateTag = (id: string, updates: Partial<Tag>) => {
+  const updateTag = async (id: string, updates: Partial<Tag>): Promise<void> => {
+    const target = tags.find((t) => t.id === id);
+    if (!target) return;
+    const updated = { ...target, ...updates };
+    await FirestoreNewsService.saveTag(updated);
     setTags((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      prev.map((t) => (t.id === id ? updated : t))
     );
   };
 
-  const deleteTag = (id: string) => {
+  const deleteTag = async (id: string): Promise<void> => {
+    await FirestoreNewsService.deleteTag(id);
     setTags((prev) => prev.filter((t) => t.id !== id));
   };
 
@@ -879,7 +966,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Page Methods (InfoNewsUpdate24 Custom Pages)
-  const createPage = (pageData: Omit<StaticPage, 'id' | 'createdAt' | 'updatedAt'>): StaticPage => {
+  const createPage = async (pageData: Omit<StaticPage, 'id' | 'createdAt' | 'updatedAt'>): Promise<StaticPage> => {
     const slug =
       pageData.slug?.trim() ||
       pageData.title
@@ -896,25 +983,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    await FirestoreNewsService.savePage(newPage);
     setPages((prev) => [newPage, ...prev]);
     return newPage;
   };
 
-  const updatePage = (id: string, updates: Partial<StaticPage>) => {
+  const updatePage = async (id: string, updates: Partial<StaticPage>): Promise<void> => {
+    const target = pages.find((p) => p.id === id);
+    if (!target) return;
+    const updated = {
+      ...target,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    await FirestoreNewsService.savePage(updated);
     setPages((prev) =>
       prev.map((p) =>
         p.id === id
-          ? {
-              ...p,
-              ...updates,
-              updatedAt: new Date().toISOString(),
-            }
+          ? updated
           : p
       )
     );
   };
 
-  const deletePage = (id: string) => {
+  const deletePage = async (id: string): Promise<void> => {
+    await FirestoreNewsService.deletePage(id);
     setPages((prev) => prev.filter((p) => p.id !== id));
   };
 

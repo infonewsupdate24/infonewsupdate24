@@ -84,31 +84,35 @@ export const QuickEditPostModal: React.FC<QuickEditPostModalProps> = ({
     setPostTags(postTags.filter((t) => t !== tagToRemove));
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    updatePost(
-      post.id,
-      {
-        title: title.trim(),
-        slug: slug.trim() || post.slug,
-        categoryId,
-        status,
-        visibility,
-        location,
-        isBreaking,
-        isTrending,
-        tags: postTags,
-      },
-      'Quick edited from posts list'
-    );
+    try {
+      await updatePost(
+        post.id,
+        {
+          title: title.trim(),
+          slug: slug.trim() || post.slug,
+          categoryId,
+          status,
+          visibility,
+          location,
+          isBreaking,
+          isTrending,
+          tags: postTags,
+        },
+        'Quick edited from posts list'
+      );
 
-    setFeedback('बदल यशस्वीरित्या सेव्ह केले!');
-    setTimeout(() => {
-      setFeedback('');
-      onClose();
-    }, 800);
+      setFeedback('बदल यशस्वीरित्या क्लाउडवर सेव्ह केले!');
+      setTimeout(() => {
+        setFeedback('');
+        onClose();
+      }, 800);
+    } catch (err: any) {
+      setFeedback('❌ क्लाउड सेव्ह अयशस्वी: ' + (err?.message || 'त्रुटी आली'));
+    }
   };
 
   return (

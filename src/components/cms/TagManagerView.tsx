@@ -145,7 +145,7 @@ export const TagManagerView: React.FC = () => {
   }, [processedTags]);
 
   // Create Tag
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -157,32 +157,45 @@ export const TagManagerView: React.FC = () => {
         .replace(/[^\w\s-]/g, '')
         .replace(/\s+/g, '-');
 
-    const created = addTag(name.trim(), finalSlug, description.trim());
-    if (created && updateTag && color) {
-      updateTag(created.id, { color });
-    }
+    try {
+      const created = await addTag(name.trim(), finalSlug, description.trim());
+      if (created && updateTag && color) {
+        await updateTag(created.id, { color });
+      }
 
-    setName('');
-    setSlug('');
-    setDescription('');
-    setFeedback({ type: 'success', message: `टॅग "${name.trim()}" यशस्वीरित्या जोडला गेला.` });
-    setTimeout(() => setFeedback(null), 3500);
+      setName('');
+      setSlug('');
+      setDescription('');
+      setFeedback({ type: 'success', message: `टॅग "${name.trim()}" यशस्वीरित्या जोडला गेला.` });
+      setTimeout(() => setFeedback(null), 3500);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: `❌ त्रुटी: ${err?.message || 'टॅग जोडता आला नाही'}` });
+      setTimeout(() => setFeedback(null), 4000);
+    }
   };
 
   // Quick Add Trending Suggestion
-  const handleQuickAdd = (suggestion: { name: string; slug: string }) => {
-    addTag(suggestion.name, suggestion.slug);
-    setFeedback({ type: 'success', message: `ट्रेंडिंग टॅग "${suggestion.name}" जोडला गेला.` });
-    setTimeout(() => setFeedback(null), 3000);
+  const handleQuickAdd = async (suggestion: { name: string; slug: string }) => {
+    try {
+      await addTag(suggestion.name, suggestion.slug);
+      setFeedback({ type: 'success', message: `ट्रेंडिंग टॅग "${suggestion.name}" जोडला गेला.` });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: `❌ त्रुटी: ${err?.message || 'टॅग जोडता आला नाही'}` });
+    }
   };
 
   // Delete Single Tag
-  const handleDelete = (tag: Tag) => {
+  const handleDelete = async (tag: Tag) => {
     if (window.confirm(`तुम्हाला "${tag.name}" हा टॅग नक्की हटवायचा आहे का?`)) {
-      deleteTag(tag.id);
-      setSelectedTagIds((prev) => prev.filter((id) => id !== tag.id));
-      setFeedback({ type: 'success', message: `टॅग "${tag.name}" हटवला गेला.` });
-      setTimeout(() => setFeedback(null), 3000);
+      try {
+        await deleteTag(tag.id);
+        setSelectedTagIds((prev) => prev.filter((id) => id !== tag.id));
+        setFeedback({ type: 'success', message: `टॅग "${tag.name}" हटवला गेला.` });
+        setTimeout(() => setFeedback(null), 3000);
+      } catch (err: any) {
+        setFeedback({ type: 'error', message: `❌ त्रुटी: ${err?.message || 'टॅग हटवता आला नाही'}` });
+      }
     }
   };
 

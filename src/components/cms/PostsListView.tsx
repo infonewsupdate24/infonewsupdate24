@@ -152,24 +152,30 @@ export const PostsListView: React.FC = () => {
     setTimeout(() => setFeedbackToast(''), 3000);
   };
 
-  const handleApplyBulk = () => {
+  const handleApplyBulk = async () => {
     if (!bulkAction || selectedPostIds.length === 0) return;
-    if (bulkAction === 'delete') {
-      selectedPostIds.forEach((id) => deletePost(id));
-      showToast(`${selectedPostIds.length} बातम्या कचऱ्यात (Trash) हलवल्या.`);
-      setSelectedPostIds([]);
-    } else if (bulkAction === 'publish') {
-      selectedPostIds.forEach((id) =>
-        changePostStatus(id, 'PUBLISHED', currentUser.name, currentUser.role, 'Bulk published')
-      );
-      showToast(`${selectedPostIds.length} बातम्या प्रसिद्ध (Published) केल्या.`);
-      setSelectedPostIds([]);
-    } else if (bulkAction === 'draft') {
-      selectedPostIds.forEach((id) =>
-        changePostStatus(id, 'DRAFT', currentUser.name, currentUser.role, 'Bulk moved to draft')
-      );
-      showToast(`${selectedPostIds.length} बातम्या मसुद्यामध्ये (Draft) हलवल्या.`);
-      setSelectedPostIds([]);
+    try {
+      if (bulkAction === 'delete') {
+        for (const id of selectedPostIds) {
+          await deletePost(id);
+        }
+        showToast(`${selectedPostIds.length} बातम्या क्लाउडवरून हटवल्या.`);
+        setSelectedPostIds([]);
+      } else if (bulkAction === 'publish') {
+        for (const id of selectedPostIds) {
+          await updatePost(id, { status: 'PUBLISHED' }, 'Bulk published');
+        }
+        showToast(`${selectedPostIds.length} बातम्या प्रसिद्ध (Published) केल्या.`);
+        setSelectedPostIds([]);
+      } else if (bulkAction === 'draft') {
+        for (const id of selectedPostIds) {
+          await updatePost(id, { status: 'DRAFT' }, 'Bulk moved to draft');
+        }
+        showToast(`${selectedPostIds.length} बातम्या मसुद्यामध्ये (Draft) हलवल्या.`);
+        setSelectedPostIds([]);
+      }
+    } catch (err: any) {
+      showToast('❌ प्रक्रिया अयशस्वी: ' + (err?.message || 'त्रुटी आली'));
     }
   };
 
@@ -182,22 +188,30 @@ export const PostsListView: React.FC = () => {
     }
   };
 
-  const handleToggleBreaking = (post: Post) => {
-    updatePost(post.id, { isBreaking: !post.isBreaking }, 'Toggled breaking status from list');
-    showToast(
-      !post.isBreaking
-        ? 'बातमी ब्रेकिंग न्यूज टिकरमध्ये जोडली!'
-        : 'बातमी ब्रेकिंग न्यूज टिकरमधून काढली.'
-    );
+  const handleToggleBreaking = async (post: Post) => {
+    try {
+      await updatePost(post.id, { isBreaking: !post.isBreaking }, 'Toggled breaking status from list');
+      showToast(
+        !post.isBreaking
+          ? 'बातमी ब्रेकिंग न्यूज टिकरमध्ये जोडली!'
+          : 'बातमी ब्रेकिंग न्यूज टिकरमधून काढली.'
+      );
+    } catch (err: any) {
+      showToast('❌ अद्ययावत अयशस्वी: ' + (err?.message || 'त्रुटी आली'));
+    }
   };
 
-  const handleToggleTrending = (post: Post) => {
-    updatePost(post.id, { isTrending: !post.isTrending }, 'Toggled trending status from list');
-    showToast(
-      !post.isTrending
-        ? 'बातमी ट्रेंडिंग विभागात जोडली!'
-        : 'बातमी ट्रेंडिंग विभागातून काढली.'
-    );
+  const handleToggleTrending = async (post: Post) => {
+    try {
+      await updatePost(post.id, { isTrending: !post.isTrending }, 'Toggled trending status from list');
+      showToast(
+        !post.isTrending
+          ? 'बातमी ट्रेंडिंग विभागात जोडली!'
+          : 'बातमी ट्रेंडिंग विभागातून काढली.'
+      );
+    } catch (err: any) {
+      showToast('❌ अद्ययावत अयशस्वी: ' + (err?.message || 'त्रुटी आली'));
+    }
   };
 
   const getStatusBadge = (status: PostStatus) => {
@@ -730,10 +744,14 @@ export const PostsListView: React.FC = () => {
                         {canDeletePost(currentUser, post) && (
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               if (window.confirm(`"${post.title}" ही बातमी हटवायची आहे का?`)) {
-                                deletePost(post.id);
-                                showToast('बातमी हटवली गेली.');
+                                try {
+                                  await deletePost(post.id);
+                                  showToast('बातमी क्लाउडवरून यशस्वीरीत्या हटवली गेली.');
+                                } catch (err: any) {
+                                  showToast('❌ बातमी हटवणे अयशस्वी: ' + (err?.message || 'त्रुटी आली'));
+                                }
                               }
                             }}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"

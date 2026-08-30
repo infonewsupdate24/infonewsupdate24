@@ -140,7 +140,7 @@ export const PageManagerView: React.FC = () => {
   };
 
   // 1-Click Mandatory Legal & AdSense Pages Generator
-  const handleGenerateMandatoryPages = () => {
+  const handleGenerateMandatoryPages = async () => {
     const MANDATORY_PAGES = [
       {
         slug: 'about-us',
@@ -269,37 +269,41 @@ export const PageManagerView: React.FC = () => {
     ];
 
     let createdCount = 0;
-    MANDATORY_PAGES.forEach((item) => {
-      const exists = pages.some((p) => p.slug === item.slug);
-      if (!exists) {
-        createPage({
-          title: item.title,
-          slug: item.slug,
-          content: item.content,
-          excerpt: item.excerpt,
-          status: 'PUBLISHED',
-          template: item.template,
-          featuredImage: '',
-          authorName: currentUser?.name || 'Chief Editor',
-          authorRole: currentUser?.role || 'ADMIN',
-          seoTitle: item.title,
-          metaDescription: item.excerpt,
-          order: item.order,
-          views: 0,
-        });
-        createdCount++;
+    try {
+      for (const item of MANDATORY_PAGES) {
+        const exists = pages.some((p) => p.slug === item.slug);
+        if (!exists) {
+          await createPage({
+            title: item.title,
+            slug: item.slug,
+            content: item.content,
+            excerpt: item.excerpt,
+            status: 'PUBLISHED',
+            template: item.template,
+            featuredImage: '',
+            authorName: currentUser?.name || 'Chief Editor',
+            authorRole: currentUser?.role || 'ADMIN',
+            seoTitle: item.title,
+            metaDescription: item.excerpt,
+            order: item.order,
+            views: 0,
+          });
+          createdCount++;
+        }
       }
-    });
 
-    if (createdCount > 0) {
-      showNotification('success', `✨ ${createdCount} कायदेशीर व AdSense अनिवार्य पाने (About, Contact, Privacy Policy, Terms, Grievance) यशस्वीरित्या तयार झाली!`);
-    } else {
-      showNotification('success', 'सर्व कायदेशीर पाने आधीपासूनच तयार आहेत!');
+      if (createdCount > 0) {
+        showNotification('success', `✨ ${createdCount} कायदेशीर व AdSense अनिवार्य पाने यशस्वीरित्या तयार झाली!`);
+      } else {
+        showNotification('success', 'सर्व कायदेशीर पाने आधीपासूनच तयार आहेत!');
+      }
+    } catch (err: any) {
+      showNotification('error', `❌ पाने तयार करताना त्रुटी आली: ${err?.message || 'त्रुटी'}`);
     }
   };
 
   // Save Page
-  const handleSavePage = (targetStatus?: 'PUBLISHED' | 'DRAFT') => {
+  const handleSavePage = async (targetStatus?: 'PUBLISHED' | 'DRAFT') => {
     if (!isAdmin) {
       showNotification('error', '🔒 पेजेस बदलण्याचे अधिकार फक्त मुख्य ॲडमिनला आहेत.');
       return;
@@ -315,41 +319,45 @@ export const PageManagerView: React.FC = () => {
       transliterateMarathiToSlug(formTitle) ||
       `page-${Date.now()}`;
 
-    if (editingPageId) {
-      updatePage(editingPageId, {
-        title: formTitle.trim(),
-        slug: finalSlug,
-        content: formContent,
-        excerpt: formExcerpt,
-        status: finalStatus,
-        template: formTemplate,
-        featuredImage: formFeaturedImage,
-        seoTitle: formSeoTitle || formTitle,
-        metaDescription: formMetaDesc || formExcerpt,
-        order: Number(formOrder) || 0,
-      });
-      showNotification('success', `पान "${formTitle}" यशस्वीरित्या अपडेट केले गेले!`);
-    } else {
-      createPage({
-        title: formTitle.trim(),
-        slug: finalSlug,
-        content: formContent,
-        excerpt: formExcerpt,
-        status: finalStatus,
-        template: formTemplate,
-        featuredImage: formFeaturedImage,
-        authorName: currentUser?.name || 'Chief Editor',
-        authorRole: currentUser?.role || 'ADMIN',
-        seoTitle: formSeoTitle || formTitle,
-        metaDescription: formMetaDesc || formExcerpt,
-        order: Number(formOrder) || 0,
-        views: 0,
-      });
-      showNotification('success', `नवीन पान "${formTitle}" यशस्वीरित्या तयार झाले!`);
-    }
+    try {
+      if (editingPageId) {
+        await updatePage(editingPageId, {
+          title: formTitle.trim(),
+          slug: finalSlug,
+          content: formContent,
+          excerpt: formExcerpt,
+          status: finalStatus,
+          template: formTemplate,
+          featuredImage: formFeaturedImage,
+          seoTitle: formSeoTitle || formTitle,
+          metaDescription: formMetaDesc || formExcerpt,
+          order: Number(formOrder) || 0,
+        });
+        showNotification('success', `पान "${formTitle}" क्लाउडवर यशस्वीरीत्या अपडेट झाले!`);
+      } else {
+        await createPage({
+          title: formTitle.trim(),
+          slug: finalSlug,
+          content: formContent,
+          excerpt: formExcerpt,
+          status: finalStatus,
+          template: formTemplate,
+          featuredImage: formFeaturedImage,
+          authorName: currentUser?.name || 'Chief Editor',
+          authorRole: currentUser?.role || 'ADMIN',
+          seoTitle: formSeoTitle || formTitle,
+          metaDescription: formMetaDesc || formExcerpt,
+          order: Number(formOrder) || 0,
+          views: 0,
+        });
+        showNotification('success', `नवीन पान "${formTitle}" क्लाउडवर यशस्वीरीत्या तयार झाले!`);
+      }
 
-    setViewMode('LIST');
-    setEditingPageId(null);
+      setViewMode('LIST');
+      setEditingPageId(null);
+    } catch (err: any) {
+      showNotification('error', `❌ क्लाउड सेव्ह अयशस्वी: ${err?.message || 'त्रुटी आली'}`);
+    }
   };
 
   // Duplicate Page
@@ -365,33 +373,47 @@ export const PageManagerView: React.FC = () => {
   };
 
   // Delete / Trash Page
-  const handleDeletePage = (id: string, title: string) => {
+  const handleDeletePage = async (id: string, title: string) => {
     if (!isAdmin) {
       showNotification('error', '🔒 पेजेस हटवण्याचे अधिकार फक्त मुख्य ॲडमिनला आहेत.');
       return;
     }
     if (window.confirm(`तुम्हाला खात्री आहे का की "${title}" हे पान कायमचे हटवायचे आहे?`)) {
-      deletePage(id);
-      setSelectedPageIds((prev) => prev.filter((item) => item !== id));
-      showNotification('success', `पान "${title}" हटवण्यात आले.`);
+      try {
+        await deletePage(id);
+        setSelectedPageIds((prev) => prev.filter((item) => item !== id));
+        showNotification('success', `पान "${title}" हटवण्यात आले.`);
+      } catch (err: any) {
+        showNotification('error', `❌ पान हटवणे अयशस्वी: ${err?.message || 'त्रुटी आली'}`);
+      }
     }
   };
 
   // Bulk Actions
-  const handleApplyBulkAction = () => {
+  const handleApplyBulkAction = async () => {
     if (!bulkAction || selectedPageIds.length === 0) return;
 
-    if (bulkAction === 'publish') {
-      selectedPageIds.forEach((id) => updatePage(id, { status: 'PUBLISHED' }));
-      showNotification('success', `${selectedPageIds.length} पाने प्रकाशित करण्यात आली.`);
-    } else if (bulkAction === 'draft') {
-      selectedPageIds.forEach((id) => updatePage(id, { status: 'DRAFT' }));
-      showNotification('success', `${selectedPageIds.length} पाने मसुदा (Draft) स्थितीत हलवण्यात आली.`);
-    } else if (bulkAction === 'delete') {
-      if (window.confirm(`निवडलेली ${selectedPageIds.length} पाने कायमची हटवायची आहेत का?`)) {
-        selectedPageIds.forEach((id) => deletePage(id));
-        showNotification('success', `${selectedPageIds.length} पाने यशस्वीरित्या हटवली.`);
+    try {
+      if (bulkAction === 'publish') {
+        for (const id of selectedPageIds) {
+          await updatePage(id, { status: 'PUBLISHED' });
+        }
+        showNotification('success', `${selectedPageIds.length} पाने प्रकाशित करण्यात आली.`);
+      } else if (bulkAction === 'draft') {
+        for (const id of selectedPageIds) {
+          await updatePage(id, { status: 'DRAFT' });
+        }
+        showNotification('success', `${selectedPageIds.length} पाने मसुदा (Draft) स्थितीत हलवण्यात आली.`);
+      } else if (bulkAction === 'delete') {
+        if (window.confirm(`निवडलेली ${selectedPageIds.length} पाने कायमची हटवायची आहेत का?`)) {
+          for (const id of selectedPageIds) {
+            await deletePage(id);
+          }
+          showNotification('success', `${selectedPageIds.length} पाने यशस्वीरित्या हटवली.`);
+        }
       }
+    } catch (err: any) {
+      showNotification('error', `❌ बल्क ॲक्शन अयशस्वी: ${err?.message || 'त्रुटी आली'}`);
     }
     setSelectedPageIds([]);
     setBulkAction('');

@@ -96,6 +96,8 @@ export const PostEditorView: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState(existingPost?.videoUrl || '');
   const [editorialNote, setEditorialNote] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [saveErrorMsg, setSaveErrorMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [activeEditorTab, setActiveEditorTab] = useState<'write' | 'preview'>('write');
   const [isSocialPreviewOpen, setIsSocialPreviewOpen] = useState(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
@@ -286,7 +288,7 @@ export const PostEditorView: React.FC = () => {
     setPostTags(postTags.filter((t) => t !== tagToRemove));
   };
 
-  const handleSave = (targetStatus?: PostStatus) => {
+  const handleSave = async (targetStatus?: PostStatus) => {
     if (isReadOnly) {
       alert('🔒 ही बातमी प्रकाशित झालेली असल्याने फक्त मुख्य ॲडमिनच यात बदल करू शकतात.');
       return;
@@ -329,28 +331,41 @@ export const PostEditorView: React.FC = () => {
       seo: seoData,
     };
 
-    if (existingPost) {
-      updatePost(existingPost.id, postPayload, editorialNote || `Status: ${finalStatus}`);
-      setSaveSuccessMsg(`Article successfully updated (${finalStatus})`);
-    } else {
-      const created = createPost(postPayload);
-      setSaveSuccessMsg(`Article created successfully with ID: ${created.id}`);
-    }
+    setIsSaving(true);
+    setSaveSuccessMsg('');
+    setSaveErrorMsg('');
 
-    if (sendPushAlert && finalStatus === 'PUBLISHED') {
-      WebPushNotificationService.broadcastPush(
-        title,
-        excerpt || title,
-        '/?mode=public',
-        isBreaking ? 'BREAKING' : 'ALL',
-        location,
-        featuredImage
+    try {
+      if (existingPost) {
+        await updatePost(existingPost.id, postPayload, editorialNote || `Status: ${finalStatus}`);
+        setSaveSuccessMsg(`बातमी यशस्वीरीत्या क्लाउडवर अद्ययावत झाली (${finalStatus})`);
+      } else {
+        const created = await createPost(postPayload);
+        setSaveSuccessMsg(`बातमी यशस्वीरीत्या क्लाउडवर प्रकाशित झाली! (ID: ${created.id})`);
+      }
+
+      if (sendPushAlert && finalStatus === 'PUBLISHED') {
+        WebPushNotificationService.broadcastPush(
+          title,
+          excerpt || title,
+          '/?mode=public',
+          isBreaking ? 'BREAKING' : 'ALL',
+          location,
+          featuredImage
+        );
+      }
+
+      setTimeout(() => {
+        setSaveSuccessMsg('');
+      }, 5000);
+    } catch (err: any) {
+      console.error('Failed to save/publish post to Firestore:', err);
+      setSaveErrorMsg(
+        err?.message || '❌ क्लाउड सेव्ह अयशस्वी झाले. बातमी प्रकाशित झाली नाही. कृपया तुमचे इंटरनेट कनेक्शन किंवा ॲडमिन लॉगिन तपासा.'
       );
+    } finally {
+      setIsSaving(false);
     }
-
-    setTimeout(() => {
-      setSaveSuccessMsg('');
-    }, 4000);
   };
 
   return (
@@ -438,21 +453,23 @@ export const PostEditorView: React.FC = () => {
             <>
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() => handleSave('DRAFT')}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
               >
-                <Save className="h-3.5 w-3.5" />
-                <span>Save Draft</span>
+                {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
               </button>
 
               {hasPermission('post.submit') && status === 'DRAFT' && (
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => handleSave('SUBMITTED')}
-                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                 >
-                  <Send className="h-3.5 w-3.5" />
-                  <span>Submit for Review</span>
+                  {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  <span>{isSaving ? 'Submitting...' : 'Submit for Review'}</span>
                 </button>
               )}
 
@@ -460,11 +477,22 @@ export const PostEditorView: React.FC = () => {
                 <button
                   id="btn-publish-post-main"
                   type="button"
+                  disabled={isSaving}
                   onClick={() => handleSave('PUBLISHED')}
-                  className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                 >
-                  <FileText className="h-3.5 w-3.5" />
-                  <span>{status === 'PUBLISHED' ? 'Update & Publish' : 'Publish Now'}</span>
+                  {isSaving ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5" />
+                  )}
+                  <span>
+                    {isSaving
+                      ? 'क्लाउडवर सेव्ह होत आहे...'
+                      : status === 'PUBLISHED'
+                      ? 'Update & Publish'
+                      : 'Publish Now'}
+                  </span>
                 </button>
               )}
             </>
@@ -491,8 +519,15 @@ export const PostEditorView: React.FC = () => {
 
       {saveSuccessMsg && (
         <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-xs font-bold text-emerald-800 ring-1 ring-emerald-600/30 animate-in fade-in">
-          <CheckCircle className="h-4 w-4 text-emerald-600" />
+          <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
           <span>{saveSuccessMsg}</span>
+        </div>
+      )}
+
+      {saveErrorMsg && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-xs font-bold text-red-800 ring-1 ring-red-600/30 animate-in fade-in">
+          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+          <span>{saveErrorMsg}</span>
         </div>
       )}
 

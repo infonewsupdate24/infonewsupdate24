@@ -313,7 +313,7 @@ export const WordPressAndUrlImporterView: React.FC = () => {
     }
   };
 
-  const handleImportSelectedArticles = () => {
+  const handleImportSelectedArticles = async () => {
     if (selectedScrapedIds.size === 0) return;
 
     const toImport = scrapedResults.filter((art) => selectedScrapedIds.has(art.id));
@@ -323,10 +323,10 @@ export const WordPressAndUrlImporterView: React.FC = () => {
       authorName: currentUser?.name || 'InfoNews संपादक',
     });
 
-    // Insert into AppContext posts
-    newPosts.forEach((post) => {
-      createPost(post);
-    });
+    // Insert into AppContext posts and await persistence
+    for (const post of newPosts) {
+      await createPost(post);
+    }
 
     addActivityLog({
       userId: currentUser?.id || 'user-admin',
@@ -422,19 +422,17 @@ export const WordPressAndUrlImporterView: React.FC = () => {
     }
 
     // 2. Import Posts and sync directly to Firestore
-    const createdPostsList: Post[] = [];
-    wpParsedResult.posts.forEach((p) => {
-      const created = createPost({
+    for (const p of wpParsedResult.posts) {
+      await createPost({
         ...p,
         status: wpStatusOverride === 'FORCE_PUBLISHED' ? 'PUBLISHED' : (wpStatusOverride === 'FORCE_DRAFT' ? 'DRAFT' : p.status),
       });
-      createdPostsList.push(created);
       importedPostsCount++;
-    });
+    }
 
     // 3. Import Pages
-    wpParsedResult.pages.forEach((pg) => {
-      createPage({
+    for (const pg of wpParsedResult.pages) {
+      await createPage({
         title: pg.title,
         slug: pg.slug,
         content: pg.content,
@@ -444,14 +442,7 @@ export const WordPressAndUrlImporterView: React.FC = () => {
         template: pg.template || 'default',
       });
       importedPagesCount++;
-    });
-
-    // 4. Background Sync to Cloud Firestore
-    try {
-      createdPostsList.forEach((post) => {
-        FirestoreNewsService.savePost(post).catch(() => {});
-      });
-    } catch {}
+    }
 
     addActivityLog({
       userId: currentUser?.id || 'user-admin',

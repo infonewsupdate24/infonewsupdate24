@@ -26,35 +26,45 @@ export const CategoryManagerView: React.FC = () => {
     );
   };
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    addCategory({
-      name: name.trim(),
-      slug: slug.trim() || name.toLowerCase().replace(/\s+/g, '-'),
-      parentId: parentId ? parentId : null,
-      description,
-      displayOrder: categories.length + 1,
-      status: 'ACTIVE',
-    });
+    try {
+      await addCategory({
+        name: name.trim(),
+        slug: slug.trim() || name.toLowerCase().replace(/\s+/g, '-'),
+        parentId: parentId ? parentId : null,
+        description,
+        displayOrder: categories.length + 1,
+        status: 'ACTIVE',
+      });
 
-    setName('');
-    setSlug('');
-    setParentId('');
-    setDescription('');
-    setFeedback({ type: 'success', message: 'Category added successfully.' });
-    setTimeout(() => setFeedback(null), 3000);
+      setName('');
+      setSlug('');
+      setParentId('');
+      setDescription('');
+      setFeedback({ type: 'success', message: 'Category added successfully.' });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err?.message || 'Failed to add category' });
+      setTimeout(() => setFeedback(null), 4000);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    const res = deleteCategory(id);
-    if (!res.success) {
-      setFeedback({ type: 'error', message: res.message || 'Cannot delete category' });
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await deleteCategory(id);
+      if (!res.success) {
+        setFeedback({ type: 'error', message: res.message || 'Cannot delete category' });
+        setTimeout(() => setFeedback(null), 4000);
+      } else {
+        setFeedback({ type: 'success', message: 'Category deleted successfully.' });
+        setTimeout(() => setFeedback(null), 3000);
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err?.message || 'Failed to delete category' });
       setTimeout(() => setFeedback(null), 4000);
-    } else {
-      setFeedback({ type: 'success', message: 'Category deleted successfully.' });
-      setTimeout(() => setFeedback(null), 3000);
     }
   };
 
