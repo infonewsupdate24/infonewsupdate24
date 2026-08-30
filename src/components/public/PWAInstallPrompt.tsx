@@ -52,7 +52,7 @@ export const PWAInstallPrompt: React.FC = () => {
       setIsBannerVisible(false);
       setToastMsg('🎉 InfoNewsUpdate24 ॲप इन्स्टॉल झाले! तुमच्या मोबाईल स्क्रीनवर आयकॉन तयार झाला आहे.');
       setTimeout(() => setToastMsg(''), 5000);
-    } else if (outcome === 'manual_guide' || outcome === 'manual_ios') {
+    } else if (outcome === 'manual_guide') {
       setShowIOSModal(true);
     }
   };

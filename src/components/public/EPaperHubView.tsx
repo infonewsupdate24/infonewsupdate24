@@ -70,9 +70,9 @@ interface EPaperHubViewProps {
 
 export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) => {
   const { posts, categories, ads, epaperSettings } = useApp();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const isAdminOrEditor = Boolean(
-    user && ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'SUB_EDITOR'].includes(user.role)
+    currentUser && ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'SUB_EDITOR'].includes(currentUser.role)
   );
 
   const availableDistricts = useMemo(() => {
@@ -427,17 +427,19 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
   // 100% Dynamic Newspaper Broadsheet Renderer from Auto-Populated Articles
   const renderDynamicPage = (page: EPaperPage) => {
     const articles = page.articles || [];
-    const leadArticle = articles[0] || {
+    const fallbackLead: EPaperArticleClip = {
       id: `fallback-lead-${page.pageNumber}`,
       pageNumber: page.pageNumber,
       title: `${currentDistrictName} विशेष वृत्त व महत्त्वाच्या घडामोडी`,
       headline: `${currentDistrictName}: विकासकामे व शासकीय योजनांची अंमलबजावणी गतिमान`,
       summary: 'जिल्ह्यातील नागरिकांसाठी महत्त्वाचे निर्णय आणि विकास प्रकल्पांना प्रशासकीय मंजुरी.',
+      fullBody: 'जिल्ह्यातील नागरिकांसाठी महत्त्वाचे निर्णय आणि विकास प्रकल्पांना प्रशासकीय मंजुरी.',
       category: 'मुख्य मथळा',
       authorName: 'विशेष प्रतिनिधी',
       location: currentDistrictName.replace('हॅलो ', ''),
       image: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80',
     };
+    const leadArticle: EPaperArticleClip = articles[0] || fallbackLead;
 
     const sideShorts = articles.slice(3, 6);
     const anchorArticles = articles.slice(1, 3);

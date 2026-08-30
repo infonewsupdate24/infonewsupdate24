@@ -22,6 +22,7 @@ import {
   Sun,
   Volume2,
   Phone,
+  Printer,
   Tag,
   Save,
   RotateCcw,

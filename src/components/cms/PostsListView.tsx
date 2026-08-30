@@ -29,6 +29,7 @@ import {
   Zap,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
+import type { Post, PostStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { canEditPost, canDeletePost } from '../../utils/rbac';
