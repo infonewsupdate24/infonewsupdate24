@@ -74,6 +74,7 @@ import { WebPushPromptBanner } from './WebPushPromptBanner';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { PWAInstallModal } from './PWAInstallModal';
 import { PWAService } from '../../services/PWAService';
+import { FirestoreNewsService } from '../../services/FirestoreNewsService';
 import { KrishiMandiRatesWidget } from './KrishiMandiRatesWidget';
 import { WhatsAppCommunityFloatingWidget } from './WhatsAppCommunityFloatingWidget';
 import { InArticleWhatsAppBanner } from './InArticleWhatsAppBanner';
