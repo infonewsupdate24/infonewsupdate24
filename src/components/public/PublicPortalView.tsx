@@ -253,6 +253,9 @@ export const PublicPortalView: React.FC = () => {
       // 1. E-Paper Mode
       if (searchParams.get('mode') === 'epaper' || pathname === '/epaper') {
         setIsEPaperViewOpen(true);
+        setPublicActivePostSlug(null);
+        setPublicActiveCategorySlug(null);
+        setPublicActivePageSlug(null);
         return;
       }
 
@@ -260,20 +263,25 @@ export const PublicPortalView: React.FC = () => {
       if (pathname.startsWith('/category/')) {
         const catSlug = pathname.replace('/category/', '').split('/')[0];
         if (catSlug) {
-          setPublicActiveCategorySlug(catSlug);
+          const cleanCatSlug = decodeURIComponent(catSlug).trim().toLowerCase();
+          setPublicActiveCategorySlug(cleanCatSlug);
+          setActiveCategoryFilter(cleanCatSlug);
           setPublicActivePostSlug(null);
           setPublicActivePageSlug(null);
+          setIsEPaperViewOpen(false);
           return;
         }
       }
 
       // 3. Static Page Route (/page/slug)
       if (pathname.startsWith('/page/')) {
-        const pageSlug = pathname.replace('/page/', '');
+        const pageSlug = pathname.replace('/page/', '').split('/')[0];
         if (pageSlug) {
-          setPublicActivePageSlug(pageSlug);
+          const cleanPageSlug = decodeURIComponent(pageSlug).trim().toLowerCase();
+          setPublicActivePageSlug(cleanPageSlug);
           setPublicActivePostSlug(null);
           setPublicActiveCategorySlug(null);
+          setIsEPaperViewOpen(false);
           return;
         }
       }
@@ -291,31 +299,30 @@ export const PublicPortalView: React.FC = () => {
         postSlugCandidate = pathname.replace(/^\//, '');
       }
 
-      if (postSlugCandidate) {
-        const cleanCandidate = decodeURIComponent(postSlugCandidate).toLowerCase();
-        const matchedPost = posts.find(
-          (p) =>
-            p.slug.toLowerCase() === cleanCandidate ||
-            cleanCandidate.includes(p.slug.toLowerCase()) ||
-            p.slug.toLowerCase().includes(cleanCandidate)
-        );
+      // 5. WordPress Query Param (?p=123 or ?post=xxx or ?article=xxx)
+      const pParam = searchParams.get('p') || searchParams.get('post') || searchParams.get('article');
+      if (pParam) {
+        postSlugCandidate = pParam;
+      }
 
-        if (matchedPost) {
-          setPublicActivePostSlug(matchedPost.slug);
+      if (postSlugCandidate) {
+        const cleanCandidate = decodeURIComponent(postSlugCandidate).trim().toLowerCase();
+        if (cleanCandidate && cleanCandidate !== 'index.html') {
+          setPublicActivePostSlug(cleanCandidate);
           setPublicActiveCategorySlug(null);
           setPublicActivePageSlug(null);
+          setIsEPaperViewOpen(false);
           return;
         }
       }
 
-      // 5. WordPress Query Param (?p=123 or ?post=xxx)
-      const pParam = searchParams.get('p') || searchParams.get('post');
-      if (pParam) {
-        const matchedPost = posts.find((p) => p.id === `post-${pParam}` || p.id === pParam || p.slug.includes(pParam));
-        if (matchedPost) {
-          setPublicActivePostSlug(matchedPost.slug);
-          return;
-        }
+      // 6. Home Root
+      if (pathname === '' || pathname === '/') {
+        setPublicActivePostSlug(null);
+        setPublicActiveCategorySlug(null);
+        setPublicActivePageSlug(null);
+        setActiveCategoryFilter('ALL');
+        setIsEPaperViewOpen(false);
       }
     };
 
@@ -327,25 +334,24 @@ export const PublicPortalView: React.FC = () => {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [posts, categories, pages, setPublicActiveCategorySlug, setPublicActivePostSlug, setPublicActivePageSlug]);
+  }, []);
 
   // Synchronize browser address bar permalinks (pushState) whenever navigation state changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     if (publicActivePostSlug) {
-      const activePost = posts.find((p) => p.slug === publicActivePostSlug);
       const targetPath = `/${publicActivePostSlug}/`;
       if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActivePostSlug)) {
         window.history.pushState({ postSlug: publicActivePostSlug }, '', targetPath);
       }
-      if (activePost) {
-        document.title = `${activePost.title} | InfoNewsUpdate24`;
+      if (selectedPost) {
+        document.title = `${selectedPost.title} | InfoNewsUpdate24`;
       }
     } else if (publicActiveCategorySlug) {
       const activeCat = categories.find((c) => c.slug === publicActiveCategorySlug || c.id === publicActiveCategorySlug);
       const targetPath = `/category/${publicActiveCategorySlug}/`;
-      if (window.location.pathname !== targetPath) {
+      if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActiveCategorySlug)) {
         window.history.pushState({ categorySlug: publicActiveCategorySlug }, '', targetPath);
       }
       if (activeCat) {
@@ -354,19 +360,25 @@ export const PublicPortalView: React.FC = () => {
     } else if (publicActivePageSlug) {
       const activePage = pages.find((pg) => pg.slug === publicActivePageSlug);
       const targetPath = `/page/${publicActivePageSlug}/`;
-      if (window.location.pathname !== targetPath) {
+      if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActivePageSlug)) {
         window.history.pushState({ pageSlug: publicActivePageSlug }, '', targetPath);
       }
       if (activePage) {
         document.title = `${activePage.title} | InfoNewsUpdate24`;
       }
-    } else if (!isEPaperViewOpen) {
-      if (window.location.pathname !== '/' && window.location.pathname !== '') {
+    } else if (isEPaperViewOpen) {
+      if (window.location.pathname !== '/epaper' && !window.location.search.includes('mode=epaper')) {
+        window.history.pushState({ mode: 'epaper' }, '', '/epaper');
+      }
+      document.title = 'InfoNewsUpdate24 | डिजिटल ई-पेपर (E-Paper)';
+    } else {
+      // ONLY push '/' when navigation state is explicitly in Home mode
+      if (window.location.pathname !== '/' && window.location.pathname !== '' && !window.location.pathname.startsWith('/cms')) {
         window.history.pushState({}, '', '/');
       }
       document.title = 'InfoNewsUpdate24 | महाराष्ट्र व गडचिरोली ताज्या मराठी बातम्या | Breaking News Portal';
     }
-  }, [publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, posts, categories, pages]);
+  }, [publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, selectedPost, categories, pages]);
 
   useEffect(() => {
     const handleLayoutUpdate = () => {
@@ -455,18 +467,87 @@ export const PublicPortalView: React.FC = () => {
     return `${dayName}, ${day} ${month} ${year}`;
   };
 
-  // Published posts and pages only for public view
-  const publishedPosts = posts.filter((p) => p.status === 'PUBLISHED');
-  const publishedPages = pages.filter((p) => p.status === 'PUBLISHED');
+  // Published posts and pages only for public view (with fallback to all active posts)
+  const publishedPosts = posts.filter(
+    (p) => p.status === 'PUBLISHED' || !p.status || (p.status as string).toUpperCase() === 'PUBLISHED'
+  );
+  const publishedPages = pages.filter((p) => p.status === 'PUBLISHED' || !p.status);
+
+  // Unified Route Navigators (Guarantees zero silent redirects & clean URLs)
+  const navigateToPost = (slugOrPost: Post | string) => {
+    const targetSlug = typeof slugOrPost === 'string' ? slugOrPost : slugOrPost.slug;
+    if (!targetSlug) return;
+    setPublicActivePostSlug(targetSlug.trim().toLowerCase());
+    setPublicActiveCategorySlug(null);
+    setPublicActivePageSlug(null);
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToCategory = (slug: string) => {
+    if (!slug || slug === 'ALL' || slug === '/') {
+      setPublicActiveCategorySlug(null);
+      setActiveCategoryFilter('ALL');
+    } else {
+      const cleanSlug = slug.replace('/category/', '').trim().toLowerCase();
+      setPublicActiveCategorySlug(cleanSlug);
+      setActiveCategoryFilter(cleanSlug);
+    }
+    setPublicActivePostSlug(null);
+    setPublicActivePageSlug(null);
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToPage = (slug: string) => {
+    if (!slug) return;
+    const cleanSlug = slug.replace('/page/', '').trim().toLowerCase();
+    setPublicActivePageSlug(cleanSlug);
+    setPublicActivePostSlug(null);
+    setPublicActiveCategorySlug(null);
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToHome = () => {
+    setPublicActivePostSlug(null);
+    setPublicActiveCategorySlug(null);
+    setPublicActivePageSlug(null);
+    setActiveCategoryFilter('ALL');
+    setIsEPaperViewOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const selectedPost = useMemo(() => {
     if (!publicActivePostSlug) return null;
-    const found = publishedPosts.find((p) => p.slug === publicActivePostSlug);
+    const target = decodeURIComponent(publicActivePostSlug).trim().toLowerCase();
+
+    // 1. Direct slug or ID matching (case-insensitive)
+    const found = publishedPosts.find((p) => {
+      const pSlug = (p.slug || '').trim().toLowerCase();
+      const pId = (p.id || '').trim().toLowerCase();
+      return (
+        pSlug === target ||
+        pId === target ||
+        pId === `post-${target}` ||
+        (target.length > 6 && pSlug.includes(target)) ||
+        (pSlug.length > 6 && target.includes(pSlug))
+      );
+    }) || posts.find((p) => {
+      const pSlug = (p.slug || '').trim().toLowerCase();
+      const pId = (p.id || '').trim().toLowerCase();
+      return pSlug === target || pId === target;
+    });
+
     if (found) return found;
 
-    const spotlightMatch = GADCHIROLI_SPOTLIGHT_STORIES.find(
-      (s) => s.slug === publicActivePostSlug
-    );
+    // 2. Check spotlight stories
+    const spotlightMatch = GADCHIROLI_SPOTLIGHT_STORIES.find((s) => {
+      const sSlug = (s.slug || '').trim().toLowerCase();
+      const sId = (s.id || '').trim().toLowerCase();
+      return sSlug === target || sId === target;
+    });
+
     if (spotlightMatch) {
       return {
         id: spotlightMatch.id,
@@ -495,7 +576,7 @@ export const PublicPortalView: React.FC = () => {
       };
     }
     return null;
-  }, [publicActivePostSlug, publishedPosts]);
+  }, [publicActivePostSlug, publishedPosts, posts]);
 
   // Related / Recommended Stories for Single Article View
   const relatedPosts = useMemo(() => {
@@ -513,7 +594,8 @@ export const PublicPortalView: React.FC = () => {
   }, [selectedPost, publishedPosts]);
 
   const selectedPage = publicActivePageSlug
-    ? (publishedPages.find((p) => p.slug === publicActivePageSlug) || pages.find((p) => p.slug === publicActivePageSlug))
+    ? (publishedPages.find((p) => (p.slug || '').toLowerCase() === publicActivePageSlug.toLowerCase()) ||
+       pages.find((p) => (p.slug || '').toLowerCase() === publicActivePageSlug.toLowerCase()))
     : null;
 
   const breakingPost = publishedPosts.find((p) => p.isBreaking) || publishedPosts[0];
@@ -523,11 +605,9 @@ export const PublicPortalView: React.FC = () => {
   // Helper for menu item navigation
   const handleNavMenuItemClick = (item: any) => {
     setIsMobileMenuOpen(false);
-    setPublicActivePostSlug(null);
-    setPublicActivePageSlug(null);
 
     if (item.type === 'HOME' || item.url === '/') {
-      setActiveCategoryFilter('ALL');
+      navigateToHome();
       return;
     }
 
@@ -535,21 +615,15 @@ export const PublicPortalView: React.FC = () => {
       const slug = item.url?.startsWith('/page/')
         ? item.url.replace('/page/', '')
         : item.slug || item.label.toLowerCase().replace(/\s+/g, '-');
-      setPublicActivePageSlug(slug);
+      navigateToPage(slug);
       return;
     }
 
-    if (item.type === 'CATEGORY') {
+    if (item.type === 'CATEGORY' || item.url?.startsWith('/category/')) {
       const slug = item.url?.startsWith('/category/')
         ? item.url.replace('/category/', '')
         : item.slug || item.label.toLowerCase().replace(/\s+/g, '-');
-      setActiveCategoryFilter(slug);
-      return;
-    }
-
-    if (item.url?.startsWith('/category/')) {
-      const slug = item.url.replace('/category/', '');
-      setActiveCategoryFilter(slug);
+      navigateToCategory(slug);
       return;
     }
 
@@ -559,7 +633,7 @@ export const PublicPortalView: React.FC = () => {
     }
 
     // Default fallback
-    setActiveCategoryFilter('ALL');
+    navigateToHome();
   };
 
   const primaryHeaderMenu = menus?.find((m) => m.id === 'menu-header-main') || menus?.[0];
@@ -788,7 +862,7 @@ export const PublicPortalView: React.FC = () => {
             {heroPosts[0] && (
               <div
                 className="group relative lg:col-span-8 rounded-2xl overflow-hidden shadow-md cursor-pointer bg-slate-900 flex flex-col justify-end min-h-[380px] sm:min-h-[440px]"
-                onClick={() => setPublicActivePostSlug(heroPosts[0].slug)}
+                onClick={() => navigateToPost(heroPosts[0].slug)}
               >
                 <img
                   src={getSafeImageUrl(heroPosts[0].featuredImage)}
@@ -823,7 +897,7 @@ export const PublicPortalView: React.FC = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setPublicActivePostSlug(heroPosts[0].slug);
+                        navigateToPost(heroPosts[0].slug);
                       }}
                       className="rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition-colors shadow-md"
                     >
@@ -853,7 +927,7 @@ export const PublicPortalView: React.FC = () => {
               {heroPosts.slice(1, 5).map((post) => (
                 <div
                   key={post.id}
-                  onClick={() => setPublicActivePostSlug(post.slug)}
+                  onClick={() => navigateToPost(post.slug)}
                   className="group flex gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer"
                 >
                   <img
@@ -907,7 +981,7 @@ export const PublicPortalView: React.FC = () => {
               {/* 4.1. GADCHIROLI 12 TALUKAS LIVE SPOTLIGHT STRIP */}
               <GadchiroliTalukaSpotlight
                 posts={publishedPosts}
-                onSelectPost={(slug) => setPublicActivePostSlug(slug)}
+                onSelectPost={(slug) => navigateToPost(slug)}
                 onSelectTalukaFilter={(talukaId) => {
                   setSelectedDistrictId('gadchiroli');
                   setSelectedTalukaId(talukaId);
@@ -952,7 +1026,7 @@ export const PublicPortalView: React.FC = () => {
                   {publishedPosts.slice(0, 4).map((post) => (
                     <div
                       key={`feat-${post.id}`}
-                      onClick={() => setPublicActivePostSlug(post.slug)}
+                      onClick={() => navigateToPost(post.slug)}
                       className="group rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs hover:shadow-lg hover:border-red-300 transition-all cursor-pointer flex flex-col justify-between"
                     >
                       <div>
@@ -1019,7 +1093,7 @@ export const PublicPortalView: React.FC = () => {
                   {trendingPosts.slice(0, 4).map((post, idx) => (
                     <div
                       key={post.id}
-                      onClick={() => setPublicActivePostSlug(post.slug)}
+                      onClick={() => navigateToPost(post.slug)}
                       className="group flex items-start gap-3 cursor-pointer"
                     >
                       <span className="text-lg font-black text-slate-300 group-hover:text-red-600">
@@ -1074,7 +1148,7 @@ export const PublicPortalView: React.FC = () => {
                     {publishedPosts.slice(4, 7).map((post) => (
                       <div
                         key={`ed-pick-${post.id}`}
-                        onClick={() => setPublicActivePostSlug(post.slug)}
+                        onClick={() => navigateToPost(post.slug)}
                         className="group flex gap-3 cursor-pointer items-start"
                       >
                         <img
@@ -1117,7 +1191,7 @@ export const PublicPortalView: React.FC = () => {
                     {publishedPosts.slice(7, 12).map((fp, fIdx) => (
                       <div
                         key={`flash-${fp.id}`}
-                        onClick={() => setPublicActivePostSlug(fp.slug)}
+                        onClick={() => navigateToPost(fp.slug)}
                         className="group flex items-baseline gap-2 cursor-pointer hover:bg-white/80 p-1.5 rounded-lg transition-colors"
                       >
                         <span className="text-red-600 font-black font-mono text-xs shrink-0">
@@ -1232,11 +1306,11 @@ export const PublicPortalView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setActiveCategoryFilter('ALL');
+                  navigateToCategory('ALL');
                   setVisibleLatestCount(8);
                 }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  activeCategoryFilter === 'ALL'
+                  activeCategoryFilter === 'ALL' || !publicActiveCategorySlug
                     ? 'bg-red-600 text-white shadow-xs'
                     : 'bg-white text-slate-700 border border-slate-200 hover:bg-red-50 hover:border-red-200'
                 }`}
@@ -1246,23 +1320,30 @@ export const PublicPortalView: React.FC = () => {
 
               {categories
                 .filter((c) => !c.parentId)
-                .map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveCategoryFilter(cat.slug || cat.id);
-                      setVisibleLatestCount(8);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      activeCategoryFilter === cat.slug || activeCategoryFilter === cat.id
-                        ? 'bg-red-600 text-white shadow-xs'
-                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-red-50 hover:border-red-200'
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
+                .map((cat) => {
+                  const isActive =
+                    activeCategoryFilter === cat.slug ||
+                    activeCategoryFilter === cat.id ||
+                    publicActiveCategorySlug === cat.slug ||
+                    publicActiveCategorySlug === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        navigateToCategory(cat.slug || cat.id);
+                        setVisibleLatestCount(8);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-red-600 text-white shadow-xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-red-50 hover:border-red-200'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
             </div>
 
             {/* Search feedback banner */}
@@ -1295,7 +1376,7 @@ export const PublicPortalView: React.FC = () => {
                     {filteredFeedPosts.slice(0, visibleLatestCount).map((post) => (
                       <div
                         key={post.id}
-                        onClick={() => setPublicActivePostSlug(post.slug)}
+                        onClick={() => navigateToPost(post.slug)}
                         className="group rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs hover:shadow-xl hover:border-red-300 transition-all duration-300 cursor-pointer flex flex-col justify-between"
                       >
                         <div>
@@ -1391,7 +1472,7 @@ export const PublicPortalView: React.FC = () => {
                     {filteredFeedPosts.slice(0, visibleLatestCount).map((post) => (
                       <div
                         key={post.id}
-                        onClick={() => setPublicActivePostSlug(post.slug)}
+                        onClick={() => navigateToPost(post.slug)}
                         className="group flex flex-col sm:flex-row gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs hover:shadow-xl hover:border-red-300 transition-all duration-300 cursor-pointer"
                       >
                         <div className="relative h-44 sm:h-32 sm:w-56 shrink-0 rounded-xl overflow-hidden bg-slate-100">
@@ -1546,7 +1627,7 @@ export const PublicPortalView: React.FC = () => {
 
                 {publishedPosts[0] && (
                   <div
-                    onClick={() => setPublicActivePostSlug(publishedPosts[0].slug)}
+                    onClick={() => navigateToPost(publishedPosts[0].slug)}
                     className="group space-y-2.5 cursor-pointer"
                   >
                     <div className="relative h-40 w-full rounded-xl overflow-hidden">
@@ -1569,7 +1650,7 @@ export const PublicPortalView: React.FC = () => {
                   {publishedPosts.slice(1, 3).map((p) => (
                     <div
                       key={`ent-sub-${p.id}`}
-                      onClick={() => setPublicActivePostSlug(p.slug)}
+                      onClick={() => navigateToPost(p.slug)}
                       className="group flex items-start gap-2.5 cursor-pointer"
                     >
                       <span className="text-pink-600 font-bold text-xs mt-0.5">&bull;</span>
@@ -1595,7 +1676,7 @@ export const PublicPortalView: React.FC = () => {
 
                 {publishedPosts[1] && (
                   <div
-                    onClick={() => setPublicActivePostSlug(publishedPosts[1].slug)}
+                    onClick={() => navigateToPost(publishedPosts[1].slug)}
                     className="group space-y-2.5 cursor-pointer"
                   >
                     <div className="relative h-40 w-full rounded-xl overflow-hidden">
@@ -1618,7 +1699,7 @@ export const PublicPortalView: React.FC = () => {
                   {publishedPosts.slice(3, 5).map((p) => (
                     <div
                       key={`spt-sub-${p.id}`}
-                      onClick={() => setPublicActivePostSlug(p.slug)}
+                      onClick={() => navigateToPost(p.slug)}
                       className="group flex items-start gap-2.5 cursor-pointer"
                     >
                       <span className="text-emerald-600 font-bold text-xs mt-0.5">&bull;</span>
@@ -1644,7 +1725,7 @@ export const PublicPortalView: React.FC = () => {
 
                 {publishedPosts[2] && (
                   <div
-                    onClick={() => setPublicActivePostSlug(publishedPosts[2].slug)}
+                    onClick={() => navigateToPost(publishedPosts[2].slug)}
                     className="group space-y-2.5 cursor-pointer"
                   >
                     <div className="relative h-40 w-full rounded-xl overflow-hidden">
@@ -1667,7 +1748,7 @@ export const PublicPortalView: React.FC = () => {
                   {publishedPosts.slice(5, 7).map((p) => (
                     <div
                       key={`tch-sub-${p.id}`}
-                      onClick={() => setPublicActivePostSlug(p.slug)}
+                      onClick={() => navigateToPost(p.slug)}
                       className="group flex items-start gap-2.5 cursor-pointer"
                     >
                       <span className="text-sky-600 font-bold text-xs mt-0.5">&bull;</span>
@@ -1979,7 +2060,7 @@ export const PublicPortalView: React.FC = () => {
                   {themeSettings.breakingNewsLabel || 'Breaking'}
                 </span>
                 <span
-                  onClick={() => setPublicActivePostSlug(breakingPost.slug)}
+                  onClick={() => navigateToPost(breakingPost.slug)}
                   className="truncate text-slate-300 hover:text-white cursor-pointer text-xs font-medium"
                 >
                   {breakingPost.title}
@@ -2601,18 +2682,8 @@ export const PublicPortalView: React.FC = () => {
 
       {/* 3.1. SUB-MENU SCROLLING BREAKING NEWS TICKER */}
       <BreakingNewsTicker
-        onSelectPost={(post) => {
-          setPublicActivePostSlug(post.slug);
-          setPublicActiveCategorySlug(null);
-          setPublicActivePageSlug(null);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onSelectCategory={(catSlug) => {
-          setPublicActiveCategorySlug(catSlug);
-          setPublicActivePostSlug(null);
-          setPublicActivePageSlug(null);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        onSelectPost={(post) => navigateToPost(post)}
+        onSelectCategory={(catSlug) => navigateToCategory(catSlug)}
       />
 
       {/* Below Header Ad Slot Banner */}
@@ -2805,7 +2876,7 @@ export const PublicPortalView: React.FC = () => {
             {/* Back Button */}
             <button
               type="button"
-              onClick={() => setPublicActivePostSlug(null)}
+              onClick={navigateToHome}
               className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-red-600 transition-colors cursor-pointer"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -3139,10 +3210,7 @@ export const PublicPortalView: React.FC = () => {
                   {relatedPosts.map((rPost) => (
                     <div
                       key={rPost.id}
-                      onClick={() => {
-                        setPublicActivePostSlug(rPost.slug);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
+                      onClick={() => navigateToPost(rPost.slug)}
                       className="group cursor-pointer rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all flex flex-col"
                     >
                       <div className="relative h-32 w-full overflow-hidden bg-slate-100">
@@ -3242,8 +3310,36 @@ export const PublicPortalView: React.FC = () => {
               </div>
             </div>
           </div>
+        ) : publicActivePostSlug ? (
+          /* VIEW C: ARTICLE 404 OR LOADING STATE - NEVER SILENTLY REDIRECT TO HOME */
+          <div className="max-w-3xl mx-auto bg-white p-8 sm:p-12 rounded-2xl border border-slate-200 shadow-sm text-center space-y-6 my-6">
+            <div className="h-16 w-16 bg-red-50 border border-red-200 text-red-600 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-xs">
+              📰
+            </div>
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full uppercase">
+                त्रुटी ४०४ (Article Not Found)
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                आपण शोधत असलेली बातमी लोड होत आहे किंवा उपलब्ध नाही
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                बातमीची लिंक <code className="bg-slate-100 px-2 py-0.5 rounded text-red-600 font-mono text-xs">/{publicActivePostSlug}/</code> अद्ययावत केली जात आहे किंवा ती हटवली असू शकते.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                onClick={navigateToHome}
+                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>मुख्य ताज्या बातम्यांवर परत जा</span>
+              </button>
+            </div>
+          </div>
         ) : (
-          /* VIEW B: HOMEPAGE / CATEGORY FEED VIEW */
+          /* VIEW D: HOMEPAGE / CATEGORY FEED VIEW */
           <div className="space-y-8">
             {/* Top Homepage Banner Ad */}
             <AdSlotRenderer position="HOME_TOP" />
@@ -3372,10 +3468,10 @@ export const PublicPortalView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setPublicActivePostSlug(activeVideoModalPost.slug);
                     setActiveVideoModalPost(null);
+                    navigateToPost(activeVideoModalPost.slug);
                   }}
-                  className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-300"
+                  className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-300 cursor-pointer"
                 >
                   <span>Read Full Article & Comments</span>
                   <ExternalLink className="h-3.5 w-3.5" />
@@ -3410,11 +3506,17 @@ export const PublicPortalView: React.FC = () => {
           <div>
             <h4 className="font-bold text-white uppercase tracking-wider mb-3">Categories</h4>
             <ul className="space-y-1.5 text-slate-400">
-              <li><a href="#" className="hover:text-white">Maharashtra News</a></li>
-              <li><a href="#" className="hover:text-white">Gadchiroli Bureau</a></li>
-              <li><a href="#" className="hover:text-white">National Politics</a></li>
-              <li><a href="#" className="hover:text-white">Stock Markets & Business</a></li>
-              <li><a href="#" className="hover:text-white">IPL & Sports</a></li>
+              {categories.slice(0, 5).map((cat) => (
+                <li key={cat.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigateToCategory(cat.slug || cat.id)}
+                    className="hover:text-white transition-colors cursor-pointer text-left"
+                  >
+                    {cat.name}
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -3425,12 +3527,8 @@ export const PublicPortalView: React.FC = () => {
                 <li key={p.id}>
                   <button
                     type="button"
-                    onClick={() => {
-                      setPublicActivePostSlug(null);
-                      setPublicActivePageSlug(p.slug);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="hover:text-white transition-colors text-left"
+                    onClick={() => navigateToPage(p.slug)}
+                    className="hover:text-white transition-colors text-left cursor-pointer"
                   >
                     {p.title}
                   </button>
