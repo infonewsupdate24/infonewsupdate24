@@ -10,4 +10,5 @@ coverage/
 *.sql.gz
 domains/
 public/wp-content/
+.firebase/
 
