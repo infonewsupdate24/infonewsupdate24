@@ -8,6 +8,27 @@
     <script>
       (function() {
         try {
+          // Auto-purge stale service workers & caches from old builds
+          var APP_BUILD_VERSION = 'infonews_build_v2026_08_30_05';
+          var storedBuild = localStorage.getItem('infonews_build_key');
+          if (storedBuild !== APP_BUILD_VERSION) {
+            localStorage.setItem('infonews_build_key', APP_BUILD_VERSION);
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (var i = 0; i < registrations.length; i++) {
+                  registrations[i].unregister();
+                }
+              });
+            }
+            if ('caches' in window) {
+              caches.keys().then(function(names) {
+                for (var j = 0; j < names.length; j++) {
+                  caches.delete(names[j]);
+                }
+              });
+            }
+          }
+
           if (typeof window !== 'undefined') {
             window.addEventListener('beforeinstallprompt', function(e) {
               e.preventDefault();
@@ -145,15 +166,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // Safe PWA Service Worker registration (skipped in sandboxed iframes)
-      if ('serviceWorker' in navigator && window.self === window.top) {
-        window.addEventListener('load', () => {
-          try {
-            navigator.serviceWorker.register('/sw.js').catch(function() {});
-          } catch (e) {}
-        });
-      }
-    </script>
   </body>
 </html>
