@@ -43,7 +43,7 @@ import {
   X,
   Youtube,
 } from 'lucide-react';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, Suspense, lazy } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Post, SocialMediaPost } from '../../types';
@@ -69,21 +69,17 @@ import { ReaderPollWidget } from './ReaderPollWidget';
 import { AIVoiceNewsPlayer } from './AIVoiceNewsPlayer';
 import { AdSlotRenderer } from '../common/AdSlotRenderer';
 import { ArticleContentRenderer } from '../common/ArticleContentRenderer';
-import { EPaperHubView } from './EPaperHubView';
 import { WebPushPromptBanner } from './WebPushPromptBanner';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
-import { PWAInstallModal } from './PWAInstallModal';
 import { PWAService } from '../../services/PWAService';
 import { FirestoreNewsService } from '../../services/FirestoreNewsService';
 import { KrishiMandiRatesWidget } from './KrishiMandiRatesWidget';
 import { WhatsAppCommunityFloatingWidget } from './WhatsAppCommunityFloatingWidget';
 import { InArticleWhatsAppBanner } from './InArticleWhatsAppBanner';
 import { PublicDailyDigestCard } from './PublicDailyDigestCard';
-import { MerchantAdBookingModal } from './MerchantAdBookingModal';
 import { LiveOpinionPollWidget } from './LiveOpinionPollWidget';
 import { WebStoriesCarousel } from './WebStoriesCarousel';
 import { LiveWeatherWidget } from './LiveWeatherWidget';
-import { CitizenNewsSubmissionModal } from './CitizenNewsSubmissionModal';
 import { GovtSchemesFeedWidget } from './GovtSchemesFeedWidget';
 import { DailyPanchangWidget } from './DailyPanchangWidget';
 import { HyperlocalNewsFilterBar } from './HyperlocalNewsFilterBar';
@@ -100,7 +96,23 @@ import { HyperlocalNewsService } from '../../services/HyperlocalNewsService';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { ThemeService, ThemeMode } from '../../services/ThemeService';
 import { Sparkles, Radio, Smartphone, CreditCard, Vote, CloudSun, PenTool, Landmark, Key, LogIn, Lock } from 'lucide-react';
-import { PortalLoginModal } from './PortalLoginModal';
+
+// ⚡ On-Demand Lazy Loaded Views & Modals
+const EPaperHubView = lazy(() =>
+  import('./EPaperHubView').then((m) => ({ default: m.EPaperHubView }))
+);
+const PWAInstallModal = lazy(() =>
+  import('./PWAInstallModal').then((m) => ({ default: m.PWAInstallModal }))
+);
+const MerchantAdBookingModal = lazy(() =>
+  import('./MerchantAdBookingModal').then((m) => ({ default: m.MerchantAdBookingModal }))
+);
+const CitizenNewsSubmissionModal = lazy(() =>
+  import('./CitizenNewsSubmissionModal').then((m) => ({ default: m.CitizenNewsSubmissionModal }))
+);
+const PortalLoginModal = lazy(() =>
+  import('./PortalLoginModal').then((m) => ({ default: m.PortalLoginModal }))
+);
 
 export const PublicPortalView: React.FC = () => {
   const {
@@ -2080,7 +2092,18 @@ export const PublicPortalView: React.FC = () => {
 
   // If in Digital E-Paper Hub Mode
   if (isEPaperViewOpen) {
-    return <EPaperHubView onBackToPortal={() => setIsEPaperViewOpen(false)} />;
+    return (
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mb-3" />
+            <p className="text-sm font-semibold text-slate-300">ई-पेपर डिजिटल आवृत्ती उघडत आहे...</p>
+          </div>
+        }
+      >
+        <EPaperHubView onBackToPortal={() => setIsEPaperViewOpen(false)} />
+      </Suspense>
+    );
   }
 
   return (
@@ -3676,31 +3699,47 @@ export const PublicPortalView: React.FC = () => {
       <PWAInstallPrompt />
 
       {/* 7.1 PWA MOBILE APP INSTALL GUIDE MODAL */}
-      <PWAInstallModal
-        isOpen={isPWAInstallModalOpen}
-        onClose={() => setIsPWAInstallModalOpen(false)}
-      />
+      <Suspense fallback={null}>
+        {isPWAInstallModalOpen && (
+          <PWAInstallModal
+            isOpen={isPWAInstallModalOpen}
+            onClose={() => setIsPWAInstallModalOpen(false)}
+          />
+        )}
+      </Suspense>
 
       {/* 8. WHATSAPP COMMUNITY FLOATING HUB & MULTI-DISTRICT MODAL */}
       <WhatsAppCommunityFloatingWidget />
 
       {/* 9. MERCHANT SELF-SERVICE UPI AD BOOKING MODAL */}
-      <MerchantAdBookingModal
-        isOpen={isAdBookingModalOpen}
-        onClose={() => setIsAdBookingModalOpen(false)}
-      />
+      <Suspense fallback={null}>
+        {isAdBookingModalOpen && (
+          <MerchantAdBookingModal
+            isOpen={isAdBookingModalOpen}
+            onClose={() => setIsAdBookingModalOpen(false)}
+          />
+        )}
+      </Suspense>
 
       {/* 10. CITIZEN JOURNALISM & READER NEWS SUBMISSION MODAL */}
-      <CitizenNewsSubmissionModal
-        isOpen={isCitizenNewsModalOpen}
-        onClose={() => setIsCitizenNewsModalOpen(false)}
-      />
+      <Suspense fallback={null}>
+        {isCitizenNewsModalOpen && (
+          <CitizenNewsSubmissionModal
+            isOpen={isCitizenNewsModalOpen}
+            onClose={() => setIsCitizenNewsModalOpen(false)}
+          />
+        )}
+      </Suspense>
 
       {/* 11. PORTAL & NEWSROOM LOGIN MODAL */}
-      <PortalLoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-      />
+      <Suspense fallback={null}>
+        {isLoginModalOpen && (
+          <PortalLoginModal
+            isOpen={isLoginModalOpen}
+            onClose={() => setIsLoginModalOpen(false)}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };
