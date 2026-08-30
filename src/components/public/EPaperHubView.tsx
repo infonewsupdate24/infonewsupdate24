@@ -442,6 +442,35 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
     const sideShorts = articles.slice(3, 6);
     const anchorArticles = articles.slice(1, 3);
 
+    // Smart non-duplicating lead decomposition
+    const rawLeadBody = (leadArticle.fullBody || leadArticle.summary || '').trim();
+    const leadParas = rawLeadBody
+      .split(/\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    let leadIntro = '';
+    let leadRemainingParas: string[] = [];
+
+    if (leadParas.length > 1) {
+      leadIntro = leadParas[0];
+      leadRemainingParas = leadParas.slice(1);
+    } else if (leadParas.length === 1) {
+      const singleP = leadParas[0];
+      // Split into sentences so intro does NOT duplicate body
+      const sentences = singleP.match(/[^.?!।]+[.?!।]*/g) || [singleP];
+      if (sentences.length > 2) {
+        leadIntro = sentences.slice(0, 2).join(' ').trim();
+        leadRemainingParas = [sentences.slice(2).join(' ').trim()];
+      } else {
+        leadIntro = singleP;
+        leadRemainingParas = [];
+      }
+    } else {
+      leadIntro = leadArticle.summary || '';
+      leadRemainingParas = [];
+    }
+
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-12 gap-4">
@@ -461,7 +490,7 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
                   className="space-y-1.5 cursor-pointer hover:bg-amber-50 p-1.5 rounded transition-colors border-b border-slate-200 pb-2"
                 >
                   <img
-                    src={shortArt.image || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80'}
+                    src={shortArt.image && shortArt.image.trim() ? shortArt.image.trim() : 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80'}
                     alt=""
                     onError={(e) => {
                       e.currentTarget.src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80';
@@ -509,24 +538,22 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
               <div className="grid grid-cols-12 gap-3 items-start">
                 <div className="col-span-8 text-[11px] text-slate-800 leading-relaxed text-justify space-y-2">
                   <p className="font-bold text-slate-950 bg-amber-50/80 p-2.5 rounded border-l-3 border-amber-500">
-                    {leadArticle.summary}
+                    {leadIntro}
                   </p>
-                  <div className="columns-1 sm:columns-2 gap-3 text-[10.5px] leading-relaxed text-slate-900 font-serif">
-                    {(leadArticle.fullBody || leadArticle.summary)
-                      .split('\n\n')
-                      .filter(Boolean)
-                      .slice(0, 5)
-                      .map((para, pIdx) => (
-                        <p key={pIdx} className="mb-2 text-justify">
+                  {leadRemainingParas.length > 0 && (
+                    <div className="columns-1 sm:columns-2 gap-3 text-[10.5px] leading-relaxed text-slate-900 font-serif">
+                      {leadRemainingParas.slice(0, 4).map((para, pIdx) => (
+                        <p key={pIdx} className="mb-2 text-justify indent-3">
                           {para}
                         </p>
                       ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-span-4 space-y-2">
                   <img
-                    src={leadArticle.image || 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&auto=format&fit=crop&q=80'}
+                    src={leadArticle.image && leadArticle.image.trim() ? leadArticle.image.trim() : 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&auto=format&fit=crop&q=80'}
                     alt=""
                     onError={(e) => {
                       e.currentTarget.src = 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&auto=format&fit=crop&q=80';
@@ -559,7 +586,7 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
                       {ancArt.category || 'महत्त्वाची घडामोड'}
                     </span>
                     <img
-                      src={ancArt.image || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80'}
+                      src={ancArt.image && ancArt.image.trim() ? ancArt.image.trim() : 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80'}
                       alt=""
                       onError={(e) => {
                         e.currentTarget.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80';
