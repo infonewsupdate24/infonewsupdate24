@@ -926,6 +926,8 @@ export const PublicPortalView: React.FC = () => {
                 <img
                   src={getSafeImageUrl(heroPosts[0].featuredImage)}
                   alt={heroPosts[0].title}
+                  fetchPriority="high"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                   }}
@@ -992,6 +994,10 @@ export const PublicPortalView: React.FC = () => {
                   <img
                     src={getSafeImageUrl(post.featuredImage)}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width="96"
+                    height="80"
                     onError={(e) => {
                       e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                     }}
@@ -1093,6 +1099,8 @@ export const PublicPortalView: React.FC = () => {
                           <img
                             src={getSafeImageUrl(post.featuredImage)}
                             alt=""
+                            loading="lazy"
+                            decoding="async"
                             onError={(e) => {
                               e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                             }}
@@ -1213,6 +1221,10 @@ export const PublicPortalView: React.FC = () => {
                         <img
                           src={getSafeImageUrl(post.featuredImage)}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
+                          width="80"
+                          height="64"
                           onError={(e) => {
                             e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                           }}
@@ -1443,6 +1455,8 @@ export const PublicPortalView: React.FC = () => {
                             <img
                               src={getSafeImageUrl(post.featuredImage)}
                               alt=""
+                              loading="lazy"
+                              decoding="async"
                               onError={(e) => {
                                 e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                               }}
@@ -1538,6 +1552,8 @@ export const PublicPortalView: React.FC = () => {
                           <img
                             src={getSafeImageUrl(post.featuredImage)}
                             alt=""
+                            loading="lazy"
+                            decoding="async"
                             onError={(e) => {
                               e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                             }}
@@ -1691,8 +1707,13 @@ export const PublicPortalView: React.FC = () => {
                   >
                     <div className="relative h-40 w-full rounded-xl overflow-hidden">
                       <img
-                        src={publishedPosts[0].featuredImage}
+                        src={getSafeImageUrl(publishedPosts[0].featuredImage)}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                        }}
                         className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <span className="absolute bottom-2 left-2 rounded bg-slate-950/80 text-white text-[10px] font-bold px-2 py-0.5">
@@ -1740,8 +1761,13 @@ export const PublicPortalView: React.FC = () => {
                   >
                     <div className="relative h-40 w-full rounded-xl overflow-hidden">
                       <img
-                        src={publishedPosts[1].featuredImage}
+                        src={getSafeImageUrl(publishedPosts[1].featuredImage)}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                        }}
                         className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <span className="absolute bottom-2 left-2 rounded bg-slate-950/80 text-white text-[10px] font-bold px-2 py-0.5">
@@ -1789,8 +1815,13 @@ export const PublicPortalView: React.FC = () => {
                   >
                     <div className="relative h-40 w-full rounded-xl overflow-hidden">
                       <img
-                        src={publishedPosts[2].featuredImage}
+                        src={getSafeImageUrl(publishedPosts[2].featuredImage)}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                        }}
                         className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <span className="absolute bottom-2 left-2 rounded bg-slate-950/80 text-white text-[10px] font-bold px-2 py-0.5">
@@ -1879,6 +1910,8 @@ export const PublicPortalView: React.FC = () => {
                   <img
                     src={pic.img}
                     alt={pic.title}
+                    loading="lazy"
+                    decoding="async"
                     className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
@@ -2274,6 +2307,10 @@ export const PublicPortalView: React.FC = () => {
                   <img
                     src={currentUser.avatar}
                     alt={currentUser.name}
+                    loading="lazy"
+                    decoding="async"
+                    width="14"
+                    height="14"
                     className="w-3.5 h-3.5 rounded-full object-cover border border-slate-400 shrink-0"
                   />
                   <span className="truncate max-w-[45px] xs:max-w-[70px]">{currentUser.name.split(' ')[0]}</span>
@@ -2573,6 +2610,10 @@ export const PublicPortalView: React.FC = () => {
                   <img
                     src={currentUser.avatar}
                     alt={currentUser.name}
+                    loading="lazy"
+                    decoding="async"
+                    width="36"
+                    height="36"
                     className="w-9 h-9 rounded-full object-cover border-2 border-red-500 shrink-0"
                   />
                   <div className="min-w-0">
@@ -2787,8 +2828,13 @@ export const PublicPortalView: React.FC = () => {
             {selectedPage.featuredImage && (
               <div className="rounded-2xl overflow-hidden max-h-[360px] border border-slate-100 shadow-xs">
                 <img
-                  src={selectedPage.featuredImage}
+                  src={getSafeImageUrl(selectedPage.featuredImage)}
                   alt={selectedPage.title}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                  }}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -3007,6 +3053,10 @@ export const PublicPortalView: React.FC = () => {
                   <img
                     src={activeArticle.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                     alt={activeArticle.authorName}
+                    loading="lazy"
+                    decoding="async"
+                    width="40"
+                    height="40"
                     className="h-10 w-10 rounded-full object-cover ring-2 ring-red-500/30"
                   />
                   <div>
@@ -3194,6 +3244,8 @@ export const PublicPortalView: React.FC = () => {
               <img
                 src={getSafeImageUrl(activeArticle.featuredImage)}
                 alt={activeArticle.featuredImageAlt || activeArticle.title}
+                fetchPriority="high"
+                decoding="async"
                 onError={(e) => {
                   e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
                 }}
@@ -3307,8 +3359,13 @@ export const PublicPortalView: React.FC = () => {
                     >
                       <div className="relative h-32 w-full overflow-hidden bg-slate-100">
                         <img
-                          src={rPost.featuredImage}
+                          src={getSafeImageUrl(rPost.featuredImage)}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                          }}
                           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <span className="absolute bottom-1.5 left-1.5 rounded bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5">
@@ -3386,8 +3443,15 @@ export const PublicPortalView: React.FC = () => {
                   .map((com) => (
                     <div key={com.id} className="flex gap-3 text-xs p-3 rounded-lg bg-white border border-slate-100">
                       <img
-                        src={com.authorAvatar}
+                        src={getSafeImageUrl(com.authorAvatar)}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
+                        width="32"
+                        height="32"
+                        onError={(e) => {
+                          e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                        }}
                         className="h-8 w-8 rounded-full object-cover"
                       />
                       <div>
@@ -3538,8 +3602,13 @@ export const PublicPortalView: React.FC = () => {
             {/* Video Playback Stage */}
             <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
               <img
-                src={activeVideoModalPost.featuredImage}
+                src={getSafeImageUrl(activeVideoModalPost.featuredImage)}
                 alt=""
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  e.currentTarget.src = DEFAULT_NEWS_FALLBACK_IMAGE;
+                }}
                 className="absolute inset-0 h-full w-full object-cover opacity-40 blur-xs"
               />
               <div className="relative z-10 flex flex-col items-center gap-3 p-6 text-center">
