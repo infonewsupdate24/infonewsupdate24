@@ -100,6 +100,8 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
   const [copyToast, setCopyToast] = useState<string>('');
   const [isSpeakingClip, setIsSpeakingClip] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isGeneratingFullPdf, setIsGeneratingFullPdf] = useState<boolean>(false);
+  const [pdfProgressMsg, setPdfProgressMsg] = useState<string>('');
 
   // =========================================================================
   // OPTION 2: VISUAL DRAG-AND-CROP INTERACTION STATE
@@ -281,8 +283,69 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
     window.print();
   };
 
+  const handleDownloadFullEditionPdf = async () => {
+    if (isGeneratingFullPdf) return;
+    try {
+      setIsGeneratingFullPdf(true);
+      setPdfProgressMsg('📄 PDF इंजिन सुरू होत आहे...');
+      const { jsPDF } = await import('jspdf');
+      const html2canvas = (await import('html2canvas')).default;
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      const totalPages = activeEdition.pages.length;
+      const initialPage = currentPageIndex;
+
+      for (let i = 0; i < totalPages; i++) {
+        setPdfProgressMsg(`📄 पान ${i + 1}/${totalPages} तयार होत आहे...`);
+        setCurrentPageIndex(i);
+        // Wait for state render tick
+        await new Promise((r) => setTimeout(r, 450));
+
+        const canvasElement = document.getElementById('epaper-canvas-main');
+        if (canvasElement) {
+          const canvas = await html2canvas(canvasElement, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+          });
+
+          const imgData = canvas.toDataURL('image/jpeg', 0.92);
+          if (i > 0) {
+            pdf.addPage('a4', 'p');
+          }
+          pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+        }
+      }
+
+      // Restore initial page
+      setCurrentPageIndex(initialPage);
+
+      setPdfProgressMsg('💾 PDF फाईल सेव्ह होत आहे...');
+      const cleanDist = currentDistrictName.replace('हॅलो ', '');
+      pdf.save(`InfoNewsUpdate24_EPaper_${cleanDist}_${selectedDate}_All6Pages.pdf`);
+
+      setCopyToast(`✅ संपूर्ण ${totalPages} पानांची एकत्रित PDF यशस्वीरीत्या डाऊनलोड झाली!`);
+      setTimeout(() => setCopyToast(''), 4500);
+    } catch (err) {
+      console.error('Error generating multi-page PDF:', err);
+      setCopyToast('⚠️ प्रिंट व डाऊनलोड विंडो उघडत आहे...');
+      window.print();
+    } finally {
+      setIsGeneratingFullPdf(false);
+      setPdfProgressMsg('');
+    }
+  };
+
   const handleDownloadPagePdf = () => {
-    setCopyToast('📥 ई-पेपर PDF डाऊनलोड सुरू झाली आहे (Single A4 Page)...');
+    setCopyToast('📥 चालू पानाची PDF डाऊनलोड होत आहे...');
     setTimeout(() => setCopyToast(''), 3500);
     window.print();
   };
@@ -730,6 +793,18 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
               <span>{isClipModeActive ? '✂️ कात्रण ओढा (Active)' : 'कात्रण कापा (Crop)'}</span>
             </button>
 
+            {/* 📥 1-Click Full 6-Page Unified PDF Download Button */}
+            <button
+              type="button"
+              disabled={isGeneratingFullPdf}
+              onClick={handleDownloadFullEditionPdf}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white px-3.5 py-1.5 text-xs font-black shadow-md shadow-red-900/40 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              title="सर्व ६ पानांची एकत्रित PDF डाऊनलोड करा (Full 6-Page Newspaper PDF)"
+            >
+              <Download className={`h-3.5 w-3.5 ${isGeneratingFullPdf ? 'animate-spin text-amber-300' : 'text-amber-300 animate-bounce'}`} />
+              <span>{isGeneratingFullPdf ? (pdfProgressMsg || 'PDF तयार होत आहे...') : '📥 संपूर्ण अंक (All 6 Pages PDF)'}</span>
+            </button>
+
             {/* 🖼️ High-Res Image Download Button */}
             <button
               type="button"
@@ -745,11 +820,11 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
             <button
               type="button"
               onClick={handleDownloadPagePdf}
-              className="flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition-colors cursor-pointer"
-              title="संपूर्ण पान PDF (Single A4 Page) डाऊनलोड करा"
+              className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              title="फक्त चालू पान PDF डाऊनलोड करा"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">PDF डाऊनलोड</span>
+              <Download className="h-3.5 w-3.5 text-red-500" />
+              <span className="hidden sm:inline">चालू पान PDF</span>
             </button>
 
             <button
