@@ -34,6 +34,15 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;');
 }
 
+function normalizeImageUrl(img) {
+  if (!img || typeof img !== 'string') return null;
+  const trimmed = img.trim();
+  if (!trimmed || trimmed.startsWith('data:')) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  if (trimmed.startsWith('/')) return `https://www.infonewsupdate24.com${trimmed}`;
+  return `https://www.infonewsupdate24.com/${trimmed}`;
+}
+
 async function generateAll() {
   console.log('🚀 Generating Sitemaps & RSS Feeds...');
 
@@ -115,8 +124,9 @@ async function generateAll() {
     const postUrl = `https://www.infonewsupdate24.com/${encodeURIComponent(post.slug)}/`;
     const lastMod = extractStableDate(post);
     sitemapXml += `  <url>\n    <loc>${escapeXml(postUrl)}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
-    if (post.featuredImage) {
-      sitemapXml += `    <image:image>\n      <image:loc>${escapeXml(post.featuredImage)}</image:loc>\n      <image:title>${escapeXml(post.title)}</image:title>\n    </image:image>\n`;
+    const imgUrl = normalizeImageUrl(post.featuredImage);
+    if (imgUrl) {
+      sitemapXml += `    <image:image>\n      <image:loc>${escapeXml(imgUrl)}</image:loc>\n      <image:title>${escapeXml(post.title)}</image:title>\n    </image:image>\n`;
     }
     sitemapXml += `  </url>\n`;
   }
@@ -154,16 +164,14 @@ async function generateAll() {
   }
   rssXml += `  </channel>\n</rss>\n`;
 
-  // Write files to public/
+  // Write files to public/ (Single Source of Truth)
   fs.writeFileSync(path.join(PUBLIC_DIR, 'sitemap.xml'), sitemapXml, 'utf8');
   fs.writeFileSync(path.join(PUBLIC_DIR, 'sitemap-news.xml'), newsSitemapXml, 'utf8');
-  fs.writeFileSync(path.join(PUBLIC_DIR, 'feed.xml'), rssXml, 'utf8');
   fs.writeFileSync(path.join(feedDir, 'index.html'), rssXml, 'utf8');
-  fs.writeFileSync(path.join(feedDir, 'index.xml'), rssXml, 'utf8');
 
   console.log('✅ Generated public/sitemap.xml');
   console.log('✅ Generated public/sitemap-news.xml');
-  console.log('✅ Generated public/feed.xml, public/feed/index.html & public/feed/index.xml (Canonical RSS 2.0)');
+  console.log('✅ Generated public/feed/index.html (Single Canonical RSS 2.0)');
 }
 
 generateAll().catch(err => {
