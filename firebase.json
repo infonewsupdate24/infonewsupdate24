@@ -174,6 +174,51 @@
         ]
       },
       {
+        "source": "/category/news/**",
+        "destination": "/category/maharashtra",
+        "type": 301
+      },
+      {
+        "source": "/category/local-news/**",
+        "destination": "/category/gadchiroli",
+        "type": 301
+      },
+      {
+        "source": "/category/gadget/**",
+        "destination": "/category/technology",
+        "type": 301
+      },
+      {
+        "source": "/category/games/**",
+        "destination": "/category/sports",
+        "type": 301
+      },
+      {
+        "source": "/category/reviews/**",
+        "destination": "/category/technology",
+        "type": 301
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
         "source": "/(sitemap*.xml|robots.txt)",
         "headers": [
           {
@@ -187,7 +232,7 @@
         ]
       },
       {
-        "source": "/feed/**",
+        "source": "/(feed|feed.xml|feed/**)",
         "headers": [
           {
             "key": "Content-Type",
@@ -201,6 +246,14 @@
       }
     ],
     "rewrites": [
+      {
+        "source": "/feed",
+        "destination": "/feed.xml"
+      },
+      {
+        "source": "/feed/",
+        "destination": "/feed.xml"
+      },
       {
         "source": "**",
         "destination": "/index.html"

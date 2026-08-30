@@ -154,14 +154,16 @@ async function generateAll() {
   }
   rssXml += `  </channel>\n</rss>\n`;
 
-  // Write files to public/ (Single Source of Truth)
+  // Write files to public/
   fs.writeFileSync(path.join(PUBLIC_DIR, 'sitemap.xml'), sitemapXml, 'utf8');
   fs.writeFileSync(path.join(PUBLIC_DIR, 'sitemap-news.xml'), newsSitemapXml, 'utf8');
-  fs.writeFileSync(path.join(feedDir, 'index.html'), rssXml, 'utf8'); // Single canonical RSS feed file
+  fs.writeFileSync(path.join(PUBLIC_DIR, 'feed.xml'), rssXml, 'utf8');
+  fs.writeFileSync(path.join(feedDir, 'index.html'), rssXml, 'utf8');
+  fs.writeFileSync(path.join(feedDir, 'index.xml'), rssXml, 'utf8');
 
   console.log('✅ Generated public/sitemap.xml');
   console.log('✅ Generated public/sitemap-news.xml');
-  console.log('✅ Generated public/feed/index.html (Single Canonical RSS 2.0)');
+  console.log('✅ Generated public/feed.xml, public/feed/index.html & public/feed/index.xml (Canonical RSS 2.0)');
 }
 
 generateAll().catch(err => {
