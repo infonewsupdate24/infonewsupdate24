@@ -58,6 +58,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { EPaperSyncService } from '../../services/EPaperSyncService';
 import { AIVoiceService } from '../../services/AIVoiceService';
 import { LiveWeatherService } from '../../services/LiveWeatherService';
@@ -69,6 +70,10 @@ interface EPaperHubViewProps {
 
 export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) => {
   const { posts, categories, ads, epaperSettings } = useApp();
+  const { user } = useAuth();
+  const isAdminOrEditor = Boolean(
+    user && ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'SUB_EDITOR'].includes(user.role)
+  );
 
   const availableDistricts = useMemo(() => {
     return [
@@ -848,16 +853,18 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
               <span>{isClipModeActive ? '✂️ कात्रण ओढा (Active)' : 'कात्रण कापा (Crop)'}</span>
             </button>
 
-            {/* 🖨️ Print & Save All 6 Pages Button (Native Browser Multi-Page PDF) */}
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white px-3.5 py-1.5 text-xs font-black shadow-md shadow-red-900/40 transition-all active:scale-95 cursor-pointer"
-              title="सर्व ६ पाने PDF स्वरूपात सेव्ह करा किंवा थेट प्रिंट करा"
-            >
-              <Printer className="h-4 w-4 text-amber-300" />
-              <span>🖨️ प्रिंट / PDF सेव्ह करा</span>
-            </button>
+            {/* 🖨️ Admin-Only Print & Save All 6 Pages Button */}
+            {isAdminOrEditor && (
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white px-3.5 py-1.5 text-xs font-black shadow-md shadow-red-900/40 transition-all active:scale-95 cursor-pointer"
+                title="[ॲडमिन विशेष] सर्व ६ पाने PDF स्वरूपात सेव्ह करा किंवा थेट प्रिंट करा"
+              >
+                <Printer className="h-4 w-4 text-amber-300" />
+                <span>🖨️ प्रिंट / PDF (Admin)</span>
+              </button>
+            )}
 
             {/* 🖼️ High-Res Image Download Button */}
             <button
@@ -870,16 +877,18 @@ export const EPaperHubView: React.FC<EPaperHubViewProps> = ({ onBackToPortal }) 
               <span className="hidden sm:inline">इमेज (JPG)</span>
             </button>
 
-            {/* 📥 Single A4 Page PDF Download Button */}
-            <button
-              type="button"
-              onClick={handleDownloadPagePdf}
-              className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition-colors cursor-pointer"
-              title="फक्त चालू पान PDF डाऊनलोड करा"
-            >
-              <Download className="h-3.5 w-3.5 text-red-500" />
-              <span className="hidden sm:inline">चालू पान</span>
-            </button>
+            {/* 📥 Single A4 Page PDF Download Button (Admin Only) */}
+            {isAdminOrEditor && (
+              <button
+                type="button"
+                onClick={handleDownloadPagePdf}
+                className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                title="[ॲडमिन विशेष] फक्त चालू पान PDF डाऊनलोड करा"
+              >
+                <Download className="h-3.5 w-3.5 text-red-500" />
+                <span className="hidden sm:inline">चालू पान</span>
+              </button>
+            )}
 
             <button
               type="button"

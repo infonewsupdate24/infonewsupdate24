@@ -377,6 +377,17 @@ export const EPaperManagerView: React.FC = () => {
                     </span>
 
                     <div className="flex items-center gap-2">
+                      <a
+                        href={`/?mode=epaper&district=${ed.editionCode}&date=${ed.date}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-800 hover:bg-red-50 hover:border-red-300 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-2xs"
+                        title="हा ई-पेपर अंक थेट पहा आणि प्रिंट / PDF सेव्ह करा"
+                      >
+                        <Printer className="h-3.5 w-3.5 text-red-600" />
+                        <span>ई-पेपर पहा व प्रिंट करा</span>
+                      </a>
+
                       <button
                         type="button"
                         onClick={() => handleDeleteEdition(ed.id)}
