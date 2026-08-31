@@ -163,11 +163,8 @@ export const GadchiroliTalukaSpotlight: React.FC<GadchiroliTalukaSpotlightProps>
     story: SpotlightStoryItem
   ) => {
     e.stopPropagation();
-    const origin =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : 'https://infonewsupdate24.com';
-    const text = `🚩 *InfoNewsUpdate24 गडचिरोली १२ तालुके स्पॉटलाईट*\n📍 *${story.taluka}*\n\n📌 *${story.title}*\n\n${story.excerpt}\n\n👉 *संपूर्ण बातमी वाचण्यासाठी येथे क्लिक करा:*\n🔗 ${origin}?post=${story.slug}`;
+    const shareUrl = `https://www.infonewsupdate24.com/news/${story.slug}`;
+    const text = `🚩 *InfoNewsUpdate24 गडचिरोली १२ तालुके स्पॉटलाईट*\n📍 *${story.taluka}*\n\n📌 *${story.title}*\n\n${story.excerpt}\n\n👉 *संपूर्ण बातमी वाचण्यासाठी येथे क्लिक करा:*\n${shareUrl}`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };

@@ -43,7 +43,8 @@ export const KrishiMandiRatesWidget: React.FC = () => {
   });
 
   const handleShareRate = (rate: APMCMandiRate) => {
-    const text = `📢 *आजचे अधिकृत कृषी बाजारभाव (InfoNewsUpdate24)*\n\n🌾 *पिक/वस्तू:* ${rate.commodityName}\n📍 *बाजार समिती:* ${rate.mandiName}\n💰 *सरासरी लिलाव भाव:* ₹${rate.avgRate.toLocaleString('mr-IN')} ${rate.unit}\n📈 *किमान:* ₹${rate.minRate} | *कमाल:* ₹${rate.maxRate}\n⏱️ *तारीख:* ${rate.updatedAt}\n\n👉 अधिक बाजारभावांसाठी भेट द्या: ${window.location.origin}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.infonewsupdate24.com';
+    const text = `📢 *आजचे अधिकृत कृषी बाजारभाव (InfoNewsUpdate24)*\n\n🌾 *पिक/वस्तू:* ${rate.commodityName}\n📍 *बाजार समिती:* ${rate.mandiName}\n💰 *सरासरी लिलाव भाव:* ₹${rate.avgRate.toLocaleString('mr-IN')} ${rate.unit}\n📈 *किमान:* ₹${rate.minRate} | *कमाल:* ₹${rate.maxRate}\n⏱️ *तारीख:* ${rate.updatedAt}\n\n👉 अधिक बाजारभावांसाठी भेट द्या: ${origin}`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     setToastMsg('बाजारभाव WhatsApp वर शेअर केला!');

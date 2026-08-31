@@ -1575,7 +1575,7 @@ export const PublicPortalView: React.FC = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://www.infonewsupdate24.com/article/${post.slug}`;
+                                const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://www.infonewsupdate24.com/news/${post.slug}`;
                                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
                               }}
                               className="p-1 rounded-md text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
@@ -1660,7 +1660,7 @@ export const PublicPortalView: React.FC = () => {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://infonewsupdate24.com/post/${post.slug}`;
+                                  const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://www.infonewsupdate24.com/news/${post.slug}`;
                                   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
                                 }}
                                 className="p-1 rounded-md text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
@@ -3147,7 +3147,7 @@ export const PublicPortalView: React.FC = () => {
                   {/* WhatsApp Big Direct Button */}
                   <a
                     href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                      `🔴 *${activeArticle.title}*\n\n${activeArticle.excerpt || ''}\n\n👉 संपूर्ण बातमी सविस्तर वाचा:\n${typeof window !== 'undefined' ? window.location.href : ''}`
+                      `🔴 *${activeArticle.title}*\n\n${activeArticle.excerpt || ''}\n\n👉 संपूर्ण बातमी सविस्तर वाचा:\nhttps://www.infonewsupdate24.com/news/${activeArticle.slug}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"

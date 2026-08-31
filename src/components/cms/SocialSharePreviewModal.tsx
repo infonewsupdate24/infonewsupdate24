@@ -29,7 +29,7 @@ export const SocialSharePreviewModal: React.FC<SocialSharePreviewModalProps> = (
 
   if (!isOpen) return null;
 
-  const currentUrl = typeof window !== 'undefined' ? `${window.location.origin}/#post-${post.slug}` : `https://infonewsupdate24.com/news/${post.slug}`;
+  const currentUrl = `https://www.infonewsupdate24.com/news/${post.slug}`;
   const excerptClean = post.excerpt || post.content.substring(0, 140) + '...';
 
   // WhatsApp formatted rich message
