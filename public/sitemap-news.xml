@@ -1,13 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
   <url>
+    <loc>https://www.infonewsupdate24.com/gauripur-bhiyapur-pul-duravastha-shetkari-nuksan/</loc>
+    <news:news>
+      <news:publication>
+        <news:name>InfoNewsUpdate24</news:name>
+        <news:language>mr</news:language>
+      </news:publication>
+      <news:publication_date>2026-08-30T21:06:00.900Z</news:publication_date>
+      <news:title>गौरीपूर–भियापूर पुलाची दुरवस्था; शेतकऱ्यांचे मोठे नुकसान</news:title>
+    </news:news>
+  </url>
+  <url>
+    <loc>https://www.infonewsupdate24.com/test-persistence-slug-1788130488453/</loc>
+    <news:news>
+      <news:publication>
+        <news:name>InfoNewsUpdate24</news:name>
+        <news:language>mr</news:language>
+      </news:publication>
+      <news:publication_date>2026-08-30T22:54:49.832Z</news:publication_date>
+      <news:title>Updated Test Title</news:title>
+    </news:news>
+  </url>
+  <url>
     <loc>https://www.infonewsupdate24.com/gttepllee-prisrat-vaghacha-bailavr-hlla-599/</loc>
     <news:news>
       <news:publication>
         <news:name>InfoNewsUpdate24</news:name>
         <news:language>mr</news:language>
       </news:publication>
-      <news:publication_date>2026-08-30T11:48:03.390Z</news:publication_date>
+      <news:publication_date>2026-08-30T15:42:55.238Z</news:publication_date>
       <news:title>🔴 गट्टेपल्ली परिसरात : वाघाचा बैलावर हल्ला - ५ मोठे अपडेट्स</news:title>
     </news:news>
   </url>
@@ -34,17 +56,6 @@
     </news:news>
   </url>
   <url>
-    <loc>https://www.infonewsupdate24.com/maharashtra-monsoon-rain-arrival-imd-alert/</loc>
-    <news:news>
-      <news:publication>
-        <news:name>InfoNewsUpdate24</news:name>
-        <news:language>mr</news:language>
-      </news:publication>
-      <news:publication_date>2026-08-29T10:30:00.000Z</news:publication_date>
-      <news:title>महाराष्ट्रात पुन्हा पावसाचे आगमन, अनेक जिल्ह्यांना हवामान विभागाचा अलर्ट</news:title>
-    </news:news>
-  </url>
-  <url>
     <loc>https://www.infonewsupdate24.com/gdchirolee-jilhyateel-sumare-chaudashe-grams-879/</loc>
     <news:news>
       <news:publication>
@@ -53,28 +64,6 @@
       </news:publication>
       <news:publication_date>2026-08-29T15:45:55.961Z</news:publication_date>
       <news:title>🔴 गडचिरोली जिल्ह्यातील : सुमारे चौदाशे ग्रा - ५ मोठे अपडेट्स</news:title>
-    </news:news>
-  </url>
-  <url>
-    <loc>https://www.infonewsupdate24.com/share-market-rally-sensex-nifty-record-high/</loc>
-    <news:news>
-      <news:publication>
-        <news:name>InfoNewsUpdate24</news:name>
-        <news:language>mr</news:language>
-      </news:publication>
-      <news:publication_date>2026-08-29T14:00:00.000Z</news:publication_date>
-      <news:title>शेअर बाजारात मोठी उसळी, सेन्सेक्स ८०० अंकांनी वधारून विक्रमी पातळीवर</news:title>
-    </news:news>
-  </url>
-  <url>
-    <loc>https://www.infonewsupdate24.com/gadchiroli-infrastructure-irrigation-cabinet-approval/</loc>
-    <news:news>
-      <news:publication>
-        <news:name>InfoNewsUpdate24</news:name>
-        <news:language>mr</news:language>
-      </news:publication>
-      <news:publication_date>2026-08-29T16:00:00.000Z</news:publication_date>
-      <news:title>गडचिरोली जिल्ह्यात नवीन सिंचन व रस्ते प्रकल्पांना राज्य मंत्रिमंडळाची मंजुरी</news:title>
     </news:news>
   </url>
   <url>
@@ -108,6 +97,17 @@
       </news:publication>
       <news:publication_date>2026-08-27T14:58:10.000Z</news:publication_date>
       <news:title>ग्रामसभा न घेतल्याबाबत चौकशीची मागणी; गौरीपूर ग्रामस्थांची गट विकास अधिकाऱ्यांकडे तक्रार</news:title>
+    </news:news>
+  </url>
+  <url>
+    <loc>https://www.infonewsupdate24.com/etapalli-kasansur-11kv-vijpuravatha-band/</loc>
+    <news:news>
+      <news:publication>
+        <news:name>InfoNewsUpdate24</news:name>
+        <news:language>mr</news:language>
+      </news:publication>
+      <news:publication_date>2026-08-26T10:14:33.000Z</news:publication_date>
+      <news:title>नागूलवाडी-मवेली येथे वाहनाच्या धडकेत वीज पोल तुटला; एटापल्ली-कसनसूर 11 केव्ही वीजपुरवठा बंद</news:title>
     </news:news>
   </url>
 </urlset>

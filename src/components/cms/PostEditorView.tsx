@@ -51,6 +51,7 @@ import { ArticleContentRenderer } from '../common/ArticleContentRenderer';
 import {
   optimizeNewsPostWithRankMath,
   transliterateMarathiToSlug,
+  calculateEditorialSEOScore,
   checkGoogleNewsReadiness,
   checkGoogleDiscoverReadiness,
 } from '../../services/SEOAutoOptimizer';
@@ -253,8 +254,24 @@ export const PostEditorView: React.FC = () => {
     setIsSlugLocked(false);
   };
 
-  // Deterministic SEO Score Calculator
+  // Single Authoritative 100-Point SEO Score Calculator
   const calculateSeo = (): PostSEO => {
+    const evalResult = calculateEditorialSEOScore({
+      title,
+      slug,
+      content,
+      excerpt,
+      featuredImage,
+      featuredImageAlt,
+      focusKeyword,
+      seoTitle,
+      metaDescription,
+      authorName: currentUser.name,
+      publishDate: existingPost?.publishDate || new Date().toISOString(),
+      isPublished: status === 'PUBLISHED' || existingPost?.status === 'PUBLISHED',
+      visibility: 'PUBLIC',
+    });
+
     const kw = focusKeyword.trim().toLowerCase();
     const t = (seoTitle || title).toLowerCase();
     const u = slug.toLowerCase();
@@ -271,46 +288,18 @@ export const PostEditorView: React.FC = () => {
       contentLengthOk: content.split(/\s+/).filter(Boolean).length >= 100,
       hasInternalLinks: content.includes('http') || content.includes('/category/'),
       hasExternalLinks: content.includes('https://'),
-      hasImageAlt: (featuredImageAlt && featuredImageAlt.length > 3) ? true : false,
-      readabilityOk: content.length > 150,
+      hasImageAlt: Boolean(featuredImageAlt && featuredImageAlt.length >= 3),
+      readabilityOk: content.length >= 100,
     };
-
-    let score = 0;
-    if (checks.keywordInTitle) score += 20;
-    if (checks.keywordInUrl) score += 15;
-    if (checks.keywordInDescription) score += 15;
-    if (checks.keywordInFirstParagraph) score += 10;
-    if (checks.keywordInHeadings) score += 10;
-    if (checks.contentLengthOk) score += 10;
-    if (checks.hasImageAlt) score += 10;
-    if (checks.readabilityOk) score += 10;
-
-    const newsReadinessResult = checkGoogleNewsReadiness({
-      title,
-      slug,
-      authorName: currentUser.name,
-      publishDate: existingPost?.publishDate || new Date().toISOString(),
-      featuredImage,
-      content,
-    });
-
-    const discoverReadinessResult = checkGoogleDiscoverReadiness({
-      title,
-      featuredImage,
-      featuredImageAlt,
-      content,
-      excerpt,
-      publishDate: existingPost?.publishDate || new Date().toISOString(),
-    });
 
     return {
       focusKeyword,
       seoTitle: seoTitle || title,
       metaDescription,
-      score: Math.min(100, score),
+      score: evalResult.score,
       checks,
-      newsReadiness: newsReadinessResult.status,
-      discoverReadiness: discoverReadinessResult.status,
+      newsReadiness: evalResult.newsReadiness.status,
+      discoverReadiness: evalResult.discoverReadiness.status,
     };
   };
 

@@ -29,9 +29,11 @@ import {
 } from 'lucide-react';
 
 import {
+  calculateEditorialSEOScore,
   checkGoogleNewsReadiness,
   checkGoogleDiscoverReadiness,
   checkFeaturedImageSafety,
+  MARATHI_POWER_WORDS,
 } from '../../services/SEOAutoOptimizer';
 
 export interface RankMathProps {
@@ -57,16 +59,6 @@ export interface RankMathProps {
   publishDate?: string;
   isPublished?: boolean;
   onAutoPopulate?: () => void;
-}
-
-export interface SEOCheckItem {
-  id: string;
-  category: 'basic' | 'additional' | 'title' | 'readability';
-  label: string;
-  passed: boolean;
-  warning?: boolean;
-  scoreWeight: number;
-  tip: string;
 }
 
 export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
@@ -106,53 +98,33 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
-  // Readiness & Safety Checkers
-  const newsReadiness = checkGoogleNewsReadiness({
+  // Single Authoritative 100-Point Editorial SEO Evaluation
+  const seoEvaluation = calculateEditorialSEOScore({
     title,
     slug,
-    authorName,
-    publishDate,
-    featuredImage,
-    content,
-  });
-
-  const discoverReadiness = checkGoogleDiscoverReadiness({
-    title,
-    featuredImage,
-    featuredImageAlt,
     content,
     excerpt,
+    featuredImage,
+    featuredImageAlt,
+    focusKeyword,
+    seoTitle,
+    metaDescription,
+    authorName,
     publishDate,
+    isPublished,
   });
 
-  const imageSafety = checkFeaturedImageSafety(featuredImage, featuredImageAlt);
+  const {
+    score: finalScore,
+    checks,
+    prioritySuggestions,
+    newsReadiness,
+    discoverReadiness,
+    imageSafety,
+    badge,
+  } = seoEvaluation;
 
-  // Marathi Power Words for Headline CTR Booster
-  const MARATHI_POWER_WORDS = [
-    'महत्त्वाचे',
-    'मोठा',
-    'धक्कादायक',
-    'तात्काळ',
-    'ऐतिहासिक',
-    'नियम',
-    'दिलासा',
-    'अलर्ट',
-    'लाईव्ह',
-    'खुशखबर',
-    'जाहीर',
-    'निर्णय',
-    'सत्य',
-    'पडताळणी',
-    'विशेष',
-    'ब्रेकिंग',
-    'मोठी बातमी',
-    'सविस्तर',
-    'योजना',
-    'मोफत',
-  ];
-
-  // Helper calculations
-  const kw = focusKeyword.trim().toLowerCase();
+  // Helper calculations for SERP Preview
   const effectiveSeoTitle = seoTitle.trim() || title.trim() || 'बातम्यांचे शीर्षक (Title)';
   const effectiveMetaDesc =
     metaDescription.trim() ||
@@ -162,221 +134,8 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
       : 'बातमीचा संक्षिप्त तपशील गुगल सर्चमध्ये येथे दिसेल...');
   const effectiveSlug = slug.trim() || 'news-article-slug';
 
-  const t = effectiveSeoTitle.toLowerCase();
-  const u = effectiveSlug.toLowerCase();
-  const d = effectiveMetaDesc.toLowerCase();
-  const c = content.toLowerCase();
-
-  const wordsCount = content.split(/\s+/).filter(Boolean).length;
-  const first10PercentWordCount = Math.max(10, Math.round(wordsCount * 0.1));
-  const first10PercentContent = content
-    .split(/\s+/)
-    .slice(0, first10PercentWordCount)
-    .join(' ')
-    .toLowerCase();
-
-  // Keyword occurrences
-  const kwRegex = kw ? new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi') : null;
-  const kwCountInContent = kwRegex ? (content.match(kwRegex) || []).length : 0;
-  const keywordDensity = wordsCount > 0 ? ((kwCountInContent / wordsCount) * 100).toFixed(2) : '0.00';
-
-  // Power word in title
-  const hasPowerWord = MARATHI_POWER_WORDS.some((pw) => t.includes(pw.toLowerCase()));
-  // Number in title
-  const hasNumberInTitle = /\d|[०-९]/.test(t);
-
-  // Subheading checks (## or ###)
-  const headings = content
-    .split('\n')
-    .filter((line) => line.startsWith('#'))
-    .join(' ')
-    .toLowerCase();
-  const hasKwInHeading = kw ? headings.includes(kw) : false;
-
-  // Title character length & pixel simulation (Optimal: 40-60 chars)
   const titleCharCount = effectiveSeoTitle.length;
-  const isTitleLengthOptimal = titleCharCount >= 35 && titleCharCount <= 70;
-
-  // Meta description character length (Optimal: 120-160 chars)
   const descCharCount = effectiveMetaDesc.length;
-  const isDescLengthOptimal = descCharCount >= 90 && descCharCount <= 165;
-
-  // Compile Comprehensive Rank Math Diagnostics
-  const checks: SEOCheckItem[] = [
-    // 1. BASIC SEO (40 Points)
-    {
-      id: 'kw_in_title',
-      category: 'basic',
-      label: 'Focus Keyword शीर्षकात (SEO Title) आढळला का?',
-      passed: kw.length > 0 && t.includes(kw),
-      scoreWeight: 10,
-      tip: 'तुमचा मुख्य कीवर्ड शीर्षकात असणे गुगल रँकिंगसाठी अत्यंत आवश्यक आहे.',
-    },
-    {
-      id: 'kw_in_meta',
-      category: 'basic',
-      label: 'Focus Keyword मेटा वर्णनात (Meta Description) आहे का?',
-      passed: kw.length > 0 && d.includes(kw),
-      scoreWeight: 8,
-      tip: 'सर्च परिणामांमध्ये क्लिक्स (CTR) वाढवण्यासाठी मेटा वर्णनात कीवर्ड वापरा.',
-    },
-    {
-      id: 'kw_in_url',
-      category: 'basic',
-      label: 'Focus Keyword बातमीच्या URL (Slug / Permalink) मध्ये आहे का?',
-      passed: kw.length > 0 && (u.includes(kw.replace(/\s+/g, '-')) || u.includes(kw)),
-      scoreWeight: 8,
-      tip: 'छोट्या आणि सुटसुटीत URL मध्ये कीवर्ड ठेवल्याने गुगल बॉट जलद इंडेक्स करतो.',
-    },
-    {
-      id: 'kw_in_intro',
-      category: 'basic',
-      label: 'Focus Keyword मजकुराच्या सुरुवातीच्या १०% भागात आला आहे का?',
-      passed: kw.length > 0 && first10PercentContent.includes(kw),
-      scoreWeight: 7,
-      tip: 'पहिल्या परिच्छेदात कीवर्ड आल्याने वाचकाला व सर्च इंजिनला बातमीचा हेतू समजतो.',
-    },
-    {
-      id: 'content_length',
-      category: 'basic',
-      label: `मजकुराची लांबी पुरेशी आहे का? (सध्या: ${wordsCount} शब्द / किमान २०० शब्द)`,
-      passed: wordsCount >= 200,
-      warning: wordsCount >= 100 && wordsCount < 200,
-      scoreWeight: 7,
-      tip: 'सविस्तर आणि माहितीपूर्ण बातमीसाठी किमान २०० ते ६०० शब्द लिहिण्याचा सल्ला दिला जातो.',
-    },
-
-    // 2. ADDITIONAL SEO (30 Points)
-    {
-      id: 'kw_in_heading',
-      category: 'additional',
-      label: 'Focus Keyword उपशीर्षकात (H2 / H3 Headings) वापरला आहे का?',
-      passed: kw.length > 0 && hasKwInHeading,
-      scoreWeight: 8,
-      tip: 'बातमीत `## उपशीर्षक` वापरून त्यात कीवर्ड समाविष्ट करा.',
-    },
-    {
-      id: 'kw_in_image_alt',
-      category: 'additional',
-      label: 'फोटोच्या Alt Text मध्ये कीवर्ड किंवा समर्पक वर्णन आहे का?',
-      passed: featuredImageAlt.length >= 3 && (!kw || featuredImageAlt.toLowerCase().includes(kw) || featuredImageAlt.length > 10),
-      scoreWeight: 7,
-      tip: 'गुगल इमेज सर्चमधून ट्रॅफिक मिळवण्यासाठी फोटोला Alt Text नक्की द्या.',
-    },
-    {
-      id: 'kw_density',
-      category: 'additional',
-      label: `कीवर्ड डेंसिटी (Keyword Density: ${keywordDensity}%)`,
-      passed: Number(keywordDensity) >= 0.8 && Number(keywordDensity) <= 2.8,
-      warning: Number(keywordDensity) > 0 && (Number(keywordDensity) < 0.8 || Number(keywordDensity) > 2.8),
-      scoreWeight: 8,
-      tip: 'योग्य कीवर्ड घनता ०.८% ते २.५% दरम्यान असावी. जास्त वेळा लिहिल्यास Spam मानले जाते.',
-    },
-    {
-      id: 'has_links',
-      category: 'additional',
-      label: 'मजकुरात अंतर्गत किंवा बाह्य लिंक्स (Internal / External Links) आहेत का?',
-      passed: content.includes('http') || content.includes('/category/') || content.includes('/news/'),
-      scoreWeight: 7,
-      tip: 'इतर संबंधित बातम्यांच्या किंवा अधिकृत स्त्रोतांच्या लिंक्स जोडल्याने विश्वासार्हता वाढते.',
-    },
-
-    // 3. TITLE READABILITY (15 Points)
-    {
-      id: 'kw_at_start',
-      category: 'title',
-      label: 'Focus Keyword शीर्षकाच्या सुरुवातीला आहे का?',
-      passed: kw.length > 0 && t.startsWith(kw),
-      scoreWeight: 5,
-      tip: 'शीर्षकाच्या पहिल्या ३ शब्दांत कीवर्ड ठेवल्यास अधिक रँकिंग बूस्ट मिळतो.',
-    },
-    {
-      id: 'has_number',
-      category: 'title',
-      label: 'शीर्षकात आकडा / संख्या (Number) आहे का? (उदा. ५ मोठे निर्णय)',
-      passed: hasNumberInTitle,
-      scoreWeight: 5,
-      tip: 'आकडे असलेले शीर्षक वाचकांचे लक्ष वेधून घेते आणि ३४% जास्त क्लिक्स् मिळवते.',
-    },
-    {
-      id: 'has_power_word',
-      category: 'title',
-      label: 'शीर्षकात प्रभाव पाडणारा शब्द (Power Word) आहे का?',
-      passed: hasPowerWord,
-      scoreWeight: 5,
-      tip: `उदा. 'महत्त्वाचे', 'धक्कादायक', 'मोठा दिलासा', 'नियम', 'खुशखबर' यांसारखे शब्द वापरा.`,
-    },
-
-    // 4. CONTENT READABILITY (15 Points)
-    {
-      id: 'title_length_ok',
-      category: 'readability',
-      label: `शीर्षकाची लांबी योग्य आहे का? (${titleCharCount} अक्षरे / ३५ ते ७० अक्षरे)`,
-      passed: isTitleLengthOptimal,
-      warning: titleCharCount > 0 && !isTitleLengthOptimal,
-      scoreWeight: 5,
-      tip: 'खूप मोठे शीर्षक गुगल सर्चमध्ये कापले जाते (...) आणि लहान शीर्षक माहिती देत नाही.',
-    },
-    {
-      id: 'meta_desc_length_ok',
-      category: 'readability',
-      label: `मेटा वर्णनाची लांबी योग्य आहे का? (${descCharCount} अक्षरे / ९० ते १६० अक्षरे)`,
-      passed: isDescLengthOptimal,
-      warning: descCharCount > 0 && !isDescLengthOptimal,
-      scoreWeight: 5,
-      tip: 'मेटा वर्णन १२० ते १५५ अक्षरांचे असावे जेणेकरून मोबाईलवर संपूर्ण दिसेल.',
-    },
-    {
-      id: 'short_paragraphs',
-      category: 'readability',
-      label: 'मजकुरात छोटे परिच्छेद व सुटसुटीत मांडणी आहे का?',
-      passed: content.includes('\n') || wordsCount < 60,
-      scoreWeight: 5,
-      tip: 'मोबाईल वाचकांसाठी एका परिच्छेदात २ ते ३ पेक्षा जास्त वाक्ये नसावीत.',
-    },
-  ];
-
-  // Calculate Overall Rank Math Score out of 100
-  let totalScore = 0;
-  checks.forEach((chk) => {
-    if (chk.passed) totalScore += chk.scoreWeight;
-    else if (chk.warning) totalScore += Math.round(chk.scoreWeight / 2);
-  });
-  const finalScore = Math.min(100, Math.max(10, totalScore));
-
-  // Determine Rank Math Badge Color & Message
-  const getScoreBadge = () => {
-    if (finalScore >= 80) {
-      return {
-        color: 'bg-emerald-600',
-        textColor: 'text-emerald-700',
-        bgColor: 'bg-emerald-50',
-        borderColor: 'border-emerald-200',
-        label: 'Great (उत्कृष्ट)',
-        message: 'तुमचा लेख गुगलच्या पहिल्या पानावर रँक होण्यासाठी सज्ज आहे! 🚀',
-      };
-    }
-    if (finalScore >= 55) {
-      return {
-        color: 'bg-amber-500',
-        textColor: 'text-amber-700',
-        bgColor: 'bg-amber-50',
-        borderColor: 'border-amber-200',
-        label: 'Good (मध्यम)',
-        message: 'काही त्रुटी दूर केल्यास SEO स्कोअर ८०+ होऊ शकतो.',
-      };
-    }
-    return {
-      color: 'bg-red-600',
-      textColor: 'text-red-700',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
-      label: 'Needs Work (सुधारणा आवश्यक)',
-      message: 'Focus Keyword टाकून खालील लाल रंगातील त्रुटी दुरुस्त करा.',
-    };
-  };
-
-  const badge = getScoreBadge();
 
   // Secondary Keyword Management
   const handleAddSecondaryKeyword = () => {
@@ -707,12 +466,32 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
             </div>
           )}
 
-          {/* Section A: Basic SEO */}
+          {/* Priority Improvement Suggestions */}
+          {prioritySuggestions.length > 0 && finalScore < 90 && (
+            <div className="p-4 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 space-y-2">
+              <div className="flex items-center gap-2 font-black text-amber-900 text-xs">
+                <Flame className="h-4 w-4 text-amber-600 fill-amber-500" />
+                <span>🔥 सर्वात महत्त्वाच्या सुधारणा (Top Recommendations):</span>
+              </div>
+              <ul className="space-y-1.5 pl-1">
+                {prioritySuggestions.map((sug, idx) => (
+                  <li key={idx} className="text-xs text-amber-950 font-bold flex items-start gap-2">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] shrink-0 mt-0.5 font-mono">
+                      {idx + 1}
+                    </span>
+                    <span>{sug}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Section 1: Basic SEO (25 Points) */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <span>१. मूलभूत SEO (Basic SEO)</span>
+              <span>१. मूलभूत SEO (Basic SEO — २५ गुण)</span>
               <span className="text-emerald-700 font-bold">
-                {checks.filter((c) => c.category === 'basic' && c.passed).length} / {checks.filter((c) => c.category === 'basic').length} उत्तीर्ण
+                {checks.filter((c) => c.category === 'basic').reduce((sum, c) => sum + c.earnedPoints, 0)} / 25 गुण
               </span>
             </h4>
 
@@ -721,17 +500,26 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
                 .filter((c) => c.category === 'basic')
                 .map((chk) => (
                   <div key={chk.id} className="py-2 flex items-start gap-2.5">
-                    {chk.passed ? (
+                    {chk.passed && !chk.warning && !chk.info ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : chk.info ? (
+                      <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                     ) : chk.warning ? (
                       <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                     ) : (
                       <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
-                        {chk.label}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
+                          {chk.label}
+                        </p>
+                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
+                          chk.passed && !chk.warning && !chk.info ? 'bg-emerald-100 text-emerald-800' : chk.info ? 'bg-blue-100 text-blue-800' : chk.warning ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          +{chk.earnedPoints}/{chk.scoreWeight} गुण
+                        </span>
+                      </div>
                       {!chk.passed && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{chk.tip}</p>}
                     </div>
                   </div>
@@ -739,12 +527,12 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
             </div>
           </div>
 
-          {/* Section B: Additional SEO */}
+          {/* Section 2: Additional SEO (20 Points) */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <span>२. अतिरिक्त SEO (Additional SEO)</span>
+              <span>२. अतिरिक्त SEO (Additional SEO — २० गुण)</span>
               <span className="text-emerald-700 font-bold">
-                {checks.filter((c) => c.category === 'additional' && c.passed).length} / {checks.filter((c) => c.category === 'additional').length} उत्तीर्ण
+                {checks.filter((c) => c.category === 'additional').reduce((sum, c) => sum + c.earnedPoints, 0)} / 20 गुण
               </span>
             </h4>
 
@@ -753,17 +541,26 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
                 .filter((c) => c.category === 'additional')
                 .map((chk) => (
                   <div key={chk.id} className="py-2 flex items-start gap-2.5">
-                    {chk.passed ? (
+                    {chk.passed && !chk.warning && !chk.info ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : chk.info ? (
+                      <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                     ) : chk.warning ? (
                       <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                     ) : (
                       <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
-                        {chk.label}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
+                          {chk.label}
+                        </p>
+                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
+                          chk.passed && !chk.warning && !chk.info ? 'bg-emerald-100 text-emerald-800' : chk.info ? 'bg-blue-100 text-blue-800' : chk.warning ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          +{chk.earnedPoints}/{chk.scoreWeight} गुण
+                        </span>
+                      </div>
                       {!chk.passed && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{chk.tip}</p>}
                     </div>
                   </div>
@@ -771,12 +568,12 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
             </div>
           </div>
 
-          {/* Section C: Title Readability */}
+          {/* Section 3: Title & CTR Quality (15 Points) */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <span>३. शीर्षक वाचनीयता (Title Readability & CTR)</span>
+              <span>३. शीर्षक व CTR दर्जा (Title & CTR Quality — १५ गुण)</span>
               <span className="text-emerald-700 font-bold">
-                {checks.filter((c) => c.category === 'title' && c.passed).length} / {checks.filter((c) => c.category === 'title').length} उत्तीर्ण
+                {checks.filter((c) => c.category === 'title').reduce((sum, c) => sum + c.earnedPoints, 0)} / 15 गुण
               </span>
             </h4>
 
@@ -785,15 +582,24 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
                 .filter((c) => c.category === 'title')
                 .map((chk) => (
                   <div key={chk.id} className="py-2 flex items-start gap-2.5">
-                    {chk.passed ? (
+                    {chk.passed && !chk.warning ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    ) : (
+                    ) : chk.warning ? (
                       <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
-                        {chk.label}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
+                          {chk.label}
+                        </p>
+                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
+                          chk.passed && !chk.warning ? 'bg-emerald-100 text-emerald-800' : chk.warning ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          +{chk.earnedPoints}/{chk.scoreWeight} गुण
+                        </span>
+                      </div>
                       {!chk.passed && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{chk.tip}</p>}
                     </div>
                   </div>
@@ -801,29 +607,77 @@ export const RankMathSEOAnalyzer: React.FC<RankMathProps> = ({
             </div>
           </div>
 
-          {/* Section D: Content Readability */}
+          {/* Section 4: Content Quality (20 Points) */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <span>४. मजकूर वाचनीयता (Content Readability)</span>
+              <span>४. मजकूर गुणवत्ता व रचना (Content Quality — २० गुण)</span>
               <span className="text-emerald-700 font-bold">
-                {checks.filter((c) => c.category === 'readability' && c.passed).length} / {checks.filter((c) => c.category === 'readability').length} उत्तीर्ण
+                {checks.filter((c) => c.category === 'content').reduce((sum, c) => sum + c.earnedPoints, 0)} / 20 गुण
               </span>
             </h4>
 
             <div className="divide-y divide-slate-100">
               {checks
-                .filter((c) => c.category === 'readability')
+                .filter((c) => c.category === 'content')
                 .map((chk) => (
                   <div key={chk.id} className="py-2 flex items-start gap-2.5">
-                    {chk.passed ? (
+                    {chk.passed && !chk.warning ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    ) : (
+                    ) : chk.warning ? (
                       <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
-                        {chk.label}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
+                          {chk.label}
+                        </p>
+                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
+                          chk.passed && !chk.warning ? 'bg-emerald-100 text-emerald-800' : chk.warning ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          +{chk.earnedPoints}/{chk.scoreWeight} गुण
+                        </span>
+                      </div>
+                      {!chk.passed && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{chk.tip}</p>}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Section 5: Image & Accessibility (5 Points) */}
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between border-b border-slate-100 pb-1.5">
+              <span>५. इमेज व ॲक्सेसिबिलिटी (Image & Accessibility — ५ गुण)</span>
+              <span className="text-emerald-700 font-bold">
+                {checks.filter((c) => c.category === 'image').reduce((sum, c) => sum + c.earnedPoints, 0)} / 5 गुण
+              </span>
+            </h4>
+
+            <div className="divide-y divide-slate-100">
+              {checks
+                .filter((c) => c.category === 'image')
+                .map((chk) => (
+                  <div key={chk.id} className="py-2 flex items-start gap-2.5">
+                    {chk.passed && !chk.warning ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : chk.warning ? (
+                      <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`font-bold ${chk.passed ? 'text-slate-800' : 'text-slate-700'}`}>
+                          {chk.label}
+                        </p>
+                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
+                          chk.passed && !chk.warning ? 'bg-emerald-100 text-emerald-800' : chk.warning ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          +{chk.earnedPoints}/{chk.scoreWeight} गुण
+                        </span>
+                      </div>
                       {!chk.passed && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{chk.tip}</p>}
                     </div>
                   </div>

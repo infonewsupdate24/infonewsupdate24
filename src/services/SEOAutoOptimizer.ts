@@ -512,3 +512,596 @@ export function checkFeaturedImageSafety(imageUrl?: string, imageAlt?: string): 
 
   return { isSafe: true, type: 'OK' };
 }
+
+export interface SEOEvaluationParams {
+  title: string;
+  slug: string;
+  content: string;
+  excerpt?: string;
+  featuredImage?: string;
+  featuredImageAlt?: string;
+  focusKeyword?: string;
+  seoTitle?: string;
+  metaDescription?: string;
+  authorName?: string;
+  publishDate?: string;
+  isPublished?: boolean;
+  isLegacySlug?: boolean;
+  visibility?: string;
+}
+
+export interface SEOCheckItem {
+  id: string;
+  category: 'basic' | 'additional' | 'title' | 'content' | 'image' | 'news' | 'discover';
+  label: string;
+  passed: boolean;
+  warning?: boolean;
+  info?: boolean;
+  scoreWeight: number;
+  earnedPoints: number;
+  tip: string;
+}
+
+export interface SEOEvaluationResult {
+  score: number; // 0 - 100
+  checks: SEOCheckItem[];
+  prioritySuggestions: string[];
+  newsReadiness: {
+    status: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS';
+    items: { label: string; passed: boolean; tip: string }[];
+  };
+  discoverReadiness: {
+    status: 'READY' | 'NEEDS_IMPROVEMENT' | 'MISSING_ELEMENTS';
+    items: { label: string; passed: boolean; tip: string }[];
+  };
+  imageSafety: {
+    isSafe: boolean;
+    type: 'OK' | 'MISSING' | 'BROKEN' | 'PLACEHOLDER' | 'MISSING_ALT';
+    warning?: string;
+  };
+  badge: {
+    label: string;
+    message: string;
+    color: string;
+    textColor: string;
+    bgColor: string;
+    borderColor: string;
+  };
+}
+
+export const MARATHI_POWER_WORDS = [
+  'महत्त्वाचे',
+  'मोठा',
+  'धक्कादायक',
+  'तात्काळ',
+  'ऐतिहासिक',
+  'नियम',
+  'दिलासा',
+  'अलर्ट',
+  'लाईव्ह',
+  'खुशखबर',
+  'जाहीर',
+  'निर्णय',
+  'सत्य',
+  'पडताळणी',
+  'विशेष',
+  'ब्रेकिंग',
+  'मोठी बातमी',
+  'सविस्तर',
+  'योजना',
+  'मोफत',
+  'गंभीर',
+  'कारवाई',
+  'इशारा',
+  'तातडीचा',
+];
+
+/**
+ * Single Authoritative 100-Point Editorial SEO Quality Score Calculator
+ * Based on Google Search, Google News, and Google Discover Best Practices for Marathi News
+ */
+export function calculateEditorialSEOScore(params: SEOEvaluationParams): SEOEvaluationResult {
+  const {
+    title = '',
+    slug = '',
+    content = '',
+    excerpt = '',
+    featuredImage = '',
+    featuredImageAlt = '',
+    focusKeyword = '',
+    seoTitle = '',
+    metaDescription = '',
+    authorName = '',
+    publishDate = '',
+    isPublished = false,
+    isLegacySlug = false,
+    visibility = 'PUBLIC',
+  } = params;
+
+  const kw = focusKeyword.trim().toLowerCase();
+  const effectiveSeoTitle = seoTitle.trim() || title.trim();
+  const effectiveMetaDesc =
+    metaDescription.trim() ||
+    excerpt.trim() ||
+    (content.length > 0 ? content.slice(0, 155).replace(/[#*`_]/g, '') : '');
+  const effectiveSlug = slug.trim();
+
+  const t = effectiveSeoTitle.toLowerCase();
+  const u = effectiveSlug.toLowerCase();
+  const d = effectiveMetaDesc.toLowerCase();
+  const c = content.toLowerCase();
+
+  const wordsCount = content.split(/\s+/).filter(Boolean).length;
+  const first10PercentWordCount = Math.max(10, Math.round(wordsCount * 0.1));
+  const first10PercentContent = content
+    .split(/\s+/)
+    .slice(0, first10PercentWordCount)
+    .join(' ')
+    .toLowerCase();
+
+  const kwRegex = kw ? new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi') : null;
+  const kwCountInContent = kwRegex ? (content.match(kwRegex) || []).length : 0;
+  const keywordDensity = wordsCount > 0 ? (kwCountInContent / wordsCount) * 100 : 0;
+
+  const hasPowerWord = MARATHI_POWER_WORDS.some((pw) => t.includes(pw.toLowerCase()));
+  const hasNumberInTitle = /\d|[०-९]/.test(t);
+  const hasLocationInTitle = MAHARASHTRA_LOCATIONS.some((loc) => t.includes(loc.toLowerCase()));
+
+  const headings = content
+    .split('\n')
+    .filter((line) => line.startsWith('#'))
+    .join(' ')
+    .toLowerCase();
+  const hasKwInHeading = kw ? headings.includes(kw) : false;
+
+  const titleCharCount = effectiveSeoTitle.length;
+  const descCharCount = effectiveMetaDesc.length;
+
+  const isLegacy = isLegacySlug || (isPublished && u.length > 3 && !u.includes(kw.replace(/\s+/g, '-')) && !u.includes('news-article-slug'));
+
+  const kwWords = kw.split(/\s+/).filter(w => w.length >= 2);
+
+  // Evaluators
+  const newsReadiness = checkGoogleNewsReadiness({
+    title,
+    slug,
+    authorName,
+    publishDate,
+    featuredImage,
+    visibility,
+    content,
+  });
+
+  const discoverReadiness = checkGoogleDiscoverReadiness({
+    title,
+    featuredImage,
+    featuredImageAlt,
+    content,
+    excerpt,
+    publishDate,
+  });
+
+  const imageSafety = checkFeaturedImageSafety(featuredImage, featuredImageAlt);
+
+  const checks: SEOCheckItem[] = [];
+
+  // ==========================================
+  // 1. BASIC SEO (25 POINTS)
+  // ==========================================
+  // 1.1 Focus Keyword in Title (8 pts)
+  const kwInTitlePassed = kw.length > 0 && (t.includes(kw) || (kwWords.length > 0 && kwWords.every(w => t.includes(w))));
+  checks.push({
+    id: 'kw_in_title',
+    category: 'basic',
+    label: 'Focus Keyword शीर्षकात (SEO Title) समाविष्ट आहे का?',
+    passed: kwInTitlePassed,
+    scoreWeight: 8,
+    earnedPoints: kwInTitlePassed ? 8 : 0,
+    tip: 'मुख्य कीवर्ड शीर्षकात असणे शोध परिणामात अव्वल येण्यासाठी आवश्यक आहे.',
+  });
+
+  // 1.2 Focus Keyword in Meta Description (7 pts)
+  const kwInMetaPassed = kw.length > 0 && (d.includes(kw) || (kwWords.length > 0 && kwWords.some(w => d.includes(w))));
+  checks.push({
+    id: 'kw_in_meta',
+    category: 'basic',
+    label: 'Focus Keyword मेटा वर्णनात (Meta Description) आहे का?',
+    passed: kwInMetaPassed,
+    scoreWeight: 7,
+    earnedPoints: kwInMetaPassed ? 7 : (effectiveMetaDesc.length > 30 ? 4 : 0),
+    warning: !kwInMetaPassed && effectiveMetaDesc.length > 30,
+    tip: 'वाचकांना आकर्षित करण्यासाठी आणि CTR वाढवण्यासाठी मेटा वर्णनात कीवर्ड वापरा.',
+  });
+
+  // 1.3 Focus Keyword in URL / Legacy Slug (5 pts)
+  const transliteratedSlugKw = transliterateMarathiToSlug(kw);
+  const kwInUrlPassed = kw.length > 0 && (
+    u.includes(kw.replace(/\s+/g, '-')) ||
+    u.includes(kw) ||
+    (transliteratedSlugKw.length > 3 && u.includes(transliteratedSlugKw)) ||
+    (kwWords.length > 0 && kwWords.some(w => u.includes(transliterateMarathiToSlug(w))))
+  );
+  if (isLegacy) {
+    checks.push({
+      id: 'kw_in_url',
+      category: 'basic',
+      label: 'बातमीची URL (Slug) (ℹ️ जुनी URL सुरक्षित ठेवण्यात आली आहे)',
+      passed: true,
+      info: true,
+      scoreWeight: 5,
+      earnedPoints: 5,
+      tip: 'ही बातमी आधीच प्रकाशित किंवा जुनी असल्याने URL मधील रँकिंग अबाधित ठेवले आहे.',
+    });
+  } else {
+    checks.push({
+      id: 'kw_in_url',
+      category: 'basic',
+      label: 'Focus Keyword बातमीच्या URL (Slug) मध्ये आहे का?',
+      passed: kwInUrlPassed,
+      scoreWeight: 5,
+      earnedPoints: kwInUrlPassed ? 5 : 0,
+      tip: 'लहान आणि कीवर्डयुक्त URL गुगल बॉट जलद इंडेक्स करतो.',
+    });
+  }
+
+  // 1.4 Focus Keyword near start (5 pts)
+  const kwInIntroPassed = kw.length > 0 && (
+    first10PercentContent.includes(kw) ||
+    (kwWords.length > 0 && kwWords.every(w => first10PercentContent.includes(w) || c.split('\n')[0].includes(w)))
+  );
+  checks.push({
+    id: 'kw_in_intro',
+    category: 'basic',
+    label: 'Focus Keyword बातमीच्या सुरुवातीच्या १०% भागात आला आहे का?',
+    passed: kwInIntroPassed,
+    scoreWeight: 5,
+    earnedPoints: kwInIntroPassed ? 5 : (wordsCount < 100 && c.includes(kw) ? 4 : 0),
+    warning: !kwInIntroPassed && wordsCount < 100 && c.includes(kw),
+    tip: 'पहिल्या परिच्छेदात कीवर्ड आल्याने वाचकाला बातमीचा मुख्य हेतू लगेच समजतो.',
+  });
+
+  // ==========================================
+  // 2. ADDITIONAL SEO (20 POINTS)
+  // ==========================================
+  // 2.1 Keyword in Headings (5 pts)
+  const kwInHeadingPassed = kw.length > 0 && (hasKwInHeading || (kwWords.length > 0 && kwWords.some(w => headings.includes(w))));
+  const isBreakingNews = wordsCount < 150;
+  if (isBreakingNews) {
+    checks.push({
+      id: 'kw_in_heading',
+      category: 'additional',
+      label: 'उपशीर्षकात कीवर्ड (H2/H3 Headings) — ब्रेकिंग बातमीसाठी ऐच्छिक',
+      passed: true,
+      info: true,
+      scoreWeight: 5,
+      earnedPoints: 5,
+      tip: 'लहान ब्रेकिंग बातमीसाठी उपशीर्षके ऐच्छिक असतात.',
+    });
+  } else {
+    checks.push({
+      id: 'kw_in_heading',
+      category: 'additional',
+      label: 'Focus Keyword उपशीर्षकात (H2 / H3 Headings) वापरला आहे का?',
+      passed: kwInHeadingPassed,
+      scoreWeight: 5,
+      earnedPoints: kwInHeadingPassed ? 5 : (headings.length > 0 ? 3 : 0),
+      warning: !kwInHeadingPassed && headings.length > 0,
+      tip: 'मोठ्या बातमीत `## उपशीर्षक` वापरून त्यात कीवर्ड समाविष्ट करा.',
+    });
+  }
+
+  // 2.2 Featured Image Alt Text Relevance (5 pts)
+  const isAltMeaningful = featuredImageAlt.trim().length >= 4 && !/image|photo|untitled/i.test(featuredImageAlt);
+  const hasKwInAlt = kw.length > 0 && (featuredImageAlt.toLowerCase().includes(kw) || kwWords.some(w => featuredImageAlt.toLowerCase().includes(w)));
+  checks.push({
+    id: 'kw_in_image_alt',
+    category: 'additional',
+    label: 'फोटोचा Alt Text समर्पक आणि माहितीपूर्ण आहे का?',
+    passed: isAltMeaningful,
+    scoreWeight: 5,
+    earnedPoints: (isAltMeaningful && hasKwInAlt) ? 5 : (isAltMeaningful ? 4 : 0),
+    warning: isAltMeaningful && !hasKwInAlt && kw.length > 0,
+    tip: 'गुगल इमेज सर्च ट्रॅफिकसाठी फोटोला बातमीशी संबंधित तपशीलवार Alt Text द्या.',
+  });
+
+  // 2.3 Keyword Density (5 pts)
+  const isDensityOptimal = keywordDensity >= 0.4 && keywordDensity <= 3.2;
+  const isDensityOverused = keywordDensity > 3.5;
+  const kwDensityPassed = isDensityOptimal || (isBreakingNews && (kwCountInContent >= 1 || kwWords.some(w => c.includes(w))));
+  checks.push({
+    id: 'kw_density',
+    category: 'additional',
+    label: `कीवर्ड घनता (Keyword Density: ${keywordDensity.toFixed(2)}%)`,
+    passed: kwDensityPassed,
+    warning: isDensityOverused || (!kwDensityPassed && keywordDensity > 0),
+    scoreWeight: 5,
+    earnedPoints: isDensityOptimal ? 5 : (kwDensityPassed ? 5 : (isDensityOverused ? 2 : 0)),
+    tip: isDensityOverused
+      ? '⚠️ कीवर्डचा अतिवापर टाळा (Keyword stuffing टाळण्यासाठी नैसर्गिक वाक्यरचना ठेवा).'
+      : 'योग्य कीवर्ड घनता ०.५% ते ३.०% दरम्यान असावी.',
+  });
+
+  // 2.4 Internal / External Links (5 pts)
+  const hasLinks = content.includes('http') || content.includes('/category/') || content.includes('/news/') || content.includes('/page/');
+  if (isBreakingNews) {
+    checks.push({
+      id: 'has_links',
+      category: 'additional',
+      label: 'संबंधित लिंक्स (Internal / Source Links) — ब्रेकिंग बातमीसाठी ऐच्छिक',
+      passed: true,
+      info: true,
+      scoreWeight: 5,
+      earnedPoints: 5,
+      tip: 'लहान ब्रेकिंग बातमीसाठी लिंक्स ऐच्छिक आहेत.',
+    });
+  } else {
+    checks.push({
+      id: 'has_links',
+      category: 'additional',
+      label: 'मजकुरात अंतर्गत किंवा अधिकृत स्त्रोत लिंक्स आहेत का?',
+      passed: hasLinks,
+      scoreWeight: 5,
+      earnedPoints: hasLinks ? 5 : 2,
+      warning: !hasLinks,
+      tip: 'इतर संबंधित बातम्यांच्या किंवा अधिकृत स्त्रोतांच्या लिंक्स जोडल्याने विश्वासार्हता वाढते.',
+    });
+  }
+
+  // ==========================================
+  // 3. TITLE & CTR QUALITY (15 POINTS)
+  // ==========================================
+  // 3.1 Title Length (5 pts)
+  const isTitleOptimal = titleCharCount >= 40 && titleCharCount <= 75;
+  const isTitleAcceptable = titleCharCount >= 25 && titleCharCount <= 90;
+  checks.push({
+    id: 'title_length',
+    category: 'title',
+    label: `शीर्षकाची लांबी योग्य आहे का? (${titleCharCount} अक्षरे / ५० ते ७० अक्षरे)`,
+    passed: isTitleOptimal,
+    warning: !isTitleOptimal && isTitleAcceptable,
+    scoreWeight: 5,
+    earnedPoints: isTitleOptimal ? 5 : (isTitleAcceptable ? 3 : 0),
+    tip: '५० ते ७० अक्षरांचे शीर्षक गुगल सर्च आणि मोबाईल स्क्रीनवर सुस्पष्ट दिसते.',
+  });
+
+  // 3.2 Headline Clarity & Substance (5 pts)
+  const isHeadlineClear = titleCharCount >= 20 && !/^(test|news|बातमी|article)$/i.test(title.trim());
+  checks.push({
+    id: 'headline_clarity',
+    category: 'title',
+    label: 'शीर्षक स्पष्ट आणि माहितीपूर्ण आहे का?',
+    passed: isHeadlineClear,
+    scoreWeight: 5,
+    earnedPoints: isHeadlineClear ? 5 : 0,
+    tip: 'शीर्षकातून बातमीचा मुख्य विषय आणि घटना त्वरित समजली पाहिजे.',
+  });
+
+  // 3.3 Specificity, Numbers, or Power Words (5 pts)
+  const hasSpecificity = hasPowerWord || hasNumberInTitle || hasLocationInTitle;
+  checks.push({
+    id: 'title_power_specific',
+    category: 'title',
+    label: 'शीर्षकात विशिष्ट ठिकाण, आकडा किंवा महत्त्वाचा संपादकीय शब्द आहे का?',
+    passed: hasSpecificity,
+    scoreWeight: 5,
+    earnedPoints: hasSpecificity ? 5 : 2,
+    warning: !hasSpecificity,
+    tip: `उदा. 'निर्णय', 'तातडीचा', 'इशारा', 'मोठा', ५ मोठे मुद्दे किंवा ठिकाणाचे नाव जोडल्याने वाचक जास्त आकर्षित होतात.`,
+  });
+
+  // ==========================================
+  // 4. CONTENT QUALITY (20 POINTS)
+  // ==========================================
+  // 4.1 Useful Content Length (6 pts)
+  let contentLengthPoints = 0;
+  let contentLengthPassed = false;
+  let contentLengthWarning = false;
+  if (wordsCount >= 200) {
+    contentLengthPoints = 6;
+    contentLengthPassed = true;
+  } else if (wordsCount >= 75) {
+    contentLengthPoints = 5;
+    contentLengthPassed = true;
+    contentLengthWarning = true;
+  } else if (wordsCount >= 25) {
+    contentLengthPoints = 4;
+    contentLengthPassed = true;
+    contentLengthWarning = true;
+  } else {
+    contentLengthPoints = 0;
+    contentLengthPassed = false;
+  }
+  checks.push({
+    id: 'content_useful_length',
+    category: 'content',
+    label: `मजकुराची लांबी पुरेशी आहे का? (${wordsCount} शब्द / ब्रेकिंग: १००+, सविस्तर: २५०+ शब्द)`,
+    passed: contentLengthPassed,
+    warning: contentLengthWarning,
+    scoreWeight: 6,
+    earnedPoints: contentLengthPoints,
+    tip: 'वाचकांना परिपूर्ण माहिती देण्यासाठी ब्रेकिंग बातमी किमान १०० आणि सविस्तर बातमी २५०+ शब्दांची असावी.',
+  });
+
+  // 4.2 Paragraph Structure (5 pts)
+  const isParagraphGood = content.includes('\n') || wordsCount < 60;
+  checks.push({
+    id: 'paragraph_structure',
+    category: 'content',
+    label: 'मजकुरात छोटे परिच्छेद व सुटसुटीत मांडणी आहे का?',
+    passed: isParagraphGood,
+    scoreWeight: 5,
+    earnedPoints: isParagraphGood ? 5 : 2,
+    warning: !isParagraphGood,
+    tip: 'मोबाईल वाचकांसाठी मोठा ब्लॉक टाळून २-३ वाक्यांचे लहान परिच्छेद करा.',
+  });
+
+  // 4.3 Headings & Sections Structure (4 pts)
+  const hasHeadingsStructure = isBreakingNews || content.includes('##') || content.includes('#');
+  checks.push({
+    id: 'headings_structure',
+    category: 'content',
+    label: 'मुद्देसूद मांडणी किंवा सबहेडिंग्ज (H2/H3 Headings) आहेत का?',
+    passed: hasHeadingsStructure,
+    scoreWeight: 4,
+    earnedPoints: hasHeadingsStructure ? 4 : 1,
+    warning: !hasHeadingsStructure,
+    tip: 'वाचनीयता वाढवण्यासाठी `## उपशीर्षक` किंवा बुलेट पॉईंट्स वापरा.',
+  });
+
+  // 4.4 Dateline & Location Detection (5 pts)
+  const hasDatelineStructure =
+    MAHARASHTRA_LOCATIONS.some((loc) => c.includes(loc.toLowerCase())) ||
+    /\(जि\.|\(विशेष प्रतिनिधी\)|दि\.|ब्युरो/i.test(content);
+  checks.push({
+    id: 'dateline_structure',
+    category: 'content',
+    label: 'बातमीचे ठिकाण / डेटलाईन (Dateline Structure) समाविष्ट आहे का?',
+    passed: hasDatelineStructure,
+    scoreWeight: 5,
+    earnedPoints: hasDatelineStructure ? 5 : 2,
+    warning: !hasDatelineStructure,
+    tip: 'उदा. `गडचिरोली (विशेष प्रतिनिधी):` किंवा जिल्ह्याचे नाव सुरुवातीस दिल्यास विश्वासार्हता वाढते.',
+  });
+
+  // ==========================================
+  // 5. IMAGE & ACCESSIBILITY (5 POINTS)
+  // ==========================================
+  // 5.1 Image Valid & Safe (3 pts)
+  const isImageSafe = imageSafety.isSafe && imageSafety.type === 'OK';
+  checks.push({
+    id: 'image_valid',
+    category: 'image',
+    label: 'बातमीचा खरा आणि वैध फोटो (Featured Image) जोडला आहे का?',
+    passed: isImageSafe,
+    scoreWeight: 3,
+    earnedPoints: isImageSafe ? 3 : (featuredImage.length > 0 ? 1 : 0),
+    warning: !isImageSafe && featuredImage.length > 0,
+    tip: 'स्थानिक फोटो, स्पष्ट रिझोल्युशन आणि खरा बातमी फोटो वापरा.',
+  });
+
+  // 5.2 Image Alt Text Meaningful (2 pts)
+  checks.push({
+    id: 'image_alt_meaningful',
+    category: 'image',
+    label: 'फोटोचा Alt Text अर्थपूर्ण आहे का?',
+    passed: isAltMeaningful,
+    scoreWeight: 2,
+    earnedPoints: isAltMeaningful ? 2 : 0,
+    tip: 'इमेजचे नाव image.jpg ऐवजी बातमीतील दृश्याचे स्पष्ट वर्णन लिहा.',
+  });
+
+  // ==========================================
+  // 6. GOOGLE NEWS TECHNICAL READINESS (10 POINTS)
+  // ==========================================
+  let newsPoints = 0;
+  if (newsReadiness.status === 'READY') {
+    newsPoints = 10;
+  } else if (newsReadiness.status === 'NEEDS_IMPROVEMENT') {
+    newsPoints = 7;
+  } else {
+    newsPoints = 3;
+  }
+  checks.push({
+    id: 'google_news_readiness',
+    category: 'news',
+    label: `Google News तांत्रिक निकष (${newsReadiness.status === 'READY' ? '🟢 Ready' : newsReadiness.status === 'NEEDS_IMPROVEMENT' ? '🟡 Needs Review' : '🔴 Missing Elements'})`,
+    passed: newsReadiness.status === 'READY',
+    warning: newsReadiness.status === 'NEEDS_IMPROVEMENT',
+    scoreWeight: 10,
+    earnedPoints: newsPoints,
+    tip: 'बायलाईन, मथळा, युनिक URL, प्रकाशन वेळ आणि NewsArticle JSON-LD तपासले जातात.',
+  });
+
+  // ==========================================
+  // 7. GOOGLE DISCOVER EDITORIAL READINESS (5 POINTS)
+  // ==========================================
+  let discoverPoints = 0;
+  if (discoverReadiness.status === 'READY') {
+    discoverPoints = 5;
+  } else if (discoverReadiness.status === 'NEEDS_IMPROVEMENT') {
+    discoverPoints = 3;
+  } else {
+    discoverPoints = 1;
+  }
+  checks.push({
+    id: 'google_discover_readiness',
+    category: 'discover',
+    label: `Google Discover संपादकीय दर्जा (${discoverReadiness.status === 'READY' ? '🟢 Ready' : discoverReadiness.status === 'NEEDS_IMPROVEMENT' ? '🟡 Needs Review' : '🔴 Missing Elements'})`,
+    passed: discoverReadiness.status === 'READY',
+    warning: discoverReadiness.status === 'NEEDS_IMPROVEMENT',
+    scoreWeight: 5,
+    earnedPoints: discoverPoints,
+    tip: 'क्लिकबेट नसलेले आकर्षक शीर्षक, १२००px रुंद फोटो आणि सुटसुटीत मोबाईल मांडणी.',
+  });
+
+  // Calculate Total Earned Points (Sum of 25 + 20 + 15 + 20 + 5 + 10 + 5 = 100)
+  const rawScore = checks.reduce((sum, item) => sum + item.earnedPoints, 0);
+  const score = Math.min(100, Math.max(0, rawScore));
+
+  // Extract Top 3–5 Priority Suggestions for highest impact
+  const prioritySuggestions: string[] = [];
+  if (!kwInTitlePassed && kw.length > 0) {
+    prioritySuggestions.push(`Focus Keyword ("${focusKeyword}") SEO Title मध्ये समाविष्ट करा.`);
+  } else if (kw.length === 0) {
+    prioritySuggestions.push('बातमीसाठी मुख्य Focus Keyword ठरवून तो प्रविष्ट करा.');
+  }
+  if (!kwInMetaPassed) {
+    prioritySuggestions.push('मेटा वर्णनात (Meta Description) Focus Keyword चा नैसर्गिक वापर करा.');
+  }
+  if (!isAltMeaningful) {
+    prioritySuggestions.push('Featured Image साठी तपशीलवार आणि समर्पक Alt Text जोडा.');
+  }
+  if (wordsCount < 100) {
+    prioritySuggestions.push('बातमीत किमान १०० ते २५० शब्दांचा माहितीपूर्ण मजकूर समाविष्ट करा.');
+  }
+  if (!isTitleOptimal && titleCharCount > 0) {
+    prioritySuggestions.push('शीर्षक ५० ते ७० अक्षरांच्या दरम्यान सुस्पष्ट ठेवा.');
+  }
+  if (imageSafety.type === 'MISSING') {
+    prioritySuggestions.push('बातमीसाठी एक उच्च दर्जाचा Featured Image निवडा.');
+  }
+
+  // Determine Score Badge
+  const getScoreBadge = () => {
+    if (score >= 80) {
+      return {
+        color: 'bg-emerald-600',
+        textColor: 'text-emerald-700',
+        bgColor: 'bg-emerald-50',
+        borderColor: 'border-emerald-200',
+        label: 'Great (उत्कृष्ट दर्जा)',
+        message: 'ही बातमी Google Search, News आणि Discover च्या सर्वोत्तम मानकांनुसार सज्ज आहे! 🚀',
+      };
+    }
+    if (score >= 60) {
+      return {
+        color: 'bg-amber-500',
+        textColor: 'text-amber-700',
+        bgColor: 'bg-amber-50',
+        borderColor: 'border-amber-200',
+        label: 'Good (मध्यम दर्जा)',
+        message: 'काही त्रुटी दूर केल्यास संपादकीय गुणवत्ता स्कोअर ८०+ होऊ शकतो.',
+      };
+    }
+    return {
+      color: 'bg-red-600',
+      textColor: 'text-red-700',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      label: 'Needs Work (सुधारणा आवश्यक)',
+      message: 'Focus Keyword टाकून खालील लाल रंगातील त्रुटी दुरुस्त करा.',
+    };
+  };
+
+  const badge = getScoreBadge();
+
+  return {
+    score,
+    checks,
+    prioritySuggestions: prioritySuggestions.slice(0, 4),
+    newsReadiness,
+    discoverReadiness,
+    imageSafety,
+    badge,
+  };
+}
