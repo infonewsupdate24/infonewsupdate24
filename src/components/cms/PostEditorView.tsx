@@ -1,4 +1,4 @@
-import {
+﻿import {
   AlertCircle,
   ArrowLeft,
   Bold,
@@ -39,7 +39,7 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { canEditPost } from '../../utils/rbac';
+import { canEditPost, canPerformWorkflowTransition } from '../../utils/rbac';
 import { useVoiceTyping } from '../../hooks/useVoiceTyping';
 import { Post, PostSEO, PostStatus, PostVisibility } from '../../types';
 import { SocialSharePreviewModal } from './SocialSharePreviewModal';
@@ -57,13 +57,17 @@ import {
 } from '../../services/SEOAutoOptimizer';
 import { WebPushNotificationService } from '../../services/WebPushNotificationService';
 import { optimizeImageFile } from '../../utils/imageOptimizer';
+import { dataUrlToBlob, uploadMediaBlobToStorage } from '../../services/MediaStorageService';
+import { requestProductionRebuild } from '../../services/ProductionRebuildService';
 
 export const PostEditorView: React.FC = () => {
-  const { posts, categories, tags, selectedPostId, setCmsView, createPost, updatePost, uploadMedia } = useApp();
+  const { posts, categories, tags, selectedPostId, setSelectedPostId, cmsView, setCmsView, createPost, updatePost, uploadMedia } = useApp();
   const { currentUser, hasPermission } = useAuth();
   const featuredImageFileRef = useRef<HTMLInputElement | null>(null);
+  const saveInFlightRef = useRef(false);
+  const persistedPostIdRef = useRef<string | null>(selectedPostId);
 
-  const existingPost = posts.find((p) => p.id === selectedPostId);
+  const existingPost = posts.find((p) => p.id === (selectedPostId || persistedPostIdRef.current));
 
   // Form State
   const [title, setTitle] = useState(existingPost?.title || '');
@@ -109,7 +113,15 @@ export const PostEditorView: React.FC = () => {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [isGraphicCardOpen, setIsGraphicCardOpen] = useState(false);
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState(existingPost?.scheduleDate || '');
+  const toLocalDateTimeInput = (value?: string) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value.slice(0, 16);
+    const offsetMs = parsed.getTimezoneOffset() * 60_000;
+    return new Date(parsed.getTime() - offsetMs).toISOString().slice(0, 16);
+  };
+
+  const [scheduleDate, setScheduleDate] = useState(toLocalDateTimeInput(existingPost?.scheduleDate));
   const [attachmentUrl, setAttachmentUrl] = useState(existingPost?.attachmentUrl || '');
   const [attachmentName, setAttachmentName] = useState(existingPost?.attachmentName || '');
   const [isAutoOptimizing, setIsAutoOptimizing] = useState(false);
@@ -117,6 +129,16 @@ export const PostEditorView: React.FC = () => {
 
   // 🔒 Published Post Security Guard: If post is PUBLISHED, only Super Admin & Admin can edit
   const isReadOnly = Boolean(existingPost && !canEditPost(currentUser, existingPost));
+
+  // Guided editorial workflow: workflow status changes must happen through explicit actions,
+  // not by freely changing the status dropdown.
+  const canTransitionTo = (target: PostStatus) =>
+    canPerformWorkflowTransition(currentUser, status, target);
+
+  const canPublishFromCurrentStatus =
+    status === 'FINAL_EDIT' || status === 'SCHEDULED' || status === 'PUBLISHED';
+
+  const canSaveInPlace = status !== 'PUBLISHED' || currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
 
   // Auto-Save Draft every 25s (Only if user has edit permission)
   useEffect(() => {
@@ -321,11 +343,69 @@ export const PostEditorView: React.FC = () => {
   };
 
   const handleSave = async (targetStatus?: PostStatus) => {
+    if (saveInFlightRef.current) return;
+
     if (isReadOnly) {
       alert('🔒 ही बातमी प्रकाशित झालेली असल्याने फक्त मुख्य ॲडमिनच यात बदल करू शकतात.');
       return;
     }
     const finalStatus = targetStatus || status;
+
+    // Edit mode is update-only. Never create a replacement document if the
+    // selected article is temporarily unavailable.
+    if (cmsView === 'posts_edit' && !existingPost) {
+      setSaveErrorMsg(
+        selectedPostId
+          ? `Update blocked: existing article ${selectedPostId} is not loaded. No duplicate was created.`
+          : 'Update blocked: no existing article is selected. No duplicate was created.'
+      );
+      return;
+    }
+
+    // Require an editorial reason when returning/rejecting an article.
+    if ((finalStatus === 'NEEDS_CORRECTION' || finalStatus === 'REJECTED') && !editorialNote.trim()) {
+      setSaveErrorMsg('Correction / rejection reason is required before sending the article back.');
+      return;
+    }
+
+    if (finalStatus === 'SCHEDULED') {
+      if (!scheduleDate) {
+        setSaveErrorMsg('Schedule date and time are required.');
+        return;
+      }
+      const scheduledAt = new Date(scheduleDate);
+      if (Number.isNaN(scheduledAt.getTime())) {
+        setSaveErrorMsg('Invalid schedule date/time.');
+        return;
+      }
+      if (scheduledAt.getTime() <= Date.now()) {
+        setSaveErrorMsg('Schedule time must be in the future.');
+        return;
+      }
+    }
+
+    // Production workflow guard: publishing is allowed only after FINAL_EDIT
+    // (or when updating an already published/scheduled article).
+    if (
+      finalStatus === 'PUBLISHED' &&
+      status !== 'FINAL_EDIT' &&
+      status !== 'SCHEDULED' &&
+      status !== 'PUBLISHED'
+    ) {
+      setSaveErrorMsg('Publish blocked: article must pass Approval → Final Edit before publishing.');
+      return;
+    }
+
+    // For an existing post, block non-logical workflow jumps.
+    if (
+      existingPost &&
+      finalStatus !== status &&
+      !canPerformWorkflowTransition(currentUser, status, finalStatus)
+    ) {
+      setSaveErrorMsg(`Workflow transition blocked: ${status} → ${finalStatus}`);
+      return;
+    }
+
     const postPayload = {
       title: title || 'Untitled News Article',
       slug: slug || `article-${Date.now()}`,
@@ -343,11 +423,13 @@ export const PostEditorView: React.FC = () => {
       authorRole: authorRole,
       status: finalStatus,
       visibility,
-      publishDate: new Date().toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }),
+      publishDate:
+        existingPost?.publishDate ||
+        new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
       views: existingPost ? existingPost.views : 0,
       likes: existingPost ? existingPost.likes : 0,
       readingTimeMinutes: readingTime,
@@ -357,25 +439,45 @@ export const PostEditorView: React.FC = () => {
       isFeatured: true,
       isVideoNews,
       videoUrl: isVideoNews ? videoUrl : undefined,
-      scheduleDate: status === 'SCHEDULED' ? scheduleDate : undefined,
+      scheduleDate:
+        finalStatus === 'SCHEDULED' && scheduleDate
+          ? new Date(scheduleDate).toISOString()
+          : undefined,
       attachmentUrl: attachmentUrl || undefined,
       attachmentName: attachmentName || undefined,
       seo: seoData,
     };
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setSaveSuccessMsg('');
     setSaveErrorMsg('');
 
     try {
-      if (existingPost) {
-        await updatePost(existingPost.id, postPayload, editorialNote || `Status: ${finalStatus}`);
+      const persistedId = existingPost?.id || persistedPostIdRef.current;
+
+      if (persistedId) {
+        await updatePost(persistedId, postPayload, editorialNote || `Status: ${finalStatus}`);
+        setStatus(finalStatus);
         setSaveSuccessMsg(`बातमी यशस्वीरीत्या क्लाउडवर अद्ययावत झाली (${finalStatus})`);
       } else {
         const created = await createPost(postPayload);
-        setSaveSuccessMsg(`बातमी यशस्वीरीत्या क्लाउडवर प्रकाशित झाली! (ID: ${created.id})`);
+        persistedPostIdRef.current = created.id;
+        setSelectedPostId(created.id);
+        setCmsView('posts_edit');
+        setStatus(finalStatus);
+        setSaveSuccessMsg(`बातमी यशस्वीरीत्या क्लाउडवर सेव्ह झाली! (ID: ${created.id}, ${finalStatus})`);
       }
 
+      // Non-blocking production OG refresh. Publishing stays successful even
+      // if the rebuild request is temporarily unavailable.
+      if (finalStatus === 'PUBLISHED') {
+        try {
+          await requestProductionRebuild(existingPost ? 'post_updated' : 'post_published');
+        } catch (rebuildError) {
+          console.error('Production OG rebuild trigger failed:', rebuildError);
+        }
+      }
       if (sendPushAlert && finalStatus === 'PUBLISHED') {
         WebPushNotificationService.broadcastPush(
           title,
@@ -396,6 +498,7 @@ export const PostEditorView: React.FC = () => {
         err?.message || '❌ क्लाउड सेव्ह अयशस्वी झाले. बातमी प्रकाशित झाली नाही. कृपया तुमचे इंटरनेट कनेक्शन किंवा ॲडमिन लॉगिन तपासा.'
       );
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   };
@@ -483,29 +586,131 @@ export const PostEditorView: React.FC = () => {
             </span>
           ) : (
             <>
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={() => handleSave('DRAFT')}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-              >
-                {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
-              </button>
+              {status === 'DRAFT' && (
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => handleSave('DRAFT')}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
+                </button>
+              )}
 
               {hasPermission('post.submit') && status === 'DRAFT' && (
                 <button
                   type="button"
-                  disabled={isSaving}
+                  disabled={isSaving || !canTransitionTo('SUBMITTED')}
                   onClick={() => handleSave('SUBMITTED')}
                   className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                 >
-                  {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  <span>{isSaving ? 'Submitting...' : 'Submit for Review'}</span>
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Submit for Review</span>
                 </button>
               )}
 
-              {hasPermission('post.publish') && (
+              {hasPermission('post.review') && (status === 'SUBMITTED' || status === 'RESUBMITTED') && (
+                <button
+                  type="button"
+                  disabled={isSaving || !canTransitionTo('UNDER_REVIEW')}
+                  onClick={() => handleSave('UNDER_REVIEW')}
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>Start Review</span>
+                </button>
+              )}
+
+              {hasPermission('post.review') && status === 'UNDER_REVIEW' && (
+                <>
+                  <button
+                    type="button"
+                    disabled={isSaving || !canTransitionTo('NEEDS_CORRECTION') || !editorialNote.trim()}
+                    onClick={() => handleSave('NEEDS_CORRECTION')}
+                    title={!editorialNote.trim() ? 'Correction reason लिहा' : 'Reporter कडे correction साठी पाठवा'}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-amber-600 disabled:opacity-50 cursor-pointer"
+                  >
+                    <History className="h-3.5 w-3.5" />
+                    <span>Request Correction</span>
+                  </button>
+                  {hasPermission('post.approve') && (
+                    <button
+                      type="button"
+                      disabled={isSaving || !canTransitionTo('APPROVED')}
+                      onClick={() => handleSave('APPROVED')}
+                      className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      <span>Approve</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {hasPermission('post.submit') && status === 'NEEDS_CORRECTION' && (
+                <button
+                  type="button"
+                  disabled={isSaving || !canTransitionTo('RESUBMITTED')}
+                  onClick={() => handleSave('RESUBMITTED')}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Resubmit after Correction</span>
+                </button>
+              )}
+
+              {hasPermission('post.approve') && status === 'APPROVED' && (
+                <button
+                  type="button"
+                  disabled={isSaving || !canTransitionTo('FINAL_EDIT')}
+                  onClick={() => handleSave('FINAL_EDIT')}
+                  className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-violet-700 disabled:opacity-50 cursor-pointer"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Start Final Edit</span>
+                </button>
+              )}
+
+              {canSaveInPlace && status !== 'DRAFT' && status !== 'PUBLISHED' && (
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => handleSave(status)}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>Save Changes</span>
+                </button>
+              )}
+
+              {hasPermission('post.publish') && status === 'FINAL_EDIT' && canTransitionTo('SCHEDULED') && (
+                <button
+                  id="btn-schedule-post-main"
+                  type="button"
+                  disabled={isSaving || !scheduleDate}
+                  onClick={() => handleSave('SCHEDULED')}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Schedule Publication</span>
+                </button>
+              )}
+
+              {hasPermission('post.publish') && status === 'PUBLISHED' && (
+                <button
+                  id="btn-update-published-post-main"
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => handleSave('PUBLISHED')}
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  <span>{isSaving ? 'Updating...' : 'Update Post'}</span>
+                </button>
+              )}
+
+              {hasPermission('post.publish') && canPublishFromCurrentStatus && status !== 'PUBLISHED' && (
                 <button
                   id="btn-publish-post-main"
                   type="button"
@@ -513,18 +718,8 @@ export const PostEditorView: React.FC = () => {
                   onClick={() => handleSave('PUBLISHED')}
                   className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                 >
-                  {isSaving ? (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <FileText className="h-3.5 w-3.5" />
-                  )}
-                  <span>
-                    {isSaving
-                      ? 'क्लाउडवर सेव्ह होत आहे...'
-                      : status === 'PUBLISHED'
-                      ? 'Update & Publish'
-                      : 'Publish Now'}
-                  </span>
+                  {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                  <span>Publish Now</span>
                 </button>
               )}
             </>
@@ -1032,21 +1227,27 @@ export const PostEditorView: React.FC = () => {
               </label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as PostStatus)}
-                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-800 focus:outline-hidden"
+                disabled
+                aria-label="Workflow status (controlled by workflow actions)"
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-100 px-2.5 text-xs font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-90"
               >
                 <option value="DRAFT">Draft</option>
                 <option value="SUBMITTED">Submitted for Review</option>
                 <option value="UNDER_REVIEW">Under Review</option>
                 <option value="NEEDS_CORRECTION">Needs Correction</option>
+                <option value="RESUBMITTED">Resubmitted after Correction</option>
                 <option value="APPROVED">Approved</option>
+                <option value="FINAL_EDIT">Final Edit</option>
                 <option value="SCHEDULED">Scheduled (भविष्यातील तारीख/वेळ)</option>
                 <option value="PUBLISHED">Published</option>
                 <option value="ARCHIVED">Archived</option>
                 <option value="REJECTED">Rejected</option>
               </select>
+              <p className="mt-1 text-[10px] font-medium text-slate-500">
+                Status बदलण्यासाठी खालील workflow action buttons वापरा.
+              </p>
 
-              {status === 'SCHEDULED' && (
+              {(status === 'FINAL_EDIT' || status === 'SCHEDULED') && (
                 <div className="mt-2.5 p-2.5 rounded-lg bg-blue-50 border border-blue-200 space-y-1">
                   <label className="text-[11px] font-bold text-blue-900 block">
                     प्रकाशन तारीख व वेळ (Schedule Date & Time):
@@ -1058,7 +1259,7 @@ export const PostEditorView: React.FC = () => {
                     className="h-8 w-full rounded-md border border-blue-300 bg-white px-2 text-xs font-semibold text-blue-900 focus:outline-hidden"
                   />
                   <p className="text-[10px] text-blue-600">
-                    या वेळेला बातमी आपोआप सर्व वाचकांसाठी प्रकाशित होईल.
+                    Final Edit मध्ये भविष्यातील तारीख/वेळ निवडा आणि वरच्या Schedule Publication बटणाने लेख SCHEDULED करा.
                   </p>
                 </div>
               )}
@@ -1312,17 +1513,29 @@ export const PostEditorView: React.FC = () => {
                     const file = e.target.files[0];
                     try {
                       const optimized = await optimizeImageFile(file, 1600, 0.85);
-                      setFeaturedImage(optimized.dataUrl);
+                      const optimizedBlob = dataUrlToBlob(optimized.dataUrl);
+                      const cloudUpload = await uploadMediaBlobToStorage(
+                        optimizedBlob,
+                        file.name.replace(/\.[^/.]+$/, '') + '.webp',
+                        optimized.mimeType
+                      );
+
+                      // IMPORTANT: Featured Image must be a crawler-fetchable HTTPS URL.
+                      // This keeps WhatsApp/Facebook/Open Graph from falling back to the default icon.
+                      setFeaturedImage(cloudUpload.downloadUrl);
+
                       if (!featuredImageAlt) {
                         setFeaturedImageAlt(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
                       }
-                      // Also automatically add to Media Library (Firebase Firestore synced)
+
+                      // Keep the existing Media Library + Firestore metadata workflow.
                       uploadMedia({
                         name: file.name,
-                        url: optimized.dataUrl,
+                        url: cloudUpload.downloadUrl,
+                        storagePath: cloudUpload.storagePath,
                         type: 'image',
-                        mimeType: optimized.mimeType,
-                        sizeBytes: optimized.sizeBytes,
+                        mimeType: cloudUpload.mimeType,
+                        sizeBytes: cloudUpload.sizeBytes,
                         dimensions: optimized.width && optimized.height ? { width: optimized.width, height: optimized.height } : undefined,
                         altText: file.name.replace(/\.[^/.]+$/, ''),
                         caption: `Uploaded for: ${title || 'News Post'}`,
@@ -1374,7 +1587,7 @@ export const PostEditorView: React.FC = () => {
 
             <div>
               <label className="text-[11px] font-semibold text-slate-600 mb-1 block">
-                Image URL / Base64:
+                Public Image URL:
               </label>
               <input
                 type="text"
@@ -1527,3 +1740,4 @@ export const PostEditorView: React.FC = () => {
     </div>
   );
 };
+
