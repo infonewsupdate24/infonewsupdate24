@@ -576,12 +576,25 @@ export const PublicPortalView: React.FC = () => {
       if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActivePostSlug)) {
         window.history.pushState({ postSlug: publicActivePostSlug }, '', targetPath);
       }
-      if (selectedPost) {
-        const metaTitle = selectedPost.seo?.seoTitle || selectedPost.title;
-        const metaDesc = selectedPost.seo?.metaDescription || selectedPost.excerpt || selectedPost.title;
-        const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(selectedPost.slug)}`;
-        const postImg = selectedPost.featuredImage || 'https://www.infonewsupdate24.com/icon-512.svg';
-        const postImgAlt = selectedPost.featuredImageAlt || selectedPost.title;
+     if (activeArticle) {
+  const metaTitle = activeArticle.seo?.seoTitle || activeArticle.title;
+  const metaDesc =
+    activeArticle.seo?.metaDescription ||
+    activeArticle.excerpt ||
+    activeArticle.title;
+
+  const cleanSlug = (activeArticle.slug || publicActivePostSlug)
+    .trim()
+    .replace(/^\/+|\/+$/g, '');
+
+  const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(cleanSlug)}`;
+  const postImg =
+    activeArticle.featuredImage ||
+    'https://www.infonewsupdate24.com/icon-512.svg';
+
+  const postImgAlt =
+    activeArticle.featuredImageAlt ||
+    activeArticle.title;
 
         document.title = `${metaTitle} | InfoNewsUpdate24`;
         setMetaTag('meta[name="description"]', 'content', metaDesc);
@@ -641,7 +654,7 @@ export const PublicPortalView: React.FC = () => {
       setMetaTag('meta[property="og:image"]', 'content', defaultImg);
       setMetaTag('link[rel="canonical"]', 'href', defaultUrl);
     }
-  }, [publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, selectedPost, categories, pages]);
+ }, [publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, activeArticle, categories, pages]);
 
   useEffect(() => {
     const handleLayoutUpdate = () => {
