@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PROJECT_ROOT = 'C:\\Users\\ASUS\\antigravity\\Remix-infonewsupdate24';
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 const IMPORTED_POSTS_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'importedWordPressPosts.json');
 const PUBLIC_DIR = path.join(PROJECT_ROOT, 'public');
 

@@ -34,7 +34,20 @@ function normalizePublicImageUrl(value) {
   // Social crawlers require a fetchable public URL. Never emit inline/local-only sources.
   if (/^(data:|blob:|javascript:|file:)/i.test(img)) return '';
 
-  if (/^https?:\/\//i.test(img)) return img;
+  if (/^https?:\/\//i.test(img)) {
+    try {
+      const parsed = new URL(img);
+      if (parsed.protocol !== 'https:') return '';
+
+      // The retired non-WWW WordPress host returns "Site Not Found". Never
+      // expose it to WhatsApp; use this article's canonical media mirror below.
+      if (parsed.hostname.toLowerCase() === 'infonewsupdate24.com') return '';
+
+      return parsed.href;
+    } catch (_) {
+      return '';
+    }
+  }
   if (img.startsWith('//')) return `https:${img}`;
   if (img.startsWith('/')) return `${SITE_ORIGIN}${img}`;
 
@@ -54,6 +67,7 @@ function getSeoImageUrl(post) {
     post.seo?.ogImage,
     post.seo?.image,
     post.seo?.socialImage,
+    post._importedFeaturedImage,
   ];
 
   for (const candidate of candidates) {
@@ -166,7 +180,16 @@ async function loadPosts() {
   });
   cloudPosts.forEach((post) => {
     const slug = normalizeSlug(post.slug);
-    if (slug) bySlug.set(slug, { ...post, slug });
+    if (slug) {
+      const importedPost = bySlug.get(slug);
+      bySlug.set(slug, {
+        ...importedPost,
+        ...post,
+        slug,
+        _importedFeaturedImage:
+          importedPost?._importedFeaturedImage || importedPost?.featuredImage || '',
+      });
+    }
   });
 
   const now = Date.now();
