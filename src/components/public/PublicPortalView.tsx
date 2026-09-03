@@ -487,9 +487,11 @@ export const PublicPortalView: React.FC = () => {
         }
       }
 
-      // 4. Single Article Route (/article/slug or WordPress /YYYY/MM/DD/slug or /slug)
+      // 4. Single Article Route (/news/slug, /article/slug, WordPress /YYYY/MM/DD/slug, or /slug)
       let postSlugCandidate = '';
-      if (pathname.startsWith('/article/')) {
+      if (pathname.startsWith('/news/')) {
+        postSlugCandidate = pathname.replace('/news/', '');
+      } else if (pathname.startsWith('/article/')) {
         postSlugCandidate = pathname.replace('/article/', '');
       } else if (pathname.match(/^\/\d{4}\/\d{2}\/(\d{2}\/)?([^\/]+)$/)) {
         // WordPress date permalink: /2024/05/20/post-slug/
@@ -570,14 +572,14 @@ export const PublicPortalView: React.FC = () => {
     };
 
     if (publicActivePostSlug) {
-      const targetPath = `/${publicActivePostSlug}/`;
+      const targetPath = `/news/${publicActivePostSlug}`;
       if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActivePostSlug)) {
         window.history.pushState({ postSlug: publicActivePostSlug }, '', targetPath);
       }
       if (selectedPost) {
         const metaTitle = selectedPost.seo?.seoTitle || selectedPost.title;
         const metaDesc = selectedPost.seo?.metaDescription || selectedPost.excerpt || selectedPost.title;
-        const postUrl = `https://www.infonewsupdate24.com/${encodeURIComponent(selectedPost.slug)}/`;
+        const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(selectedPost.slug)}`;
         const postImg = selectedPost.featuredImage || 'https://www.infonewsupdate24.com/icon-512.svg';
         const postImgAlt = selectedPost.featuredImageAlt || selectedPost.title;
 

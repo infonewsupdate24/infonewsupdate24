@@ -222,7 +222,7 @@ async function main() {
   let generated = 0;
   for (const post of posts) {
     const slug = normalizeSlug(post.slug);
-    const canonical = `${SITE_ORIGIN}/${encodeURIComponent(slug)}/`;
+    const canonical = `${SITE_ORIGIN}/news/${encodeURIComponent(slug)}`;
     const title = post.seo?.seoTitle || post.title;
     const fullTitle = `${title} | InfoNewsUpdate24`;
     const description = textExcerpt(post) || post.title;
@@ -287,13 +287,13 @@ async function main() {
       inLanguage: 'mr-IN',
     });
 
-    const outDir = path.join(DIST_DIR, slug);
+    const outDir = path.join(DIST_DIR, 'news', slug);
     fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
     generated += 1;
   }
 
-  console.log(`✅ Generated ${generated} crawler-readable article SEO pages in dist/<slug>/index.html`);
+  console.log(`✅ Generated ${generated} crawler-readable article SEO pages in dist/news/<slug>/index.html`);
 }
 
 main().catch((error) => {

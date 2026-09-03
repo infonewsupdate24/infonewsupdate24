@@ -383,8 +383,8 @@ function smartMergePosts(localPosts: Post[], cloudPosts: Post[], deletedIds: Set
         parseTimestampToMillis(cloudPost.publishDate)
       );
       if (localTime > cloudTime) {
-        // Local is newer -> use local
-        postMap.set(lp.id, lp);
+        // Local content may be newer, but the stored Firestore slug is canonical.
+        postMap.set(lp.id, { ...lp, slug: cloudPost.slug || lp.slug });
       }
     }
   });
