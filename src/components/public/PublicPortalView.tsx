@@ -635,6 +635,11 @@ export const PublicPortalView: React.FC = () => {
       document.title = 'InfoNewsUpdate24 | डिजिटल ई-पेपर (E-Paper)';
       setMetaTag('link[rel="canonical"]', 'href', 'https://www.infonewsupdate24.com/epaper');
     } else {
+      const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+
+if (currentPath !== '/') {
+  return;
+}
       // ONLY push '/' when navigation state is explicitly in Home mode
       if (window.location.pathname !== '/' && window.location.pathname !== '' && !window.location.pathname.startsWith('/cms')) {
         window.history.pushState({}, '', '/');
