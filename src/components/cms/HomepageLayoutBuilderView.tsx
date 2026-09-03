@@ -39,7 +39,8 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { usePermissions } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import {
   DEFAULT_HOMEPAGE_SECTIONS,
@@ -52,10 +53,19 @@ import {
 
 export const HomepageLayoutBuilderView: React.FC = () => {
   const { setPortalMode } = useApp();
+  const { canManageAppearance } = usePermissions();
 
   const [sections, setSections] = useState<HomepageSectionConfig[]>(() =>
     HomepageLayoutService.getSections()
   );
+  const [savedSections, setSavedSections] = useState<HomepageSectionConfig[] | null>(null);
+  const [isLayoutLoading, setIsLayoutLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [hasSavedSuccessfully, setHasSavedSuccessfully] = useState(false);
+  const isLayoutLoadingRef = useRef(true);
+  const hasEditedWhileLoadingRef = useRef(false);
+  const initialSectionsRef = useRef(sections);
 
   // Drag & Drop State
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -78,13 +88,66 @@ export const HomepageLayoutBuilderView: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string>('');
 
   useEffect(() => {
+    let isMounted = true;
+
     const handleUpdate = () => {
-      setSections(HomepageLayoutService.getSections());
+      const nextSections = HomepageLayoutService.getSections();
+      if (isLayoutLoadingRef.current) hasEditedWhileLoadingRef.current = true;
+      setSections(nextSections);
+      setHasSavedSuccessfully(false);
     };
     window.addEventListener('infonews:homepage-layout-updated', handleUpdate);
-    return () =>
+
+    HomepageLayoutService.loadSavedSections()
+      .then((saved) => {
+        if (!isMounted) return;
+        if (saved) {
+          setSavedSections(saved);
+          if (!hasEditedWhileLoadingRef.current) {
+            setSections(HomepageLayoutService.setLocalSections(saved));
+          }
+        } else {
+          setSavedSections(initialSectionsRef.current);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          isLayoutLoadingRef.current = false;
+          setIsLayoutLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
       window.removeEventListener('infonews:homepage-layout-updated', handleUpdate);
+    };
   }, []);
+
+  const isDirty =
+    !isLayoutLoading &&
+    savedSections !== null &&
+    JSON.stringify(sections) !== JSON.stringify(savedSections);
+
+  const handleSaveHomepage = async () => {
+    if (!isDirty || isSaving || !canManageAppearance) return;
+    setIsSaving(true);
+    setSaveError('');
+    try {
+      const saved = await HomepageLayoutService.saveSectionsToFirestore(sections);
+      setSections(saved);
+      setSavedSections(saved);
+      setHasSavedSuccessfully(true);
+      showToast('होमपेज रचना यशस्वीपणे सेव्ह झाली.');
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? `होमपेज रचना सेव्ह करता आली नाही: ${error.message}`
+          : 'होमपेज रचना सेव्ह करता आली नाही. कृपया पुन्हा प्रयत्न करा.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -248,6 +311,23 @@ export const HomepageLayoutBuilderView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={handleSaveHomepage}
+            disabled={isLayoutLoading || !isDirty || isSaving || !canManageAppearance}
+            className="flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-xs font-black shadow-md transition disabled:cursor-not-allowed disabled:opacity-50"
+            title={!canManageAppearance ? 'तुम्हाला होमपेज रचना सेव्ह करण्याची परवानगी नाही.' : undefined}
+          >
+            {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <span>
+              {isSaving
+                ? 'Saving...'
+                : hasSavedSuccessfully
+                ? 'Saved'
+                : 'Save Changes'}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setPortalMode('PUBLIC')}
             className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 text-xs font-bold shadow-2xs transition cursor-pointer"
           >
@@ -293,6 +373,13 @@ export const HomepageLayoutBuilderView: React.FC = () => {
           <button type="button" onClick={() => setToastMessage('')} className="text-slate-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="p-3.5 rounded-xl bg-red-50 text-red-800 text-xs font-bold flex items-center gap-2 border border-red-200">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{saveError}</span>
         </div>
       )}
 

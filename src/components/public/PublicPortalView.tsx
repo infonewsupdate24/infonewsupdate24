@@ -647,9 +647,14 @@ export const PublicPortalView: React.FC = () => {
     const handleLayoutUpdate = () => {
       setHomepageSections(HomepageLayoutService.getSections());
     };
+    const unsubscribeSavedLayout = HomepageLayoutService.subscribeSavedSections((savedSections) => {
+      setHomepageSections(savedSections);
+    });
     window.addEventListener('infonews:homepage-layout-updated', handleLayoutUpdate);
-    return () =>
+    return () => {
+      unsubscribeSavedLayout();
       window.removeEventListener('infonews:homepage-layout-updated', handleLayoutUpdate);
+    };
   }, []);
 
   // AI Voice State (Full Article Audio Speech Engine)

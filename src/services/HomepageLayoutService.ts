@@ -1,3 +1,6 @@
+import type { Unsubscribe } from 'firebase/firestore';
+import { FirestoreNewsService } from './FirestoreNewsService';
+
 export type HomepageSectionId =
   | 'HERO_SHOWCASE'
   | 'WEB_STORIES'
@@ -134,6 +137,11 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
 ];
 
 const STORAGE_KEY_HOMEPAGE_LAYOUT = 'infonews_homepage_layout_sections_v5_latest_news_standalone';
+const HOMEPAGE_LAYOUT_SETTING_ID = 'homepage_layout';
+
+interface HomepageLayoutSettingDoc {
+  sections?: HomepageSectionConfig[];
+}
 
 export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionConfig[] = [
   {
@@ -279,31 +287,77 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionConfig[] = [
 ];
 
 export class HomepageLayoutService {
+  private static normalizeSections(sections: HomepageSectionConfig[]): HomepageSectionConfig[] {
+    const configured = Array.isArray(sections) ? sections.map((section) => ({ ...section })) : [];
+    const existingIds = new Set(configured.map((section) => section.id));
+
+    DEFAULT_HOMEPAGE_SECTIONS.forEach((defaultSection) => {
+      if (!existingIds.has(defaultSection.id)) {
+        configured.push({ ...defaultSection, order: configured.length + 1 });
+      }
+    });
+
+    return configured
+      .sort((a, b) => a.order - b.order)
+      .map((section, index) => ({ ...section, order: index + 1 }));
+  }
+
+  static setLocalSections(sections: HomepageSectionConfig[]): HomepageSectionConfig[] {
+    const ordered = this.normalizeSections(sections);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_HOMEPAGE_LAYOUT, JSON.stringify(ordered));
+        window.dispatchEvent(new CustomEvent('infonews:homepage-layout-updated'));
+      } catch {}
+    }
+    return ordered;
+  }
+
   static getSections(): HomepageSectionConfig[] {
-    if (typeof window === 'undefined') return DEFAULT_HOMEPAGE_SECTIONS;
+    if (typeof window === 'undefined') return this.normalizeSections(DEFAULT_HOMEPAGE_SECTIONS);
     try {
       const stored = localStorage.getItem(STORAGE_KEY_HOMEPAGE_LAYOUT);
       if (stored) {
-        const parsed: HomepageSectionConfig[] = JSON.parse(stored);
-        const existingIds = new Set(parsed.map((s) => s.id));
-        DEFAULT_HOMEPAGE_SECTIONS.forEach((def) => {
-          if (!existingIds.has(def.id)) {
-            parsed.push({ ...def, order: parsed.length + 1 });
-          }
-        });
-        return parsed.sort((a, b) => a.order - b.order);
+        return this.normalizeSections(JSON.parse(stored));
       }
     } catch {}
-    return DEFAULT_HOMEPAGE_SECTIONS;
+    return this.normalizeSections(DEFAULT_HOMEPAGE_SECTIONS);
   }
 
   static saveSections(sections: HomepageSectionConfig[]): void {
     if (typeof window === 'undefined') return;
     try {
-      const ordered = sections.map((s, idx) => ({ ...s, order: idx + 1 }));
-      localStorage.setItem(STORAGE_KEY_HOMEPAGE_LAYOUT, JSON.stringify(ordered));
-      window.dispatchEvent(new CustomEvent('infonews:homepage-layout-updated'));
+      this.setLocalSections(sections);
     } catch {}
+  }
+
+  static async loadSavedSections(): Promise<HomepageSectionConfig[] | null> {
+    const saved = await FirestoreNewsService.getSettingDoc<HomepageLayoutSettingDoc>(
+      HOMEPAGE_LAYOUT_SETTING_ID
+    );
+    return Array.isArray(saved?.sections) ? this.normalizeSections(saved.sections) : null;
+  }
+
+  static async saveSectionsToFirestore(
+    sections: HomepageSectionConfig[]
+  ): Promise<HomepageSectionConfig[]> {
+    const ordered = this.normalizeSections(sections);
+    await FirestoreNewsService.saveSettingDoc(HOMEPAGE_LAYOUT_SETTING_ID, { sections: ordered });
+    this.setLocalSections(ordered);
+    return ordered;
+  }
+
+  static subscribeSavedSections(
+    onUpdate: (sections: HomepageSectionConfig[]) => void
+  ): Unsubscribe {
+    return FirestoreNewsService.subscribeSettingDoc<HomepageLayoutSettingDoc>(
+      HOMEPAGE_LAYOUT_SETTING_ID,
+      (saved) => {
+        if (Array.isArray(saved.sections)) {
+          onUpdate(this.setLocalSections(saved.sections));
+        }
+      }
+    );
   }
 
   static applyPreset(presetId: string): HomepageSectionConfig[] {

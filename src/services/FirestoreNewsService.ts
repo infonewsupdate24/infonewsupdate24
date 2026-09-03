@@ -719,6 +719,7 @@ export class FirestoreNewsService {
       );
     } catch (err) {
       console.warn(`Failed to save setting ${settingId} to Firestore:`, err);
+      throw err;
     }
   }
 
