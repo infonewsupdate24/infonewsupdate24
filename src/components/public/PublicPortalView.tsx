@@ -97,6 +97,21 @@ import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { ThemeService, ThemeMode } from '../../services/ThemeService';
 import { Sparkles, Radio, Smartphone, CreditCard, Vote, CloudSun, PenTool, Landmark, Key, LogIn, Lock } from 'lucide-react';
 
+const SHARE_CACHE_REFRESH_MS = 15 * 60 * 1000;
+
+function getVersionedArticleShareUrl(post: Post): string {
+  const cleanSlug = String(post.slug || '')
+    .trim()
+    .replace(/^\/+|\/+$/g, '');
+  const updatedAt = Date.parse(post.updatedAt || post.publishDate || post.createdAt || '');
+  const contentVersion = Number.isFinite(updatedAt) ? Math.floor(updatedAt / 1000) : 0;
+  // Refresh the URL periodically too, so a preview fetched before the next free
+  // static deploy does not remain stuck in WhatsApp's cache afterward.
+  const refreshVersion = Math.floor(Date.now() / SHARE_CACHE_REFRESH_MS);
+
+  return `https://www.infonewsupdate24.com/news/${encodeURIComponent(cleanSlug)}?v=${contentVersion}-${refreshVersion}`;
+}
+
 // ⚡ On-Demand Lazy Loaded Views & Modals
 const EPaperHubView = lazy(() =>
   import('./EPaperHubView').then((m) => ({ default: m.EPaperHubView }))
@@ -1609,7 +1624,7 @@ if (currentPath !== '/') {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://www.infonewsupdate24.com/news/${post.slug}`;
+                                const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\n${getVersionedArticleShareUrl(post)}`;
                                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
                               }}
                               className="p-1 rounded-md text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
@@ -1694,7 +1709,7 @@ if (currentPath !== '/') {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\nhttps://www.infonewsupdate24.com/news/${post.slug}`;
+                                  const text = `*${post.title}*\n\n📰 InfoNewsUpdate24 बातमी वाचा:\n${getVersionedArticleShareUrl(post)}`;
                                   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
                                 }}
                                 className="p-1 rounded-md text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
@@ -3191,7 +3206,7 @@ if (currentPath !== '/') {
                   {/* WhatsApp Big Direct Button */}
                   <a
                     href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                      `🔴 *${activeArticle.title}*\n\n${activeArticle.excerpt || ''}\n\n👉 संपूर्ण बातमी सविस्तर वाचा:\nhttps://www.infonewsupdate24.com/news/${activeArticle.slug}`
+                      `🔴 *${activeArticle.title}*\n\n${activeArticle.excerpt || ''}\n\n👉 संपूर्ण बातमी सविस्तर वाचा:\n${getVersionedArticleShareUrl(activeArticle)}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -3204,7 +3219,7 @@ if (currentPath !== '/') {
                   {/* Facebook */}
                   <a
                     href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                      typeof window !== 'undefined' ? window.location.href : ''
+                      getVersionedArticleShareUrl(activeArticle)
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -3218,7 +3233,7 @@ if (currentPath !== '/') {
                   <a
                     href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
                       activeArticle.title
-                    )}&url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
+                    )}&url=${encodeURIComponent(getVersionedArticleShareUrl(activeArticle))}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors"
@@ -3232,7 +3247,7 @@ if (currentPath !== '/') {
                     type="button"
                     onClick={() => {
                       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                        navigator.clipboard.writeText(window.location.href);
+                        navigator.clipboard.writeText(getVersionedArticleShareUrl(activeArticle));
                         setCopyToast('लिंक कॉपी झाली!');
                         setTimeout(() => setCopyToast(''), 3000);
                       }
