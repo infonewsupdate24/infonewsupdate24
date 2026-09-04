@@ -131,7 +131,7 @@ const GenericModuleView = lazy(() =>
 );
 
 const MainRouter: React.FC = () => {
-  const { portalMode, cmsView, isPublicDataReady } = useApp();
+  const { portalMode, cmsView } = useApp();
   const { currentUser, isLoggedIn } = useAuth();
 
   // Strict Security Gate:
@@ -145,24 +145,6 @@ const MainRouter: React.FC = () => {
     currentUser.status === 'ACTIVE';
 
   if (portalMode === 'PUBLIC' || !isStaffAuthenticated) {
-    if (!isPublicDataReady) {
-      return (
-        <div
-          className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex max-w-sm flex-col items-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-600 text-2xl font-black shadow-xl shadow-red-950/40">
-              24
-            </div>
-            <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-700 border-t-red-500" />
-            <p className="mt-4 text-base font-bold">ताज्या बातम्या लोड होत आहेत…</p>
-            <p className="mt-1 text-sm text-slate-400">कृपया क्षणभर थांबा</p>
-          </div>
-        </div>
-      );
-    }
     return <PublicPortalView />;
   }
 

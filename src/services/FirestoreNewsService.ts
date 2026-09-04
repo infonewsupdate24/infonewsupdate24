@@ -80,24 +80,21 @@ export class FirestoreNewsService {
   // -------------------------------------------------------------
   // 1. POSTS (News Articles & Content)
   // -------------------------------------------------------------
-  static subscribePosts(onUpdate: (posts: Post[]) => void, onReady?: () => void): Unsubscribe {
+  static subscribePosts(onUpdate: (posts: Post[]) => void): Unsubscribe {
     const postsRef = collection(db, 'posts');
     const q = query(postsRef, orderBy('updatedAt', 'desc'), limit(150));
 
     return onSnapshot(
       q,
-      { includeMetadataChanges: true },
       (snapshot) => {
         const posts: Post[] = [];
         snapshot.forEach((docSnap) => {
           posts.push({ ...docSnap.data(), id: docSnap.id } as Post);
         });
         if (posts.length > 0) onUpdate(posts);
-        if (!snapshot.metadata.fromCache) onReady?.();
       },
       (error) => {
         console.warn('Firestore posts subscription note:', error);
-        onReady?.();
       }
     );
   }
@@ -726,21 +723,17 @@ export class FirestoreNewsService {
 
   static subscribeSettingDoc<T>(
     settingId: string,
-    onUpdate: (data: T) => void,
-    onReady?: () => void
+    onUpdate: (data: T) => void
   ): Unsubscribe {
     return onSnapshot(
       doc(db, 'settings', settingId),
-      { includeMetadataChanges: true },
       (snap) => {
         if (snap.exists()) {
           onUpdate(snap.data() as T);
         }
-        if (!snap.metadata.fromCache) onReady?.();
       },
       (err) => {
         console.warn(`Setting subscription error for ${settingId}:`, err);
-        onReady?.();
       }
     );
   }

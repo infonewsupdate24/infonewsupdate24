@@ -135,7 +135,6 @@ interface AppContextType {
   aiVoiceSettings: AIVoiceSettings;
   epaperSettings: EPaperSettings;
   updateEPaperSettings: (updates: Partial<EPaperSettings>) => Promise<void>;
-  isPublicDataReady: boolean;
   siteSettings: SiteGlobalSettings;
   updateSiteSettings: (updates: Partial<SiteGlobalSettings>) => void;
 
@@ -402,7 +401,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [publicActivePageSlug, setPublicActivePageSlug] = useState<string | null>(null);
   const [publicSearchQuery, setPublicSearchQuery] = useState<string>('');
   const [quickListenPost, setQuickListenPost] = useState<Post | null>(null);
-  const [isPublicDataReady, setIsPublicDataReady] = useState(false);
 
   // Core Data Collections (Auto-filtered against permanently deleted IDs)
   const [posts, setPosts] = useState<Post[]>(() => {
@@ -565,15 +563,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Realtime Cloud Synchronization with Firebase Firestore
   useEffect(() => {
-    let postsSnapshotReady = false;
-    let epaperSnapshotReady = false;
-    const markPublicDataReady = () => {
-      if (postsSnapshotReady && epaperSnapshotReady) setIsPublicDataReady(true);
-    };
-
-    // Keep the portal usable when Firestore is temporarily unreachable.
-    const readinessFallback = window.setTimeout(() => setIsPublicDataReady(true), 8000);
-
     // 1. Initial seed migration to cloud if Firestore is empty
     FirestoreNewsService.bulkSyncInitialPosts(posts).catch((err) => {
       console.warn('Firestore initial post sync note:', err);
@@ -607,10 +596,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return smartMergePosts(currentLocal, cloudPosts, deletedIds);
           });
         }
-      },
-      () => {
-        postsSnapshotReady = true;
-        markPublicDataReady();
       }
     );
 
@@ -695,15 +680,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...current,
           ...cloudSettings,
         }));
-      },
-      () => {
-        epaperSnapshotReady = true;
-        markPublicDataReady();
       }
     );
 
     return () => {
-      window.clearTimeout(readinessFallback);
       unsubscribePosts();
       unsubscribeMedia();
       unsubscribePages();
@@ -1759,7 +1739,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateAIVoiceSettings,
         epaperSettings,
         updateEPaperSettings,
-        isPublicDataReady,
         whatsAppSettings,
         updateWhatsAppSettings,
         siteSettings,
