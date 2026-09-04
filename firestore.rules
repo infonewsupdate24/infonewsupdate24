@@ -138,6 +138,74 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------
+    // 9A. E-PAPER EDITIONS & DISTRICTS
+    // epaper_editions: id, districtCode, districtName, publicationDate,
+    // title, status, pdfUrl, storagePath, fileName, fileSizeBytes, mimeType,
+    // createdBy, createdAt, updatedAt, optional publishedAt/totalPages.
+    // epaper_districts: code, name, isActive, displayOrder.
+    // -------------------------------------------------------------
+    function isValidEPaperEdition(data) {
+      return data.keys().hasAll([
+          'id', 'districtCode', 'districtName', 'publicationDate', 'title', 'status',
+          'pdfUrl', 'storagePath', 'fileName', 'fileSizeBytes', 'mimeType',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'districtCode', 'districtName', 'publicationDate', 'title', 'status',
+          'pdfUrl', 'storagePath', 'fileName', 'fileSizeBytes', 'mimeType',
+          'createdBy', 'createdAt', 'updatedAt', 'publishedAt', 'totalPages'
+        ])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 100
+        && data.districtCode is string && data.districtCode.size() > 0 && data.districtCode.size() <= 50
+        && data.districtName is string && data.districtName.size() > 0 && data.districtName.size() <= 100
+        && data.publicationDate is string && data.publicationDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.status in ['DRAFT', 'PUBLISHED']
+        && data.pdfUrl is string && data.pdfUrl.matches('^https://.*') && data.pdfUrl.size() <= 2000
+        && data.storagePath is string && data.storagePath.size() > 0 && data.storagePath.size() <= 500
+        && data.fileName is string && data.fileName.size() > 0 && data.fileName.size() <= 255
+        && data.fileSizeBytes is int && data.fileSizeBytes > 0 && data.fileSizeBytes <= 26214400
+        && data.mimeType == 'application/pdf'
+        && data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 128
+        && data.createdAt is timestamp && data.updatedAt is timestamp
+        && (!('publishedAt' in data) || data.publishedAt == null || data.publishedAt is timestamp)
+        && (!('totalPages' in data) || (data.totalPages is int && data.totalPages > 0 && data.totalPages <= 200));
+    }
+
+    function isValidEPaperDistrict(data) {
+      return data.keys().hasAll(['code', 'name', 'isActive', 'displayOrder'])
+        && data.keys().hasOnly(['code', 'name', 'isActive', 'displayOrder'])
+        && data.code is string && data.code.size() > 0 && data.code.size() <= 50
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.isActive is bool
+        && data.displayOrder is int && data.displayOrder >= 0 && data.displayOrder <= 1000;
+    }
+
+    match /epaper_editions/{editionId} {
+      allow get: if resource.data.status == 'PUBLISHED' || isAdmin();
+      allow list: if isAdmin() || resource.data.status == 'PUBLISHED';
+      allow create: if isAdmin()
+        && request.resource.data.id == editionId
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'DRAFT'
+        && isValidEPaperEdition(request.resource.data);
+      allow update: if isAdmin()
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidEPaperEdition(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /epaper_districts/{districtCode} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.code == districtCode
+        && isValidEPaperDistrict(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------
     // 10. USER PROFILES & RBAC DIRECTORY (Anti-Privilege Escalation)
     // -------------------------------------------------------------
     match /users/{userId} {
