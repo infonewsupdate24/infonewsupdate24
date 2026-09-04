@@ -287,13 +287,21 @@ async function main() {
       inLanguage: 'mr-IN',
     });
 
-    const outDir = path.join(DIST_DIR, 'news', slug);
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
+    const articleOutputDirs = [
+      path.join(DIST_DIR, 'news', slug),
+      // Keep old /<slug>/ links crawler-readable while /news/<slug> remains canonical.
+      path.join(DIST_DIR, slug),
+    ];
+    articleOutputDirs.forEach((outDir) => {
+      fs.mkdirSync(outDir, { recursive: true });
+      fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
+    });
     generated += 1;
   }
 
-  console.log(`✅ Generated ${generated} crawler-readable article SEO pages in dist/news/<slug>/index.html`);
+  console.log(
+    `✅ Generated ${generated} crawler-readable article SEO pages for /news/<slug> and legacy /<slug> links`
+  );
 }
 
 main().catch((error) => {

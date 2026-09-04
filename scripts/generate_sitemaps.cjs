@@ -121,7 +121,7 @@ async function generateAll() {
   }
 
   for (const post of validPublishedPosts) {
-    const postUrl = `https://www.infonewsupdate24.com/${encodeURIComponent(post.slug)}/`;
+    const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(post.slug)}`;
     const lastMod = extractStableDate(post);
     sitemapXml += `  <url>\n    <loc>${escapeXml(postUrl)}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
     const imgUrl = normalizeImageUrl(post.featuredImage);
@@ -136,7 +136,7 @@ async function generateAll() {
   const recentNews = validPublishedPosts.slice(0, 10);
   let newsSitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">\n`;
   for (const post of recentNews) {
-    const postUrl = `https://www.infonewsupdate24.com/${encodeURIComponent(post.slug)}/`;
+    const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(post.slug)}`;
     const pubDate = extractStableDate(post);
     newsSitemapXml += `  <url>\n    <loc>${escapeXml(postUrl)}</loc>\n    <news:news>\n      <news:publication>\n        <news:name>InfoNewsUpdate24</news:name>\n        <news:language>mr</news:language>\n      </news:publication>\n      <news:publication_date>${pubDate}</news:publication_date>\n      <news:title>${escapeXml(post.title)}</news:title>\n    </news:news>\n  </url>\n`;
   }
@@ -153,7 +153,7 @@ async function generateAll() {
   rssXml += `    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>\n`;
 
   for (const post of rssList) {
-    const postUrl = `https://www.infonewsupdate24.com/${encodeURIComponent(post.slug)}/`;
+    const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(post.slug)}`;
     const pubDate = new Date(post.publishDate || post.createdAt || GLOBAL_STABLE_EPOCH).toUTCString();
     const excerpt = post.excerpt || post.content?.substring(0, 250) || post.title;
     rssXml += `    <item>\n      <title>${escapeXml(post.title)}</title>\n      <link>${escapeXml(postUrl)}</link>\n      <guid isPermaLink="true">${escapeXml(postUrl)}</guid>\n      <pubDate>${pubDate}</pubDate>\n      <dc:creator>${escapeXml(post.authorName || 'InfoNews24 Desk')}</dc:creator>\n      <description>${escapeXml(excerpt)}</description>\n`;
