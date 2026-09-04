@@ -14,7 +14,7 @@ import {
 import { useApp } from '../../context/AppContext';
 
 export const WhatsAppCommunityFloatingWidget: React.FC = () => {
-  const { whatsAppSettings } = useApp();
+  const { whatsAppSettings, epaperSettings } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -23,7 +23,10 @@ export const WhatsAppCommunityFloatingWidget: React.FC = () => {
   }
 
   const handleShareWebsite = () => {
-    const text = `📢 *InfoNewsUpdate24 - महाराष्ट्रातील सर्वात वेगवान डिजिटल वृत्तपत्र!*\n\nताज्या बातम्या, ई-पेपर, कृषी बाजारभाव व विश्लेषणासाठी आताच भेट द्या:\n👉 ${window.location.origin}`;
+    const services = epaperSettings?.publicPortalEnabled !== false
+      ? 'ताज्या बातम्या, ई-पेपर, कृषी बाजारभाव व विश्लेषणासाठी'
+      : 'ताज्या बातम्या, कृषी बाजारभाव व विश्लेषणासाठी';
+    const text = `📢 *InfoNewsUpdate24 - महाराष्ट्रातील सर्वात वेगवान डिजिटल वृत्तपत्र!*\n\n${services} आताच भेट द्या:\n👉 ${window.location.origin}`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     setToastMsg('शेअर लिंक उघडली!');

@@ -16,8 +16,10 @@ import {
   NewsletterSubscriptionService,
   NewsletterSettings,
 } from '../../services/NewsletterSubscriptionService';
+import { useApp } from '../../context/AppContext';
 
 export const NewsletterSubscriptionWidget: React.FC = () => {
+  const { epaperSettings } = useApp();
   const [settings, setSettings] = useState<NewsletterSettings>(() =>
     NewsletterSubscriptionService.getSettings()
   );
@@ -38,6 +40,14 @@ export const NewsletterSubscriptionWidget: React.FC = () => {
   }, []);
 
   if (!settings.isEnabled) return null;
+
+  const isEPaperPublicEnabled = epaperSettings?.publicPortalEnabled !== false;
+  const publicSubtitle = isEPaperPublicEnabled
+    ? settings.sectionSubtitle
+    : 'दररोज सकाळी ८ वाजता संपूर्ण दिवसाचे ठळक वृत्त व महत्त्वाचे शासकीय निर्णय थेट आपल्या इनबॉक्समध्ये!';
+  const publicBenefitPoints = isEPaperPublicEnabled
+    ? settings.benefitPoints
+    : settings.benefitPoints.filter((point) => !point.includes('ई-पेपर'));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,13 +111,13 @@ export const NewsletterSubscriptionWidget: React.FC = () => {
               {settings.sectionTitle}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 font-sans leading-relaxed text-justify">
-              {settings.sectionSubtitle}
+              {publicSubtitle}
             </p>
           </div>
 
           {/* Benefits Bullet List */}
           <div className="space-y-2.5 pt-2">
-            {settings.benefitPoints.map((point, idx) => (
+            {publicBenefitPoints.map((point, idx) => (
               <div key={idx} className="flex items-center gap-2.5 text-xs text-slate-200 font-medium">
                 <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
                   <Check className="h-3 w-3" />

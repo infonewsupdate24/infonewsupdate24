@@ -134,7 +134,7 @@ interface AppContextType {
   themeSettings: ThemeSettings;
   aiVoiceSettings: AIVoiceSettings;
   epaperSettings: EPaperSettings;
-  updateEPaperSettings: (updates: Partial<EPaperSettings>) => void;
+  updateEPaperSettings: (updates: Partial<EPaperSettings>) => Promise<void>;
   siteSettings: SiteGlobalSettings;
   updateSiteSettings: (updates: Partial<SiteGlobalSettings>) => void;
 
@@ -666,6 +666,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
+    // Public E-Paper visibility and settings must update for every visitor,
+    // not only in the browser where an administrator saved them.
+    const unsubscribeEPaperSettings = FirestoreNewsService.subscribeSettingDoc<EPaperSettings>(
+      'epaper',
+      (cloudSettings) => {
+        setEpaperSettings((current) => ({
+          ...DEFAULT_EPAPER_SETTINGS,
+          ...current,
+          ...cloudSettings,
+        }));
+      }
+    );
+
     return () => {
       unsubscribePosts();
       unsubscribeMedia();
@@ -673,6 +686,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubscribeCats();
       unsubscribeTags();
       unsubscribeMenus();
+      unsubscribeEPaperSettings();
     };
   }, []);
 
@@ -1265,8 +1279,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // E-Paper Settings Action
-  const updateEPaperSettings = (updates: Partial<EPaperSettings>) => {
-    setEpaperSettings((prev) => ({ ...prev, ...updates }));
+  const updateEPaperSettings = async (updates: Partial<EPaperSettings>) => {
+    const next = { ...epaperSettings, ...updates };
+    setEpaperSettings(next);
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'epaper_settings', JSON.stringify(next));
+    } catch {}
+    await FirestoreNewsService.saveSettingDoc('epaper', next);
   };
 
   // LiteSpeed Cache Plugin Actions

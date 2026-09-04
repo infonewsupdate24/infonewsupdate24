@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { PWAService } from '../../services/PWAService';
+import { useApp } from '../../context/AppContext';
 
 interface PWAInstallModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface PWAInstallModalProps {
 }
 
 export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClose }) => {
+  const { epaperSettings } = useApp();
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [hasPrompt, setHasPrompt] = useState(false);
@@ -95,7 +97,9 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
             </div>
             <div className="rounded-2xl bg-slate-800/80 border border-slate-700/60 p-3 space-y-1">
               <Newspaper className="h-5 w-5 text-emerald-400 mx-auto" />
-              <p className="text-[11px] font-bold text-slate-200">ई-पेपर व ऑडिओ</p>
+              <p className="text-[11px] font-bold text-slate-200">
+                {epaperSettings?.publicPortalEnabled !== false ? 'ई-पेपर व ऑडिओ' : 'ऑडिओ बातम्या'}
+              </p>
               <p className="text-[9px] text-slate-400">मोफत वाचन</p>
             </div>
           </div>

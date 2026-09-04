@@ -35,7 +35,7 @@ export const PublicDailyDigestCard: React.FC = () => {
       publishedPosts,
       {
         bulletinType,
-        includeEPaperLink: true,
+        includeEPaperLink: epaperSettings?.publicPortalEnabled !== false,
         includeChannelLink: true,
         includeAdText: true,
         customAdText: 'ताज्या घडामोडींसाठी InfoNewsUpdate24 शी जोडलेले रहा!',

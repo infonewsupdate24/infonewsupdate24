@@ -138,7 +138,10 @@ export const PublicPortalView: React.FC = () => {
     addComment,
     comments,
     siteSettings,
+    epaperSettings,
   } = useApp();
+
+  const isEPaperPublicEnabled = epaperSettings?.publicPortalEnabled !== false;
 
   // Anti-Copy & Right-Click Plagiarism Protection Hook
   useEffect(() => {
@@ -201,6 +204,12 @@ export const PublicPortalView: React.FC = () => {
     }
     return false;
   });
+
+  useEffect(() => {
+    if (isEPaperPublicEnabled || !isEPaperViewOpen || typeof window === 'undefined') return;
+    setIsEPaperViewOpen(false);
+    window.history.replaceState({}, '', '/');
+  }, [isEPaperPublicEnabled, isEPaperViewOpen]);
   const [isAdBookingModalOpen, setIsAdBookingModalOpen] = useState(false);
   const [isCitizenNewsModalOpen, setIsCitizenNewsModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -2213,7 +2222,7 @@ if (currentPath !== '/') {
   };
 
   // If in Digital E-Paper Hub Mode
-  if (isEPaperViewOpen) {
+  if (isEPaperViewOpen && isEPaperPublicEnabled) {
     return (
       <Suspense
         fallback={
@@ -2336,14 +2345,16 @@ if (currentPath !== '/') {
             </button>
 
             {/* E-Paper Quick Switch (Hidden on small mobile) */}
-            <button
-              type="button"
-              onClick={() => setIsEPaperViewOpen(true)}
-              className="hidden sm:flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-black text-slate-950 shadow-xs hover:bg-amber-400 transition-colors cursor-pointer shrink-0"
-            >
-              <Newspaper className="h-3 w-3" />
-              <span>ई-पेपर</span>
-            </button>
+            {isEPaperPublicEnabled && (
+              <button
+                type="button"
+                onClick={() => setIsEPaperViewOpen(true)}
+                className="hidden sm:flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-black text-slate-950 shadow-xs hover:bg-amber-400 transition-colors cursor-pointer shrink-0"
+              >
+                <Newspaper className="h-3 w-3" />
+                <span>ई-पेपर</span>
+              </button>
+            )}
 
             {/* Dark / Light Mode Switcher (Hidden on small mobile) */}
             <button
@@ -2511,14 +2522,16 @@ if (currentPath !== '/') {
             </button>
 
             {/* Today's E-Paper Button */}
-            <button
-              type="button"
-              onClick={() => setIsEPaperViewOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-amber-200 transition-transform active:scale-95 uppercase tracking-wider cursor-pointer"
-            >
-              <Newspaper className="h-4 w-4" />
-              <span>आजचा ई-पेपर</span>
-            </button>
+            {isEPaperPublicEnabled && (
+              <button
+                type="button"
+                onClick={() => setIsEPaperViewOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-amber-200 transition-transform active:scale-95 uppercase tracking-wider cursor-pointer"
+              >
+                <Newspaper className="h-4 w-4" />
+                <span>आजचा ई-पेपर</span>
+              </button>
+            )}
 
             {themeSettings.showLiveTvButton && (
               <button
@@ -2608,26 +2621,30 @@ if (currentPath !== '/') {
             })}
 
             {/* Direct Digital E-Paper Nav Tab */}
-            <button
-              type="button"
-              onClick={() => setIsEPaperViewOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-3.5 uppercase tracking-wider text-xs font-black text-amber-400 hover:bg-amber-500 hover:text-slate-950 transition-all cursor-pointer bg-slate-950/40"
-            >
-              <Newspaper className="h-3.5 w-3.5 text-amber-400" />
-              <span>ई-पेपर (E-Paper)</span>
-            </button>
+            {isEPaperPublicEnabled && (
+              <button
+                type="button"
+                onClick={() => setIsEPaperViewOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-3.5 uppercase tracking-wider text-xs font-black text-amber-400 hover:bg-amber-500 hover:text-slate-950 transition-all cursor-pointer bg-slate-950/40"
+              >
+                <Newspaper className="h-3.5 w-3.5 text-amber-400" />
+                <span>ई-पेपर (E-Paper)</span>
+              </button>
+            )}
           </div>
 
           {/* Mobile Menu Hamburger Button */}
           <div className="flex md:hidden items-center py-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEPaperViewOpen(true)}
-              className="flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-black text-slate-950 shadow-xs"
-            >
-              <Newspaper className="h-3.5 w-3.5" />
-              <span>ई-पेपर</span>
-            </button>
+            {isEPaperPublicEnabled && (
+              <button
+                type="button"
+                onClick={() => setIsEPaperViewOpen(true)}
+                className="flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-black text-slate-950 shadow-xs"
+              >
+                <Newspaper className="h-3.5 w-3.5" />
+                <span>ई-पेपर</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -2753,18 +2770,20 @@ if (currentPath !== '/') {
             )}
 
             {/* Mobile Quick Action Buttons (E-Paper, Night Mode, Install App) */}
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsEPaperViewOpen(true);
-                }}
-                className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-[11px] hover:bg-amber-500/30 cursor-pointer"
-              >
-                <Newspaper className="h-3.5 w-3.5 text-amber-400" />
-                <span>ई-पेपर</span>
-              </button>
+            <div className={`grid gap-2 ${isEPaperPublicEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              {isEPaperPublicEnabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsEPaperViewOpen(true);
+                  }}
+                  className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-[11px] hover:bg-amber-500/30 cursor-pointer"
+                >
+                  <Newspaper className="h-3.5 w-3.5 text-amber-400" />
+                  <span>ई-पेपर</span>
+                </button>
+              )}
 
               <button
                 type="button"

@@ -11,6 +11,7 @@ export const EPAPER_DISTRICTS = [
 ];
 
 export const DEFAULT_EPAPER_SETTINGS: EPaperSettings = {
+  publicPortalEnabled: false,
   newspaperName: 'InfoNewsUpdate24',
   newspaperTagline: 'महाराष्ट्राचे निर्भीड, विश्वासार्ह व अग्रगण्य डिजिटल वृत्तपत्र',
   rniNumber: 'RNI No. MAHMAR/2026/89412',

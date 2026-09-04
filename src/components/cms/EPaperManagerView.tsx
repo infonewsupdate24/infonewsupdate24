@@ -66,10 +66,14 @@ export const EPaperManagerView: React.FC = () => {
     setTimeout(() => setToastMsg(''), 5000);
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateEPaperSettings(formData);
-    setToastMsg('✅ ई-पेपर सेटिंग्ज यशस्वीरीत्या सेव्ह झाल्या!');
+    try {
+      await updateEPaperSettings(formData);
+      setToastMsg('✅ ई-पेपर सेटिंग्ज सेव्ह झाल्या आणि Public Portal वर Live लागू झाल्या!');
+    } catch {
+      setToastMsg('❌ सेटिंग Live सेव्ह झाली नाही. कृपया पुन्हा प्रयत्न करा.');
+    }
     setTimeout(() => setToastMsg(''), 4000);
   };
 
@@ -410,6 +414,36 @@ export const EPaperManagerView: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'settings' && (
         <form onSubmit={handleSaveSettings} className="space-y-6">
+          {/* Public Portal master switch */}
+          <div
+            className={`rounded-2xl border p-5 shadow-xs ${
+              formData.publicPortalEnabled
+                ? 'border-emerald-300 bg-emerald-50'
+                : 'border-red-300 bg-red-50'
+            }`}
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Public Portal वर E-Paper दाखवा</h3>
+                <p className="mt-1 text-xs text-slate-600">
+                  OFF केल्यावर E-Paperची सर्व public बटणे, navigation links आणि direct page बंद होतील. CMS व्यवस्थापन सुरू राहील.
+                </p>
+              </div>
+              <label className="flex cursor-pointer items-center gap-3 self-start sm:self-auto">
+                <span className={`text-sm font-black ${formData.publicPortalEnabled ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {formData.publicPortalEnabled ? 'ON' : 'OFF'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={formData.publicPortalEnabled}
+                  onChange={(e) => setFormData({ ...formData, publicPortalEnabled: e.target.checked })}
+                  className="h-6 w-6 cursor-pointer rounded text-emerald-600"
+                  aria-label="Public Portal E-Paper visibility"
+                />
+              </label>
+            </div>
+          </div>
+
           {/* Section 1: Masthead & Branding */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
             <div className="border-b border-slate-100 pb-3">

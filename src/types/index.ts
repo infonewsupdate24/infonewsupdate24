@@ -601,6 +601,7 @@ export interface EPaperEdition {
 }
 
 export interface EPaperSettings {
+  publicPortalEnabled: boolean;
   newspaperName: string;
   newspaperTagline: string;
   rniNumber: string;
