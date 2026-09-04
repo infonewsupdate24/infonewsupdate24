@@ -135,6 +135,7 @@ interface AppContextType {
   aiVoiceSettings: AIVoiceSettings;
   epaperSettings: EPaperSettings;
   updateEPaperSettings: (updates: Partial<EPaperSettings>) => Promise<void>;
+  isPublicDataReady: boolean;
   siteSettings: SiteGlobalSettings;
   updateSiteSettings: (updates: Partial<SiteGlobalSettings>) => void;
 
@@ -401,6 +402,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [publicActivePageSlug, setPublicActivePageSlug] = useState<string | null>(null);
   const [publicSearchQuery, setPublicSearchQuery] = useState<string>('');
   const [quickListenPost, setQuickListenPost] = useState<Post | null>(null);
+  const [isPublicDataReady, setIsPublicDataReady] = useState(false);
 
   // Core Data Collections (Auto-filtered against permanently deleted IDs)
   const [posts, setPosts] = useState<Post[]>(() => {
@@ -521,6 +523,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {
       ...DEFAULT_EPAPER_SETTINGS,
       ...stored,
+      // Public visibility is cloud-controlled. Never flash a stale local value.
+      publicPortalEnabled: DEFAULT_EPAPER_SETTINGS.publicPortalEnabled,
     };
   });
   const [whatsAppSettings, setWhatsAppSettings] = useState<WhatsAppChannelSettings>(() => {
@@ -561,6 +565,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Realtime Cloud Synchronization with Firebase Firestore
   useEffect(() => {
+    let postsSnapshotReady = false;
+    let epaperSnapshotReady = false;
+    const markPublicDataReady = () => {
+      if (postsSnapshotReady && epaperSnapshotReady) setIsPublicDataReady(true);
+    };
+
+    // Keep the portal usable when Firestore is temporarily unreachable.
+    const readinessFallback = window.setTimeout(() => setIsPublicDataReady(true), 8000);
+
     // 1. Initial seed migration to cloud if Firestore is empty
     FirestoreNewsService.bulkSyncInitialPosts(posts).catch((err) => {
       console.warn('Firestore initial post sync note:', err);
@@ -571,29 +584,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // 2. Subscribe to Real-Time Post updates from cloud with Auto-Recovery
-    const unsubscribePosts = FirestoreNewsService.subscribePosts((cloudPosts) => {
-      if (cloudPosts && cloudPosts.length > 0) {
-        const deletedIds = getDeletedPostIds();
-        setPosts((currentLocal) => {
-          // Auto-recover orphaned posts that were saved locally but missed cloud sync
-          const orphanedPosts = currentLocal.filter(
-            (lp) =>
-              !cloudPosts.some((cp) => cp.id === lp.id) &&
-              !deletedIds.has(lp.id) &&
-              !SEED_POSTS.some((sp) => sp.id === lp.id) &&
-              lp.id.startsWith('post-')
-          );
-          if (orphanedPosts.length > 0) {
-            orphanedPosts.forEach((orphan) => {
-              FirestoreNewsService.savePost(orphan).catch((err) => {
-                console.warn(`[AutoRecovery] Post ${orphan.id} sync note:`, err);
+    const unsubscribePosts = FirestoreNewsService.subscribePosts(
+      (cloudPosts) => {
+        if (cloudPosts && cloudPosts.length > 0) {
+          const deletedIds = getDeletedPostIds();
+          setPosts((currentLocal) => {
+            // Auto-recover orphaned posts that were saved locally but missed cloud sync
+            const orphanedPosts = currentLocal.filter(
+              (lp) =>
+                !cloudPosts.some((cp) => cp.id === lp.id) &&
+                !deletedIds.has(lp.id) &&
+                !SEED_POSTS.some((sp) => sp.id === lp.id) &&
+                lp.id.startsWith('post-')
+            );
+            if (orphanedPosts.length > 0) {
+              orphanedPosts.forEach((orphan) => {
+                FirestoreNewsService.savePost(orphan).catch((err) => {
+                  console.warn(`[AutoRecovery] Post ${orphan.id} sync note:`, err);
+                });
               });
-            });
-          }
-          return smartMergePosts(currentLocal, cloudPosts, deletedIds);
-        });
+            }
+            return smartMergePosts(currentLocal, cloudPosts, deletedIds);
+          });
+        }
+      },
+      () => {
+        postsSnapshotReady = true;
+        markPublicDataReady();
       }
-    });
+    );
 
     // 3. Subscribe to Real-Time Media Library updates from cloud
     const unsubscribeMedia = FirestoreNewsService.subscribeMedia((cloudMedia) => {
@@ -676,10 +695,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...current,
           ...cloudSettings,
         }));
+      },
+      () => {
+        epaperSnapshotReady = true;
+        markPublicDataReady();
       }
     );
 
     return () => {
+      window.clearTimeout(readinessFallback);
       unsubscribePosts();
       unsubscribeMedia();
       unsubscribePages();
@@ -1735,6 +1759,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateAIVoiceSettings,
         epaperSettings,
         updateEPaperSettings,
+        isPublicDataReady,
         whatsAppSettings,
         updateWhatsAppSettings,
         siteSettings,
