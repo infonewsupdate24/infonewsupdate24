@@ -3,7 +3,6 @@ export interface GoogleSEOSettings {
   metaDescription: string;
   metaKeywords: string;
   canonicalBaseUrl: string;
-  googleSearchConsoleToken: string;
   googleAnalyticsId: string;
   googleNewsPublicationName: string;
   googleNewsLanguage: string;
@@ -15,8 +14,6 @@ export interface GoogleSEOSettings {
   twitterHandle: string;
   robotsTxtContent: string;
   autoPingGoogleOnPublish: boolean;
-  lastSitemapPingTime?: string;
-  lastPingStatus?: string;
 }
 
 const STORAGE_KEY_SEO_SETTINGS = 'infonews_google_seo_settings_v1';
@@ -28,7 +25,6 @@ export const DEFAULT_GOOGLE_SEO_SETTINGS: GoogleSEOSettings = {
   metaKeywords:
     'मराठी बातम्या, ताज्या बातम्या, गडचिरोली न्यूज, महाराष्ट्र घडामोडी, बाजारभाव, पंचांग, हवामान, Marathi News, InfoNewsUpdate24',
   canonicalBaseUrl: 'https://infonewsupdate24.com',
-  googleSearchConsoleToken: 'google-site-verification-infonewsupdate24-master-token',
   googleAnalyticsId: 'G-INFONEWSUPDATE24XX',
   googleNewsPublicationName: 'InfoNewsUpdate24',
   googleNewsLanguage: 'mr',
@@ -59,8 +55,6 @@ Disallow: /cms
 # XML Sitemaps
 Sitemap: https://infonewsupdate24.com/sitemap.xml
 Sitemap: https://infonewsupdate24.com/sitemap-news.xml`,
-  lastSitemapPingTime: '29 Aug 2026, 01:15 PM',
-  lastPingStatus: '200 OK (Googlebot pinged successfully)',
 };
 
 export class GoogleSEOService {
@@ -156,29 +150,4 @@ export class GoogleSEOService {
     return xml;
   }
 
-  static pingGoogleSearchConsole(): Promise<{ success: boolean; message: string; timestamp: string }> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const time = new Date().toLocaleString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-        });
-
-        const current = this.getSettings();
-        current.lastSitemapPingTime = time;
-        current.lastPingStatus = '200 OK (Googlebot & Google News Sitemap updated)';
-        this.saveSettings(current);
-
-        resolve({
-          success: true,
-          message: 'Googlebot आणि Google News कडे साइटमॅप यशस्वीरीत्या सबमिट करण्यात आला!',
-          timestamp: time,
-        });
-      }, 1200);
-    });
-  }
 }

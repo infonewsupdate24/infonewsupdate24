@@ -502,15 +502,11 @@ export const GlobalSettingsManagerView: React.FC = () => {
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Google Search Console Verification Meta Tag
+                  Google Search Console Verification
                 </label>
-                <input
-                  type="text"
-                  value={formData.googleSearchConsoleMeta || ''}
-                  onChange={(e) => handleChange('googleSearchConsoleMeta', e.target.value)}
-                  placeholder="google-site-verification=XXXXXXXXXXXXXXXXXXXX"
-                  className="w-full h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-slate-900 font-mono focus:bg-white focus:border-red-500 outline-none"
-                />
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
+                  HTML verification file सक्रिय आहे: <span className="font-mono">googlec03350af2a0e7337.html</span>
+                </div>
               </div>
 
               <div>

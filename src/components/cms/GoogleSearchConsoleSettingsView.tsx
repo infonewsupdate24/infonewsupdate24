@@ -10,7 +10,6 @@ import {
   Download,
   Copy,
   ExternalLink,
-  RefreshCw,
   Save,
   Radio,
   Sliders,
@@ -26,7 +25,6 @@ export const GoogleSearchConsoleSettingsView: React.FC = () => {
   const [settings, setSettings] = useState<GoogleSEOSettings>(() => GoogleSEOService.getSettings());
   const [activeTab, setActiveTab] = useState<'VERIFICATION' | 'SITEMAPS' | 'ROBOTS' | 'PAGESPEED' | 'SCHEMA'>('VERIFICATION');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isPinging, setIsPinging] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -36,19 +34,6 @@ export const GoogleSearchConsoleSettingsView: React.FC = () => {
   const handleSave = () => {
     GoogleSEOService.saveSettings(settings);
     showToast('✅ Google Search Console व SEO सेटिंग्ज यशस्वीरीत्या सेव्ह करण्यात आल्या!');
-  };
-
-  const handlePingGoogle = async () => {
-    setIsPinging(true);
-    try {
-      const res = await GoogleSEOService.pingGoogleSearchConsole();
-      setSettings(GoogleSEOService.getSettings());
-      showToast(res.message);
-    } catch {
-      showToast('❌ पिंग करताना त्रुटी आली.');
-    } finally {
-      setIsPinging(false);
-    }
   };
 
   const downloadSitemap = (type: 'STANDARD' | 'NEWS') => {
@@ -106,16 +91,6 @@ export const GoogleSearchConsoleSettingsView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={handlePingGoogle}
-            disabled={isPinging}
-            className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-xs font-bold text-slate-950 transition-all shadow-md cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${isPinging ? 'animate-spin' : ''}`} />
-            <span>{isPinging ? 'गुगलला पिंग होत आहे...' : 'गुगलला पिंग करा (Ping GSC)'}</span>
-          </button>
-
-          <button
-            type="button"
             onClick={handleSave}
             className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-md cursor-pointer"
           >
@@ -164,21 +139,22 @@ export const GoogleSearchConsoleSettingsView: React.FC = () => {
               </h3>
 
               <div className="space-y-4 text-xs">
-                {/* GSC Verification Token */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-800 flex items-center justify-between">
-                    <span>Google Search Console HTML Verification Token:</span>
-                    <span className="text-[10px] text-blue-600 font-mono">meta name="google-site-verification"</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={settings.googleSearchConsoleToken}
-                    onChange={(e) => setSettings({ ...settings, googleSearchConsoleToken: e.target.value })}
-                    placeholder="e.g. google-site-verification-xyz12345"
-                    className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3.5 font-mono text-xs text-slate-900 focus:bg-white focus:border-blue-600"
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    Google Search Console मध्ये 'HTML tag' पद्धत निवडून मिळालेला कोड येथे टाका.
+                {/* GSC verification is deployed as a static HTML file. */}
+                <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex items-center gap-2 font-bold text-emerald-950">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Google Search Console HTML file सक्रिय आहे</span>
+                  </div>
+                  <a
+                    href="https://www.infonewsupdate24.com/googlec03350af2a0e7337.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block break-all font-mono text-[11px] text-blue-700 underline"
+                  >
+                    https://www.infonewsupdate24.com/googlec03350af2a0e7337.html
+                  </a>
+                  <p className="text-[11px] text-emerald-800">
+                    Search Console मध्ये HTML file पद्धत निवडून Verify करा. ही file delete किंवा rename करू नका.
                   </p>
                 </div>
 
@@ -285,9 +261,9 @@ export const GoogleSearchConsoleSettingsView: React.FC = () => {
                   <span>कॅटेगरी पेजेस:</span>
                   <strong className="text-slate-900">{categories.length}</strong>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span>शेवटचा GSC पिंग:</span>
-                  <strong className="text-slate-900">{settings.lastSitemapPingTime}</strong>
+                <div className="flex justify-between gap-3 py-1 border-b border-slate-100">
+                  <span>Ownership method:</span>
+                  <strong className="text-right text-emerald-700">HTML verification file</strong>
                 </div>
               </div>
 

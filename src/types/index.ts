@@ -985,7 +985,6 @@ export interface SiteGlobalSettings {
   grievanceOfficerPhone?: string;
   copyrightText?: string;
   googleAnalyticsId?: string;
-  googleSearchConsoleMeta?: string;
   adsensePublisherId?: string;
   defaultSocialShareImage?: string;
   enableComments: boolean;

@@ -266,7 +266,6 @@ export const DEFAULT_SITE_SETTINGS: SiteGlobalSettings = {
   grievanceOfficerPhone: '+91 87999333629',
   copyrightText: '© 2026 InfoNewsUpdate24. सर्व हक्क सुरक्षित.',
   googleAnalyticsId: 'G-INFONEWS24',
-  googleSearchConsoleMeta: 'google-site-verification=info24news',
   adsensePublisherId: 'ca-pub-9842109847120934',
   defaultSocialShareImage: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1200&auto=format&fit=crop&q=80',
   enableComments: true,
