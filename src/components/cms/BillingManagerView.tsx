@@ -52,6 +52,7 @@ import {
   Quotation,
   QuotationStatus,
 } from '../../services/BillingService';
+import { FirestoreNewsService } from '../../services/FirestoreNewsService';
 
 export const BillingManagerView: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>(() => BillingService.getInvoices());
@@ -77,6 +78,7 @@ export const BillingManagerView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [dateFilter, setDateFilter] = useState<string>('ALL');
 
   // Quotation Filter States
   const [quotationSearchQuery, setQuotationSearchQuery] = useState('');
@@ -118,7 +120,7 @@ export const BillingManagerView: React.FC = () => {
   };
 
   const handleSendReminderWhatsApp = (inv: Invoice, type: 'gentle' | 'urgent') => {
-    const text = BillingService.generateOverdueReminderText(inv, type);
+    const text = BillingService.generateOverdueReminderText(inv, type, billingSettings);
     const cleanPhone = inv.clientPhone.replace(/\D/g, '');
     const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
     window.open(`https://api.whatsapp.com/send?phone=${finalPhone}&text=${encodeURIComponent(text)}`, '_blank');
@@ -134,6 +136,32 @@ export const BillingManagerView: React.FC = () => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg((cur) => (cur === msg ? null : cur)), 3500);
   };
+
+  useEffect(() => {
+    const unsubInvoices = FirestoreNewsService.subscribeBillingCollection<Invoice>('billing_invoices', (rows) => {
+      BillingService.saveInvoices(rows);
+      setInvoices(rows);
+    });
+    const unsubClients = FirestoreNewsService.subscribeBillingCollection<ClientContact>('billing_clients', (rows) => {
+      BillingService.saveClients(rows);
+      setClients(rows);
+    });
+    const unsubQuotations = FirestoreNewsService.subscribeBillingCollection<Quotation>('billing_quotations', (rows) => {
+      BillingService.saveQuotations(rows);
+      setQuotations(rows);
+    });
+    const unsubSettings = FirestoreNewsService.subscribeBillingSettings((settings) => {
+      BillingService.saveSettings(settings);
+      setBillingSettings(settings);
+      setSettingsFormData(settings);
+    });
+    return () => {
+      unsubInvoices();
+      unsubClients();
+      unsubQuotations();
+      unsubSettings();
+    };
+  }, []);
 
   useEffect(() => {
     const handleInvoiceUpdate = () => {
@@ -168,6 +196,7 @@ export const BillingManagerView: React.FC = () => {
     return invoices.filter((inv) => {
       if (statusFilter !== 'ALL' && inv.status !== statusFilter) return false;
       if (categoryFilter !== 'ALL' && inv.category !== categoryFilter) return false;
+      if (dateFilter !== 'ALL' && inv.billDate !== dateFilter) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesClient = inv.clientName.toLowerCase().includes(q);
@@ -178,7 +207,7 @@ export const BillingManagerView: React.FC = () => {
       }
       return true;
     });
-  }, [invoices, statusFilter, categoryFilter, searchQuery]);
+  }, [invoices, statusFilter, categoryFilter, dateFilter, searchQuery]);
 
   const filteredClients = useMemo(() => {
     return clients.filter((c) => {
@@ -298,9 +327,12 @@ export const BillingManagerView: React.FC = () => {
 
     if (editingClient) {
       BillingService.updateClient(editingClient.id, clientFormData);
+      const updated = BillingService.getClients().find((client) => client.id === editingClient.id);
+      if (updated) void FirestoreNewsService.saveBillingClient(updated);
       showToast(`✅ "${clientFormData.name}" ची माहिती अद्यतनित झाली!`);
     } else {
-      BillingService.createClient(clientFormData);
+      const created = BillingService.createClient(clientFormData);
+      void FirestoreNewsService.saveBillingClient(created);
       showToast(`✅ नवीन ग्राहक "${clientFormData.name}" डिरेक्टरीमध्ये जोडला गेला!`);
     }
 
@@ -310,6 +342,8 @@ export const BillingManagerView: React.FC = () => {
 
   const handleDeleteClient = (id: string, name: string) => {
     if (window.confirm(`तुम्हाला खात्री आहे का? ग्राहक "${name}" डिरेक्टरीमधून हटवायचा आहे?`)) {
+      const client = clients.find((item) => item.id === id);
+      if (client) void FirestoreNewsService.archiveBillingClient(client);
       BillingService.deleteClient(id);
       setClients(BillingService.getClients());
       showToast(`🗑️ ग्राहक "${name}" हटवण्यात आला.`);
@@ -393,7 +427,7 @@ export const BillingManagerView: React.FC = () => {
     showToast(`✅ "${client.name}" ची माहिती दरपत्रकासाठी भरली गेली!`);
   };
 
-  const handleSaveQuotationSubmit = (e: React.FormEvent) => {
+  const handleSaveQuotationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quotationFormData.clientName.trim() || !quotationFormData.clientPhone.trim()) {
       showToast('⚠️ कृपया ग्राहकाचे नाव व फोन नंबर टाका!');
@@ -403,8 +437,9 @@ export const BillingManagerView: React.FC = () => {
     const catOption = CATEGORY_OPTIONS.find((c) => c.id === quotationFormData.category);
     const catLabel = catOption ? catOption.label : quotationFormData.category;
 
+    const quotationNumber = await FirestoreNewsService.reserveBillingNumber('quotation', billingSettings.quotationPrefix);
     const newQuotation = BillingService.createQuotation({
-      quotationNumber: quotationFormData.quotationNumber,
+      quotationNumber,
       date: quotationFormData.date,
       validUntil: quotationFormData.validUntil,
       clientName: quotationFormData.clientName,
@@ -424,6 +459,7 @@ export const BillingManagerView: React.FC = () => {
       notes: quotationFormData.notes,
       terms: quotationFormData.terms,
     });
+    void FirestoreNewsService.saveBillingQuotation(newQuotation);
 
     setQuotations(BillingService.getQuotations());
     setSelectedQuotation(newQuotation);
@@ -431,9 +467,13 @@ export const BillingManagerView: React.FC = () => {
     showToast(`🎉 दरपत्रक ${newQuotation.quotationNumber} तयार झाले!`);
   };
 
-  const handleConvertQuotationToInvoice = (qId: string) => {
-    const inv = BillingService.convertQuotationToInvoice(qId);
+  const handleConvertQuotationToInvoice = async (qId: string) => {
+    const invoiceNumber = await FirestoreNewsService.reserveBillingNumber('invoice', billingSettings.invoicePrefix);
+    const inv = BillingService.convertQuotationToInvoice(qId, invoiceNumber);
     if (inv) {
+      const convertedQuotation = BillingService.getQuotations().find((item) => item.id === qId);
+      await FirestoreNewsService.saveBillingInvoice(inv);
+      if (convertedQuotation) await FirestoreNewsService.saveBillingQuotation(convertedQuotation);
       setInvoices(BillingService.getInvoices());
       setQuotations(BillingService.getQuotations());
       setSelectedInvoice(inv);
@@ -443,7 +483,7 @@ export const BillingManagerView: React.FC = () => {
   };
 
   const handleWhatsAppQuotationSend = (q: Quotation) => {
-    const text = BillingService.generateQuotationWhatsAppText(q);
+    const text = BillingService.generateQuotationWhatsAppText(q, billingSettings);
     const cleanPhone = q.clientPhone.replace(/\D/g, '');
     const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
     window.open(`https://api.whatsapp.com/send?phone=${finalPhone}&text=${encodeURIComponent(text)}`, '_blank');
@@ -452,6 +492,8 @@ export const BillingManagerView: React.FC = () => {
 
   const handleDeleteQuotation = (id: string, qtnNo: string) => {
     if (window.confirm(`दरपत्रक "${qtnNo}" हटवायचे आहे का?`)) {
+      const quotation = quotations.find((item) => item.id === id);
+      if (quotation) void FirestoreNewsService.archiveBillingQuotation(quotation);
       BillingService.deleteQuotation(id);
       setQuotations(BillingService.getQuotations());
       showToast(`🗑️ दरपत्रक "${qtnNo}" हटवले.`);
@@ -462,6 +504,7 @@ export const BillingManagerView: React.FC = () => {
   const handleSaveSettingsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     BillingService.saveSettings(settingsFormData);
+    void FirestoreNewsService.saveBillingSettings(settingsFormData);
     setBillingSettings(settingsFormData);
     showToast('💾 बँक, UPI व व्यवसाय प्रोफाईल सेटिंग्ज सेव्ह झाल्या!');
   };
@@ -554,11 +597,14 @@ export const BillingManagerView: React.FC = () => {
   }, [items]);
 
   const calculatedGst = useMemo(() => {
+    const taxableRatio = calculatedSubtotal > 0
+      ? Math.max(0, calculatedSubtotal - (formData.discountAmount || 0)) / calculatedSubtotal
+      : 0;
     return items.reduce((acc, item) => {
       const taxRate = item.gstPercent || 0;
-      return acc + (item.amount * taxRate) / 100;
+      return acc + (item.amount * taxableRatio * taxRate) / 100;
     }, 0);
-  }, [items]);
+  }, [items, calculatedSubtotal, formData.discountAmount]);
 
   const calculatedTotal = useMemo(() => {
     return Math.max(0, calculatedSubtotal - (formData.discountAmount || 0) + calculatedGst);
@@ -568,7 +614,7 @@ export const BillingManagerView: React.FC = () => {
     return Math.max(0, calculatedTotal - (formData.amountPaid || 0));
   }, [calculatedTotal, formData.amountPaid]);
 
-  const handleSaveInvoice = (andPrint = false) => {
+  const handleSaveInvoice = async (andPrint = false) => {
     if (!formData.clientName.trim()) {
       showToast('⚠️ कृपया ग्राहकाचे नाव टाका!');
       return;
@@ -588,8 +634,9 @@ export const BillingManagerView: React.FC = () => {
       initialStatus = 'PARTIAL';
     }
 
+    const invoiceNumber = await FirestoreNewsService.reserveBillingNumber('invoice', billingSettings.invoicePrefix);
     const newInv = BillingService.createInvoice({
-      invoiceNumber: formData.invoiceNumber || BillingService.generateNextInvoiceNumber(invoices),
+      invoiceNumber,
       billDate: formData.billDate,
       dueDate: formData.dueDate,
       clientName: formData.clientName,
@@ -613,6 +660,7 @@ export const BillingManagerView: React.FC = () => {
       notes: formData.notes,
       terms: formData.terms,
     });
+    void FirestoreNewsService.saveBillingInvoice(newInv);
 
     setInvoices(BillingService.getInvoices());
     showToast(`✅ बिल क्र. ${newInv.invoiceNumber} यशस्वीरीत्या तयार झाले!`);
@@ -644,9 +692,11 @@ export const BillingManagerView: React.FC = () => {
     }
   };
 
-  const handleDuplicateInvoice = (id: string) => {
-    const duplicated = BillingService.duplicateInvoice(id);
+  const handleDuplicateInvoice = async (id: string) => {
+    const invoiceNumber = await FirestoreNewsService.reserveBillingNumber('invoice', billingSettings.invoicePrefix);
+    const duplicated = BillingService.duplicateInvoice(id, invoiceNumber);
     if (duplicated) {
+      await FirestoreNewsService.saveBillingInvoice(duplicated);
       setInvoices(BillingService.getInvoices());
       showToast(`🔁 बिल क्र. ${duplicated.invoiceNumber} नवीन तयार झाले!`);
       setSelectedInvoice(duplicated);
@@ -663,17 +713,18 @@ export const BillingManagerView: React.FC = () => {
 
   const handleRecordPaymentSubmit = () => {
     if (!paymentModalInvoice) return;
-    if (paymentAmount <= 0) {
+    if (paymentAmount <= 0 || paymentAmount > paymentModalInvoice.balanceDue) {
       showToast('⚠️ कृपया वैध रक्कम प्रविष्ट करा!');
       return;
     }
 
-    BillingService.recordPayment(
+    const updatedInvoice = BillingService.recordPayment(
       paymentModalInvoice.id,
       paymentAmount,
       paymentMethod,
       paymentRef || `REC-${Date.now().toString().slice(-4)}`
     );
+    if (updatedInvoice) void FirestoreNewsService.saveBillingInvoice(updatedInvoice);
 
     setInvoices(BillingService.getInvoices());
     showToast(`💰 ₹${paymentAmount.toLocaleString('en-IN')} पेमेंट यशस्वीरित्या नोंदवले!`);
@@ -682,6 +733,8 @@ export const BillingManagerView: React.FC = () => {
 
   const handleDeleteInvoice = (id: string, invNo: string) => {
     if (window.confirm(`तुम्हाला खात्री आहे का? बिल क्र. ${invNo} हटवायचे आहे?`)) {
+      const invoice = invoices.find((item) => item.id === id);
+      if (invoice) void FirestoreNewsService.archiveBillingInvoice(invoice);
       BillingService.deleteInvoice(id);
       setInvoices(BillingService.getInvoices());
       showToast(`🗑️ बिल क्र. ${invNo} हटवण्यात आले.`);
@@ -1006,6 +1059,16 @@ export const BillingManagerView: React.FC = () => {
                   <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 )}
               </div>
+
+              {/* Status Filter */}
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 focus:outline-hidden"
+              >
+                <option value="ALL">सर्व तारखा</option>
+                <option value={new Date().toISOString().split('T')[0]}>आजची बिले</option>
+              </select>
 
               {/* Status Filter */}
               <select
@@ -3975,7 +4038,7 @@ export const BillingManagerView: React.FC = () => {
             <div className="space-y-1">
               <label className="block text-xs font-bold text-slate-700">WhatsApp संदेश पूर्वावलोकन (Preview):</label>
               <div className="max-h-44 overflow-y-auto rounded-xl bg-slate-900 text-slate-100 p-3.5 text-xs font-mono whitespace-pre-line leading-relaxed border border-slate-800">
-                {BillingService.generateOverdueReminderText(reminderModalInvoice, reminderType)}
+                {BillingService.generateOverdueReminderText(reminderModalInvoice, reminderType, billingSettings)}
               </div>
             </div>
 

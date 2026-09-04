@@ -543,16 +543,15 @@ export const SEED_QUOTATIONS: Quotation[] = [
 
 export class BillingService {
   static getInvoices(): Invoice[] {
-    if (typeof window === 'undefined') return SEED_INVOICES;
+    if (typeof window === 'undefined') return [];
     try {
       const stored = localStorage.getItem(STORAGE_KEY_INVOICES);
       if (stored) {
         return JSON.parse(stored);
       }
-      localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(SEED_INVOICES));
-      return SEED_INVOICES;
+      return [];
     } catch {
-      return SEED_INVOICES;
+      return [];
     }
   }
 
@@ -561,16 +560,15 @@ export class BillingService {
   // ==========================================
 
   static getQuotations(): Quotation[] {
-    if (typeof window === 'undefined') return SEED_QUOTATIONS;
+    if (typeof window === 'undefined') return [];
     try {
       const stored = localStorage.getItem(STORAGE_KEY_QUOTATIONS);
       if (stored) {
         return JSON.parse(stored);
       }
-      localStorage.setItem(STORAGE_KEY_QUOTATIONS, JSON.stringify(SEED_QUOTATIONS));
-      return SEED_QUOTATIONS;
+      return [];
     } catch {
-      return SEED_QUOTATIONS;
+      return [];
     }
   }
 
@@ -626,9 +624,10 @@ export class BillingService {
   static generateNextQuotationNumber(quotations?: Quotation[]): string {
     const list = quotations || this.getQuotations();
     const settings = this.getSettings();
-    const currentYear = new Date().getFullYear();
-    const nextYearShort = (currentYear + 1).toString().slice(-2);
-    const prefix = `${settings.quotationPrefix || 'QTN-INU24/'}${currentYear}-${nextYearShort}/`;
+    const today = new Date();
+    const financialYearStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    const nextYearShort = (financialYearStart + 1).toString().slice(-2);
+    const prefix = `${settings.quotationPrefix || 'QTN-INU24/'}${financialYearStart}-${nextYearShort}/`;
 
     const existingNumbers = list
       .map((q) => {
@@ -677,13 +676,13 @@ export class BillingService {
     return true;
   }
 
-  static convertQuotationToInvoice(quotationId: string): Invoice | null {
+  static convertQuotationToInvoice(quotationId: string, reservedInvoiceNumber?: string): Invoice | null {
     const quotations = this.getQuotations();
     const qtn = quotations.find((q) => q.id === quotationId);
     if (!qtn) return null;
 
     const invoices = this.getInvoices();
-    const newInvoiceNumber = this.generateNextInvoiceNumber(invoices);
+    const newInvoiceNumber = reservedInvoiceNumber || this.generateNextInvoiceNumber(invoices);
 
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`,
@@ -725,7 +724,7 @@ export class BillingService {
     return newInvoice;
   }
 
-  static generateQuotationWhatsAppText(q: Quotation): string {
+  static generateQuotationWhatsAppText(q: Quotation, settings: BillingSettings = this.getSettings()): string {
     const totalWords = this.numberToMarathiWords(q.totalAmount);
     const clientGreeting = q.businessName
       ? `${q.clientName} (${q.businessName})`
@@ -756,16 +755,15 @@ export class BillingService {
   // ==========================================
 
   static getClients(): ClientContact[] {
-    if (typeof window === 'undefined') return SEED_CLIENTS;
+    if (typeof window === 'undefined') return [];
     try {
       const stored = localStorage.getItem(STORAGE_KEY_CLIENTS);
       if (stored) {
         return JSON.parse(stored);
       }
-      localStorage.setItem(STORAGE_KEY_CLIENTS, JSON.stringify(SEED_CLIENTS));
-      return SEED_CLIENTS;
+      return [];
     } catch {
-      return SEED_CLIENTS;
+      return [];
     }
   }
 
@@ -857,9 +855,10 @@ export class BillingService {
   static generateNextInvoiceNumber(invoices?: Invoice[]): string {
     const list = invoices || this.getInvoices();
     const settings = this.getSettings();
-    const currentYear = new Date().getFullYear();
-    const nextYearShort = (currentYear + 1).toString().slice(-2);
-    const prefix = `${settings.invoicePrefix || 'INU24/'}${currentYear}-${nextYearShort}/`;
+    const today = new Date();
+    const financialYearStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    const nextYearShort = (financialYearStart + 1).toString().slice(-2);
+    const prefix = `${settings.invoicePrefix || 'INU24/'}${financialYearStart}-${nextYearShort}/`;
 
     const existingNumbers = list
       .map((inv) => {
@@ -936,6 +935,7 @@ export class BillingService {
     const invoices = this.getInvoices();
     const inv = invoices.find((i) => i.id === id);
     if (!inv) return null;
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0 || paidAmount > inv.balanceDue) return null;
 
     const newAmountPaid = (inv.amountPaid || 0) + paidAmount;
     return this.updateInvoice(id, {
@@ -975,12 +975,12 @@ export class BillingService {
     };
   }
 
-  static duplicateInvoice(id: string): Invoice | null {
+  static duplicateInvoice(id: string, reservedInvoiceNumber?: string): Invoice | null {
     const invoices = this.getInvoices();
     const existing = invoices.find((i) => i.id === id);
     if (!existing) return null;
 
-    const nextInvNo = this.generateNextInvoiceNumber(invoices);
+    const nextInvNo = reservedInvoiceNumber || this.generateNextInvoiceNumber(invoices);
     const today = new Date().toISOString().split('T')[0];
     const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -1049,7 +1049,7 @@ export class BillingService {
     return `${str.trim()} रुपये फक्त`;
   }
 
-  static generateOverdueReminderText(inv: Invoice, type: 'gentle' | 'urgent' = 'gentle'): string {
+  static generateOverdueReminderText(inv: Invoice, type: 'gentle' | 'urgent' = 'gentle', settings: BillingSettings = this.getSettings()): string {
     const dueWords = this.numberToMarathiWords(inv.balanceDue);
     const clientGreeting = inv.businessName
       ? `${inv.clientName} (${inv.businessName})`

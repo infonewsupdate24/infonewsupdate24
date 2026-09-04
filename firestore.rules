@@ -205,6 +205,134 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Billing threat model: authenticated admins are the only readers/writers;
+    // document IDs, numbering and creation time are immutable; deletes are archival.
+    function shortString(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+    function optionalString(data, field, maxLength) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLength);
+    }
+    function validArchiveFields(data) {
+      return (!('isArchived' in data) || data.isArchived is bool)
+        && (!('archivedAt' in data) || data.archivedAt is timestamp);
+    }
+    function validMoney(value) {
+      return value is number && value >= 0 && value <= 100000000;
+    }
+    function validBillingBase(data) {
+      return shortString(data.id, 128)
+        && shortString(data.createdAt, 40)
+        && shortString(data.updatedAt, 40)
+        && validArchiveFields(data);
+    }
+    function validInvoice(data) {
+      return data.keys().hasAll(['id','invoiceNumber','billDate','dueDate','clientName','clientPhone','category','categoryLabelMarathi','items','subtotal','discountAmount','gstAmount','totalAmount','amountPaid','balanceDue','status','createdAt','updatedAt'])
+        && data.keys().hasOnly(['id','invoiceNumber','billDate','dueDate','clientName','businessName','clientPhone','clientEmail','clientAddress','clientGstin','category','categoryLabelMarathi','items','subtotal','discountAmount','gstAmount','totalAmount','amountPaid','balanceDue','status','paymentMethod','transactionRef','notes','terms','createdAt','updatedAt','isArchived','archivedAt'])
+        && validBillingBase(data) && shortString(data.invoiceNumber, 80)
+        && shortString(data.billDate, 10) && shortString(data.dueDate, 10)
+        && shortString(data.clientName, 200) && shortString(data.clientPhone, 30)
+        && optionalString(data, 'businessName', 200) && optionalString(data, 'clientEmail', 254)
+        && optionalString(data, 'clientAddress', 1000) && optionalString(data, 'clientGstin', 30)
+        && optionalString(data, 'transactionRef', 120) && optionalString(data, 'notes', 3000)
+        && optionalString(data, 'terms', 5000)
+        && data.category in ['PORTAL_BANNER','EPAPER_CLASSIFIED','FESTIVAL_WISH','SPONSORED_NEWS','EPAPER_SUBSCRIPTION','PRINT_COMMERCIAL','OTHER']
+        && data.status in ['PAID','PENDING','PARTIAL','OVERDUE','CANCELLED']
+        && (!('paymentMethod' in data) || data.paymentMethod in ['UPI','CASH','NET_BANKING','CHEQUE','CREDIT_CARD','NEFT_RTGS'])
+        && data.items is list && data.items.size() > 0 && data.items.size() <= 50
+        && validMoney(data.subtotal) && validMoney(data.discountAmount) && data.discountAmount <= data.subtotal
+        && validMoney(data.gstAmount) && validMoney(data.totalAmount)
+        && validMoney(data.amountPaid) && data.amountPaid <= data.totalAmount
+        && validMoney(data.balanceDue) && data.balanceDue == data.totalAmount - data.amountPaid;
+    }
+    function validQuotation(data) {
+      return data.keys().hasAll(['id','quotationNumber','date','validUntil','clientName','clientPhone','category','categoryLabelMarathi','items','subtotal','discountAmount','gstAmount','totalAmount','status','createdAt','updatedAt'])
+        && data.keys().hasOnly(['id','quotationNumber','date','validUntil','clientName','businessName','clientPhone','clientEmail','clientAddress','clientGstin','category','categoryLabelMarathi','items','subtotal','discountAmount','gstAmount','totalAmount','status','convertedInvoiceId','notes','terms','createdAt','updatedAt','isArchived','archivedAt'])
+        && validBillingBase(data) && shortString(data.quotationNumber, 80)
+        && shortString(data.date, 10) && shortString(data.validUntil, 10)
+        && shortString(data.clientName, 200) && shortString(data.clientPhone, 30)
+        && optionalString(data, 'businessName', 200) && optionalString(data, 'clientEmail', 254)
+        && optionalString(data, 'clientAddress', 1000) && optionalString(data, 'clientGstin', 30)
+        && optionalString(data, 'convertedInvoiceId', 128) && optionalString(data, 'notes', 3000)
+        && optionalString(data, 'terms', 5000)
+        && data.category in ['PORTAL_BANNER','EPAPER_CLASSIFIED','FESTIVAL_WISH','SPONSORED_NEWS','EPAPER_SUBSCRIPTION','PRINT_COMMERCIAL','OTHER']
+        && data.status in ['DRAFT','SENT','ACCEPTED','REJECTED','CONVERTED']
+        && data.items is list && data.items.size() > 0 && data.items.size() <= 50
+        && validMoney(data.subtotal) && validMoney(data.discountAmount) && data.discountAmount <= data.subtotal
+        && validMoney(data.gstAmount) && validMoney(data.totalAmount);
+    }
+    function validClient(data) {
+      return data.keys().hasAll(['id','name','phone','createdAt','updatedAt'])
+        && data.keys().hasOnly(['id','name','businessName','phone','email','address','gstin','category','notes','createdAt','updatedAt','isArchived','archivedAt'])
+        && validBillingBase(data) && shortString(data.name, 200) && shortString(data.phone, 30)
+        && optionalString(data, 'businessName', 200) && optionalString(data, 'email', 254)
+        && optionalString(data, 'address', 1000) && optionalString(data, 'gstin', 30)
+        && optionalString(data, 'notes', 3000)
+        && (!('category' in data) || data.category in ['PORTAL_BANNER','EPAPER_CLASSIFIED','FESTIVAL_WISH','SPONSORED_NEWS','EPAPER_SUBSCRIPTION','PRINT_COMMERCIAL','OTHER']);
+    }
+
+    match /billing_invoices/{recordId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == recordId && validInvoice(request.resource.data);
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.invoiceNumber == resource.data.invoiceNumber
+        && validInvoice(request.resource.data);
+      allow delete: if false;
+    }
+    match /billing_clients/{recordId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == recordId && validClient(request.resource.data);
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt && validClient(request.resource.data);
+      allow delete: if false;
+    }
+    match /billing_quotations/{recordId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == recordId && validQuotation(request.resource.data);
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.quotationNumber == resource.data.quotationNumber
+        && validQuotation(request.resource.data);
+      allow delete: if false;
+    }
+    match /billing_settings/{settingId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && settingId == 'main'
+        && request.resource.data.keys().hasAll(['publicationName','publicationTagline','businessAddress','phone','email','website','gstin','rniNumber','state','stateCode','hsnSacCode','showGstin','showBankQr','bankAccountName','bankName','bankAccountNumber','bankIfsc','bankBranch','bankAccountType','upiId','upiPayeeName','invoicePrefix','quotationPrefix','defaultDueDays','defaultQuotationValidityDays','defaultInvoiceNotes','defaultInvoiceTerms','defaultQuotationNotes','defaultQuotationTerms','signatoryTitle'])
+        && request.resource.data.keys().hasOnly(['publicationName','publicationTagline','businessAddress','phone','email','website','gstin','rniNumber','state','stateCode','hsnSacCode','showGstin','showBankQr','bankAccountName','bankName','bankAccountNumber','bankIfsc','bankBranch','bankAccountType','upiId','upiPayeeName','upiMerchantCode','invoicePrefix','quotationPrefix','defaultDueDays','defaultQuotationValidityDays','defaultInvoiceNotes','defaultInvoiceTerms','defaultQuotationNotes','defaultQuotationTerms','signatoryTitle'])
+        && request.resource.data.showGstin is bool && request.resource.data.showBankQr is bool
+        && request.resource.data.defaultDueDays is int && request.resource.data.defaultDueDays >= 0 && request.resource.data.defaultDueDays <= 365
+        && request.resource.data.defaultQuotationValidityDays is int && request.resource.data.defaultQuotationValidityDays >= 0 && request.resource.data.defaultQuotationValidityDays <= 365;
+      allow delete: if false;
+    }
+    match /billing_counters/{counterId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.keys().hasOnly(['id','kind','financialYear','lastNumber','updatedAt'])
+        && request.resource.data.id == counterId && request.resource.data.kind in ['invoice','quotation']
+        && shortString(request.resource.data.financialYear, 16) && request.resource.data.lastNumber == 1
+        && shortString(request.resource.data.updatedAt, 40);
+      allow update: if isAdmin() && request.resource.data.keys().hasOnly(['id','kind','financialYear','lastNumber','updatedAt'])
+        && request.resource.data.id == resource.data.id && request.resource.data.kind == resource.data.kind
+        && request.resource.data.financialYear == resource.data.financialYear
+        && request.resource.data.lastNumber == resource.data.lastNumber + 1
+        && shortString(request.resource.data.updatedAt, 40);
+      allow delete: if false;
+    }
+    match /billing_audit/{auditId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasAll(['id','action','entityType','entityId','actorUid','createdAt','details'])
+        && request.resource.data.keys().hasOnly(['id','action','entityType','entityId','actorUid','createdAt','details'])
+        && request.resource.data.id == auditId && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.action in ['UPSERT','ARCHIVE','UPDATE_SETTINGS']
+        && request.resource.data.entityType in ['invoice','quotation','client','settings']
+        && shortString(request.resource.data.entityId, 128)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.details is map && request.resource.data.details.keys().size() <= 10;
+      allow update, delete: if false;
+    }
+
     // -------------------------------------------------------------
     // 10. USER PROFILES & RBAC DIRECTORY (Anti-Privilege Escalation)
     // -------------------------------------------------------------

@@ -16,9 +16,10 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  runTransaction,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { auth, db } from './firebase';
 import type {
   Post,
   Category,
@@ -39,6 +40,7 @@ import type {
   WhatsAppChannelSettings,
   MerchantAdBooking,
 } from '../types';
+import type { BillingSettings, ClientContact, Invoice, Quotation } from './BillingService';
 
 export function sanitizeForFirestore<T>(data: T): T {
   if (data === null || data === undefined) {
@@ -77,6 +79,91 @@ export function sanitizeForFirestore<T>(data: T): T {
 }
 
 export class FirestoreNewsService {
+  private static audit(action: string, entityType: string, entityId: string, details: Record<string, unknown> = {}) {
+    const auditRef = doc(collection(db, 'billing_audit'));
+    return setDoc(auditRef, sanitizeForFirestore({
+      id: auditRef.id,
+      action,
+      entityType,
+      entityId,
+      actorUid: auth.currentUser?.uid || '',
+      createdAt: serverTimestamp(),
+      details,
+    }));
+  }
+
+  static async reserveBillingNumber(kind: 'invoice' | 'quotation', prefix: string): Promise<string> {
+    const now = new Date();
+    const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const financialYear = `${startYear}-${String(startYear + 1).slice(-2)}`;
+    const counterRef = doc(db, 'billing_counters', `${kind}-${financialYear}`);
+    return runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(counterRef);
+      const next = (snapshot.exists() ? Number(snapshot.data().lastNumber) : 0) + 1;
+      transaction.set(counterRef, {
+        id: `${kind}-${financialYear}`,
+        kind,
+        financialYear,
+        lastNumber: next,
+        updatedAt: new Date().toISOString(),
+      });
+      return `${prefix}${financialYear}/${String(next).padStart(3, '0')}`;
+    });
+  }
+
+  static subscribeBillingCollection<T>(path: string, onUpdate: (rows: T[]) => void): Unsubscribe {
+    return onSnapshot(collection(db, path), (snapshot) => {
+      const rows = snapshot.docs
+        .map((item) => ({ ...item.data(), id: item.id } as T & { isArchived?: boolean }))
+        .filter((item) => !item.isArchived) as T[];
+      onUpdate(rows);
+    });
+  }
+
+  static async saveBillingInvoice(invoice: Invoice): Promise<void> {
+    await setDoc(doc(db, 'billing_invoices', invoice.id), sanitizeForFirestore(invoice));
+    await this.audit('UPSERT', 'invoice', invoice.id, { invoiceNumber: invoice.invoiceNumber });
+  }
+
+  static async archiveBillingInvoice(invoice: Invoice): Promise<void> {
+    await updateDoc(doc(db, 'billing_invoices', invoice.id), {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: new Date().toISOString(),
+    });
+    await this.audit('ARCHIVE', 'invoice', invoice.id, { invoiceNumber: invoice.invoiceNumber });
+  }
+
+  static async saveBillingClient(client: ClientContact): Promise<void> {
+    await setDoc(doc(db, 'billing_clients', client.id), sanitizeForFirestore(client));
+    await this.audit('UPSERT', 'client', client.id);
+  }
+
+  static async archiveBillingClient(client: ClientContact): Promise<void> {
+    await updateDoc(doc(db, 'billing_clients', client.id), { isArchived: true, archivedAt: serverTimestamp(), updatedAt: new Date().toISOString() });
+    await this.audit('ARCHIVE', 'client', client.id);
+  }
+
+  static async saveBillingQuotation(quotation: Quotation): Promise<void> {
+    await setDoc(doc(db, 'billing_quotations', quotation.id), sanitizeForFirestore(quotation));
+    await this.audit('UPSERT', 'quotation', quotation.id, { quotationNumber: quotation.quotationNumber });
+  }
+
+  static async archiveBillingQuotation(quotation: Quotation): Promise<void> {
+    await updateDoc(doc(db, 'billing_quotations', quotation.id), { isArchived: true, archivedAt: serverTimestamp(), updatedAt: new Date().toISOString() });
+    await this.audit('ARCHIVE', 'quotation', quotation.id, { quotationNumber: quotation.quotationNumber });
+  }
+
+  static subscribeBillingSettings(onUpdate: (settings: BillingSettings) => void): Unsubscribe {
+    return onSnapshot(doc(db, 'billing_settings', 'main'), (snapshot) => {
+      if (snapshot.exists()) onUpdate(snapshot.data() as BillingSettings);
+    });
+  }
+
+  static async saveBillingSettings(settings: BillingSettings): Promise<void> {
+    await setDoc(doc(db, 'billing_settings', 'main'), sanitizeForFirestore(settings));
+    await this.audit('UPDATE_SETTINGS', 'settings', 'main');
+  }
   // -------------------------------------------------------------
   // 1. POSTS (News Articles & Content)
   // -------------------------------------------------------------
