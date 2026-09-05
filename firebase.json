@@ -8,6 +8,7 @@
       "npm run build"
     ],
     "public": "dist",
+    "trailingSlash": false,
     "ignore": [
       "firebase.json",
       "**/.*",
