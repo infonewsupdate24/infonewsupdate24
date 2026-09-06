@@ -72,6 +72,7 @@ import { ArticleContentRenderer } from '../common/ArticleContentRenderer';
 import { WebPushPromptBanner } from './WebPushPromptBanner';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { PWAService } from '../../services/PWAService';
+import { normalizeArticleSlug, articleUrl, isPublicArticle, isIndexableArticle, newestArticleFirst, ARTICLE_FALLBACK_IMAGE } from '../../utils/articleUrls.mjs';
 import { FirestoreNewsService } from '../../services/FirestoreNewsService';
 import { KrishiMandiRatesWidget } from './KrishiMandiRatesWidget';
 import { WhatsAppCommunityFloatingWidget } from './WhatsAppCommunityFloatingWidget';
@@ -280,12 +281,14 @@ export const PublicPortalView: React.FC = () => {
   const [isPWAInstallModalOpen, setIsPWAInstallModalOpen] = useState(false);
   const [asyncFetchedPost, setAsyncFetchedPost] = useState<Post | null>(null);
   const [isFetchingDirectPost, setIsFetchingDirectPost] = useState(false);
+  const [lookupSlug, setLookupSlug] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState(false);
 
   // Published posts and pages only for public view (with fallback to all active posts)
   const publishedPosts = useMemo(
     () =>
       posts.filter(
-        (p) => p.status === 'PUBLISHED' || !p.status || (p.status as string).toUpperCase() === 'PUBLISHED'
+        isPublicArticle
       ),
     [posts]
   );
@@ -298,7 +301,7 @@ export const PublicPortalView: React.FC = () => {
   const navigateToPost = (slugOrPost: Post | string) => {
     const targetSlug = typeof slugOrPost === 'string' ? slugOrPost : slugOrPost.slug;
     if (!targetSlug) return;
-    setPublicActivePostSlug(targetSlug.trim().toLowerCase());
+    setPublicActivePostSlug(normalizeArticleSlug(targetSlug));
     setPublicActiveCategorySlug(null);
     setPublicActivePageSlug(null);
     setIsEPaperViewOpen(false);
@@ -331,6 +334,7 @@ export const PublicPortalView: React.FC = () => {
   };
 
   const navigateToHome = () => {
+    window.history.pushState({}, '', '/');
     setPublicActivePostSlug(null);
     setPublicActiveCategorySlug(null);
     setPublicActivePageSlug(null);
@@ -341,40 +345,11 @@ export const PublicPortalView: React.FC = () => {
 
   const selectedPost = useMemo(() => {
     if (!publicActivePostSlug) return null;
-    const target = decodeURIComponent(publicActivePostSlug).trim().toLowerCase().replace(/^\/+|\/+$/g, '');
-    const cleanTargetNormalized = target.replace(/[^a-z0-9\u0900-\u097F]/gi, '');
-
-    // 1. Direct slug or ID matching (case-insensitive)
-    const matchPost = (p: Post) => {
-      const pSlug = (p.slug || '').trim().toLowerCase().replace(/^\/+|\/+$/g, '');
-      const pId = (p.id || '').trim().toLowerCase();
-      const pSlugNormalized = pSlug.replace(/[^a-z0-9\u0900-\u097F]/gi, '');
-
-      return (
-        pSlug === target ||
-        pId === target ||
-        pId === `post-${target}` ||
-        `post-${pId}` === target ||
-        (cleanTargetNormalized.length >= 4 && pSlugNormalized === cleanTargetNormalized) ||
-        (target.length > 6 && pSlug.includes(target)) ||
-        (pSlug.length > 6 && target.includes(pSlug))
-      );
-    };
-
-    const found = publishedPosts.find(matchPost) || posts.find(matchPost);
+    const target = normalizeArticleSlug(publicActivePostSlug);
+    const matchPost = (p: Post) => normalizeArticleSlug(p.slug) === target || p.id === target;
+    const found = publishedPosts.filter(matchPost).sort(newestArticleFirst)[0];
     if (found) return found;
-
-    // 2. Check spotlight stories
-    const spotlightMatch = GADCHIROLI_SPOTLIGHT_STORIES.find((s) => {
-      const sSlug = (s.slug || '').trim().toLowerCase().replace(/^\/+|\/+$/g, '');
-      const sId = (s.id || '').trim().toLowerCase();
-      const sSlugNormalized = sSlug.replace(/[^a-z0-9\u0900-\u097F]/gi, '');
-      return (
-        sSlug === target ||
-        sId === target ||
-        (cleanTargetNormalized.length >= 4 && sSlugNormalized === cleanTargetNormalized)
-      );
-    });
+    const spotlightMatch = GADCHIROLI_SPOTLIGHT_STORIES.find(s => normalizeArticleSlug(s.slug) === target || s.id === target);
 
     if (spotlightMatch) {
       return {
@@ -406,7 +381,8 @@ export const PublicPortalView: React.FC = () => {
     return null;
   }, [publicActivePostSlug, publishedPosts, posts]);
 
-  const activeArticle = selectedPost || asyncFetchedPost;
+  const activeArticle = selectedPost || (lookupSlug === publicActivePostSlug ? asyncFetchedPost : null);
+  const articleLoading = Boolean(publicActivePostSlug && !activeArticle && (isFetchingDirectPost || lookupSlug !== publicActivePostSlug));
 
   // Real-time direct Firestore fetch fallback for deep article links opened from cold cache
   useEffect(() => {
@@ -423,19 +399,26 @@ export const PublicPortalView: React.FC = () => {
     }
 
     let isMounted = true;
+    setAsyncFetchedPost(null);
+    setLookupError(false);
     setIsFetchingDirectPost(true);
 
     FirestoreNewsService.getPostBySlugOrId(publicActivePostSlug)
       .then((cloudDoc) => {
         if (isMounted) {
-          if (cloudDoc) {
+          setLookupSlug(publicActivePostSlug);
+          if (cloudDoc && isPublicArticle(cloudDoc)) {
             setAsyncFetchedPost(cloudDoc);
           }
           setIsFetchingDirectPost(false);
         }
       })
       .catch(() => {
-        if (isMounted) setIsFetchingDirectPost(false);
+        if (isMounted) {
+          setLookupSlug(publicActivePostSlug);
+          setLookupError(true);
+          setIsFetchingDirectPost(false);
+        }
       });
 
     return () => {
@@ -515,6 +498,8 @@ export const PublicPortalView: React.FC = () => {
       let postSlugCandidate = '';
       if (pathname.startsWith('/news/')) {
         postSlugCandidate = pathname.replace('/news/', '');
+      } else if (pathname.startsWith('/post/')) {
+        postSlugCandidate = pathname.replace('/post/', '');
       } else if (pathname.startsWith('/article/')) {
         postSlugCandidate = pathname.replace('/article/', '');
       } else if (pathname.match(/^\/\d{4}\/\d{2}\/(\d{2}\/)?([^\/]+)$/)) {
@@ -533,7 +518,7 @@ export const PublicPortalView: React.FC = () => {
       }
 
       if (postSlugCandidate) {
-        const cleanCandidate = decodeURIComponent(postSlugCandidate).trim().toLowerCase();
+        const cleanCandidate = normalizeArticleSlug(postSlugCandidate);
         if (cleanCandidate && cleanCandidate !== 'index.html') {
           setPublicActivePostSlug(cleanCandidate);
           setPublicActiveCategorySlug(null);
@@ -568,7 +553,9 @@ export const PublicPortalView: React.FC = () => {
     if (typeof window === 'undefined') return;
 
     const setMetaTag = (selector: string, attr: string, value: string) => {
-      let el = document.querySelector(selector);
+      const matches = document.querySelectorAll(selector);
+      matches.forEach((node, index) => { if (index > 0) node.remove(); });
+      let el = matches[0];
       if (!el) {
         if (selector.startsWith('meta[name=')) {
           const name = selector.match(/meta\[name="([^"]+)"\]/)?.[1];
@@ -596,9 +583,15 @@ export const PublicPortalView: React.FC = () => {
     };
 
     if (publicActivePostSlug) {
-      const targetPath = `/news/${publicActivePostSlug}`;
-      if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActivePostSlug)) {
-        window.history.pushState({ postSlug: publicActivePostSlug }, '', targetPath);
+      const targetPath = new URL(articleUrl(activeArticle?.slug || publicActivePostSlug)).pathname;
+      const currentSlug = normalizeArticleSlug(window.location.pathname.replace(/^\/(?:news|article|post)\//, '/'));
+      if (window.location.pathname !== targetPath) {
+        const method = currentSlug === normalizeArticleSlug(publicActivePostSlug) ? 'replaceState' : 'pushState';
+        window.history[method]({ postSlug: publicActivePostSlug }, '', targetPath);
+      } else if (new URLSearchParams(window.location.search).has('amp')) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('amp');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
       }
      if (activeArticle) {
   const metaTitle = activeArticle.seo?.seoTitle || activeArticle.title;
@@ -607,20 +600,19 @@ export const PublicPortalView: React.FC = () => {
     activeArticle.excerpt ||
     activeArticle.title;
 
-  const cleanSlug = (activeArticle.slug || publicActivePostSlug)
-    .trim()
-    .replace(/^\/+|\/+$/g, '');
-
-  const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(cleanSlug)}`;
-  const postImg =
-    activeArticle.featuredImage ||
-    'https://www.infonewsupdate24.com/icon-512.svg';
+  const postUrl = articleUrl(activeArticle.slug || publicActivePostSlug);
+  const postImg = activeArticle.featuredImage || ARTICLE_FALLBACK_IMAGE;
 
   const postImgAlt =
     activeArticle.featuredImageAlt ||
     activeArticle.title;
 
-        document.title = `${metaTitle} | InfoNewsUpdate24`;
+        document.title = metaTitle;
+        document.querySelector('[data-infonews-static-article-seo]')?.remove();
+        setMetaTag('meta[name="title"]', 'content', metaTitle);
+        setMetaTag('meta[property="og:type"]', 'content', 'article');
+        setMetaTag('meta[name="twitter:card"]', 'content', 'summary_large_image');
+        for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', isIndexableArticle(activeArticle) ? 'index, follow, max-image-preview:large' : 'noindex, follow');
         setMetaTag('meta[name="description"]', 'content', metaDesc);
         setMetaTag('meta[property="og:title"]', 'content', metaTitle);
         setMetaTag('meta[property="og:description"]', 'content', metaDesc);
@@ -631,26 +623,31 @@ export const PublicPortalView: React.FC = () => {
         setMetaTag('meta[name="twitter:description"]', 'content', metaDesc);
         setMetaTag('meta[name="twitter:image"]', 'content', postImg);
         setMetaTag('link[rel="canonical"]', 'href', postUrl);
+      } else {
+        document.title = articleLoading ? 'Loading article | InfoNewsUpdate24' : lookupError ? 'Article temporarily unavailable | InfoNewsUpdate24' : 'Article Not Found | InfoNewsUpdate24';
+        for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', 'noindex, follow');
+        setMetaTag('meta[name="description"]', 'content', document.title);
+        document.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"], [data-infonews-static-article-seo]').forEach(node => node.remove());
       }
     } else if (publicActiveCategorySlug) {
       const activeCat = categories.find((c) => c.slug === publicActiveCategorySlug || c.id === publicActiveCategorySlug);
-      const targetPath = `/category/${publicActiveCategorySlug}/`;
+      const targetPath = `/category/${publicActiveCategorySlug}`;
       if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActiveCategorySlug)) {
         window.history.pushState({ categorySlug: publicActiveCategorySlug }, '', targetPath);
       }
       if (activeCat) {
         document.title = `${activeCat.name} | ताज्या मराठी बातम्या | InfoNewsUpdate24`;
-        setMetaTag('link[rel="canonical"]', 'href', `https://www.infonewsupdate24.com/category/${publicActiveCategorySlug}/`);
+        setMetaTag('link[rel="canonical"]', 'href', `https://www.infonewsupdate24.com/category/${publicActiveCategorySlug}`);
       }
     } else if (publicActivePageSlug) {
       const activePage = pages.find((pg) => pg.slug === publicActivePageSlug);
-      const targetPath = `/page/${publicActivePageSlug}/`;
+      const targetPath = `/page/${publicActivePageSlug}`;
       if (window.location.pathname !== targetPath && !window.location.pathname.includes(publicActivePageSlug)) {
         window.history.pushState({ pageSlug: publicActivePageSlug }, '', targetPath);
       }
       if (activePage) {
         document.title = `${activePage.title} | InfoNewsUpdate24`;
-        setMetaTag('link[rel="canonical"]', 'href', `https://www.infonewsupdate24.com/page/${publicActivePageSlug}/`);
+        setMetaTag('link[rel="canonical"]', 'href', `https://www.infonewsupdate24.com/page/${publicActivePageSlug}`);
       }
     } else if (isEPaperViewOpen) {
       if (window.location.pathname !== '/epaper' && !window.location.search.includes('mode=epaper')) {
@@ -676,6 +673,14 @@ if (currentPath !== '/') {
       const defaultUrl = 'https://www.infonewsupdate24.com/';
       const defaultImg = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=630&auto=format&fit=crop&q=80';
 
+      document.querySelector('[data-infonews-static-article-seo]')?.remove();
+      for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', 'index, follow, max-image-preview:large');
+      setMetaTag('meta[name="title"]', 'content', defaultTitle);
+      setMetaTag('meta[property="og:type"]', 'content', 'website');
+      setMetaTag('meta[name="twitter:card"]', 'content', 'summary_large_image');
+      setMetaTag('meta[name="twitter:title"]', 'content', defaultTitle);
+      setMetaTag('meta[name="twitter:description"]', 'content', defaultDesc);
+      setMetaTag('meta[name="twitter:image"]', 'content', defaultImg);
       setMetaTag('meta[name="description"]', 'content', defaultDesc);
       setMetaTag('meta[property="og:title"]', 'content', defaultTitle);
       setMetaTag('meta[property="og:description"]', 'content', defaultDesc);
@@ -683,7 +688,7 @@ if (currentPath !== '/') {
       setMetaTag('meta[property="og:image"]', 'content', defaultImg);
       setMetaTag('link[rel="canonical"]', 'href', defaultUrl);
     }
- }, [publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, activeArticle, categories, pages]);
+ }, [articleLoading, lookupError, publicActivePostSlug, publicActiveCategorySlug, publicActivePageSlug, isEPaperViewOpen, activeArticle, categories, pages]);
 
   useEffect(() => {
     const handleLayoutUpdate = () => {
@@ -3091,13 +3096,13 @@ if (currentPath !== '/') {
                   '@type': 'NewsArticle',
                   mainEntityOfPage: {
                     '@type': 'WebPage',
-                    '@id': `https://www.infonewsupdate24.com/${encodeURIComponent(activeArticle.slug)}/`,
+                    '@id': articleUrl(activeArticle.slug),
                   },
                   headline: activeArticle.seo?.seoTitle || activeArticle.title,
                   description: activeArticle.seo?.metaDescription || activeArticle.excerpt || activeArticle.title,
                   image: activeArticle.featuredImage
                     ? [activeArticle.featuredImage]
-                    : ['https://www.infonewsupdate24.com/icon-512.svg'],
+                    : [ARTICLE_FALLBACK_IMAGE],
                   datePublished: (() => {
                     const d = new Date(activeArticle.publishDate || activeArticle.createdAt || Date.now());
                     return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
@@ -3113,8 +3118,8 @@ if (currentPath !== '/') {
                     return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
                   })(),
                   author: {
-                    '@type': 'Person',
-                    name: activeArticle.authorName || 'InfoNewsUpdate24 विशेष प्रतिनिधी',
+                    '@type': activeArticle.authorName ? 'Person' : 'Organization',
+                    name: activeArticle.authorName || 'InfoNewsUpdate24',
                   },
                   publisher: {
                     '@type': 'NewsMediaOrganization',
@@ -3582,12 +3587,17 @@ if (currentPath !== '/') {
               </div>
             </div>
           </div>
-        ) : isFetchingDirectPost ? (
+        ) : articleLoading ? (
           /* LOADING SPINNER WHILE FETCHING DIRECT CLOUD POST */
           <div className="max-w-3xl mx-auto bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 my-8">
             <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-red-600 border-r-transparent"></div>
             <p className="text-sm font-bold text-slate-800 font-serif">ताज्या बातम्या क्लाऊडवरून लोड होत आहेत...</p>
             <p className="text-xs text-slate-500 font-mono">Fetching live article from Firestore...</p>
+          </div>
+        ) : publicActivePostSlug && lookupError ? (
+          <div className="max-w-3xl mx-auto p-12 text-center">
+            <p>बातमी सध्या लोड करता आली नाही. कृपया पुन्हा प्रयत्न करा.</p>
+            <button onClick={() => window.location.reload()}>पुन्हा प्रयत्न करा</button>
           </div>
         ) : publicActivePostSlug ? (
           /* VIEW C: ARTICLE 404 OR LOADING STATE - NEVER SILENTLY REDIRECT TO HOME */
@@ -3600,10 +3610,10 @@ if (currentPath !== '/') {
                 त्रुटी ४०४ (Article Not Found)
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                आपण शोधत असलेली बातमी लोड होत आहे किंवा उपलब्ध नाही
+                आपण शोधत असलेली बातमी उपलब्ध नाही
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-                बातमीची लिंक <code className="bg-slate-100 px-2 py-0.5 rounded text-red-600 font-mono text-xs">/{publicActivePostSlug}/</code> अद्ययावत केली जात आहे किंवा ती हटवली असू शकते.
+                बातमीची लिंक <code className="bg-slate-100 px-2 py-0.5 rounded text-red-600 font-mono text-xs">/{publicActivePostSlug}/</code> उपलब्ध नाही किंवा ती हटवली असू शकते.
               </p>
             </div>
             <div className="pt-2 flex flex-wrap justify-center gap-3">

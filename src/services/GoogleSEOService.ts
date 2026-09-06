@@ -1,3 +1,4 @@
+import { articleUrl, isIndexableArticle, SITE_ORIGIN } from '../utils/articleUrls.mjs';
 export interface GoogleSEOSettings {
   siteTitle: string;
   metaDescription: string;
@@ -24,7 +25,7 @@ export const DEFAULT_GOOGLE_SEO_SETTINGS: GoogleSEOSettings = {
     'InfoNewsUpdate24 - गडचिरोली १२ तालुके, विदर्भ, महाराष्ट्र, राजकारण, कृषी उत्पन्न बाजारभाव, पंचांग, थेट हवामान आणि ताज्या घडामोडींचे अग्रगण्य डिजिटल न्यूज नेटवर्क.',
   metaKeywords:
     'मराठी बातम्या, ताज्या बातम्या, गडचिरोली न्यूज, महाराष्ट्र घडामोडी, बाजारभाव, पंचांग, हवामान, Marathi News, InfoNewsUpdate24',
-  canonicalBaseUrl: 'https://infonewsupdate24.com',
+  canonicalBaseUrl: 'https://www.infonewsupdate24.com',
   googleAnalyticsId: 'G-INFONEWSUPDATE24XX',
   googleNewsPublicationName: 'InfoNewsUpdate24',
   googleNewsLanguage: 'mr',
@@ -53,8 +54,8 @@ Disallow: /admin
 Disallow: /cms
 
 # XML Sitemaps
-Sitemap: https://infonewsupdate24.com/sitemap.xml
-Sitemap: https://infonewsupdate24.com/sitemap-news.xml`,
+Sitemap: https://www.infonewsupdate24.com/sitemap.xml
+Sitemap: https://www.infonewsupdate24.com/sitemap-news.xml`,
 };
 
 export class GoogleSEOService {
@@ -79,7 +80,7 @@ export class GoogleSEOService {
 
   static generateStandardSitemapXML(posts: any[], pages: any[], categories: any[]): string {
     const settings = this.getSettings();
-    const baseUrl = settings.canonicalBaseUrl.replace(/\/+$/, '');
+    const baseUrl = SITE_ORIGIN;
     const now = new Date().toISOString();
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -95,9 +96,10 @@ export class GoogleSEOService {
 
     // Posts
     posts
-      .filter((p) => p.status === 'PUBLISHED')
+      .filter(isIndexableArticle)
+      .filter((post, index, all) => all.findIndex(p => articleUrl(p.slug) === articleUrl(post.slug)) === index)
       .forEach((post) => {
-        xml += `  <url>\n    <loc>${baseUrl}/post/${post.slug}</loc>\n    <lastmod>${post.updatedAt || now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
+        xml += `  <url>\n    <loc>${articleUrl(post.slug)}</loc>\n    <lastmod>${post.updatedAt || now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
         if (post.featuredImage) {
           xml += `    <image:image>\n      <image:loc>${post.featuredImage}</image:loc>\n      <image:title>${post.title.replace(/[<>&'"]/g, '')}</image:title>\n    </image:image>\n`;
         }
@@ -117,7 +119,7 @@ export class GoogleSEOService {
 
   static generateGoogleNewsSitemapXML(posts: any[]): string {
     const settings = this.getSettings();
-    const baseUrl = settings.canonicalBaseUrl.replace(/\/+$/, '');
+    const baseUrl = SITE_ORIGIN;
     const pubName = settings.googleNewsPublicationName || 'InfoNewsUpdate24';
     const lang = settings.googleNewsLanguage || 'mr';
 
@@ -125,7 +127,7 @@ export class GoogleSEOService {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">\n`;
 
     // Last 48 hours published posts
-    const newsPosts = posts.filter((p) => p.status === 'PUBLISHED').slice(0, 100);
+    const newsPosts = posts.filter(isIndexableArticle).filter(p => Date.parse(p.publishedAt || p.publishDate || p.createdAt) >= Date.now() - 48 * 60 * 60 * 1000).slice(0, 1000);
 
     newsPosts.forEach((post) => {
       const pubDate = post.publishDate || new Date().toISOString();
@@ -133,7 +135,7 @@ export class GoogleSEOService {
       const keywords = (post.tags || []).join(', ') || 'महाराष्ट्र, मराठी बातम्या, ताज्या घडामोडी';
 
       xml += `  <url>\n`;
-      xml += `    <loc>${baseUrl}/post/${post.slug}</loc>\n`;
+      xml += `    <loc>${articleUrl(post.slug)}</loc>\n`;
       xml += `    <news:news>\n`;
       xml += `      <news:publication>\n`;
       xml += `        <news:name>${pubName}</news:name>\n`;

@@ -203,7 +203,7 @@
         ]
       },
       {
-        "source": "/(sitemap*.xml|robots.txt)",
+        "source": "/sitemap*.xml",
         "headers": [
           {
             "key": "Content-Type",
@@ -227,11 +227,40 @@
             "value": "public, max-age=3600, must-revalidate"
           }
         ]
+      },
+      {
+        "source": "/robots.txt",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          }
+        ]
       }
     ],
     "rewrites": [
       {
-        "source": "**",
+        "source": "/category/**",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/page/**",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/cms{,/**}",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/admin{,/**}",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/login",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/epaper",
         "destination": "/index.html"
       }
     ]

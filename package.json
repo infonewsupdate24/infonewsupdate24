@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "postbuild": "node scripts/generate_article_seo_pages.cjs"
+    "postbuild": "node scripts/generate_article_seo_pages.cjs && node scripts/validate_seo.cjs",
+    "deploy:hosting": "npm run build && npx firebase-tools deploy --only hosting --project in24-news-platform-6f802 --config firebase.hosting.generated.json"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

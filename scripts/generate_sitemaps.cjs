@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const IMPORTED_POSTS_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'importedWordPressPosts.json');
+const { loadPublicPosts } = require('./load_public_posts.cjs');
 const PUBLIC_DIR = path.join(PROJECT_ROOT, 'public');
 
 const GLOBAL_STABLE_EPOCH = '2026-08-29T00:00:00.000Z';
@@ -46,47 +46,8 @@ function normalizeImageUrl(img) {
 async function generateAll() {
   console.log('🚀 Generating Sitemaps & RSS Feeds...');
 
-  // 1. Load Base Posts
-  let basePosts = [];
-  if (fs.existsSync(IMPORTED_POSTS_PATH)) {
-    basePosts = JSON.parse(fs.readFileSync(IMPORTED_POSTS_PATH, 'utf8'));
-  }
-
-  // 2. Fetch live Firestore Cloud Posts if available
-  let cloudPosts = [];
-  try {
-    const { initializeApp } = require(path.join(PROJECT_ROOT, 'node_modules', 'firebase', 'app'));
-    const { getFirestore, collection, getDocs } = require(path.join(PROJECT_ROOT, 'node_modules', 'firebase', 'firestore'));
-    const config = require(path.join(PROJECT_ROOT, 'firebase-applet-config.json'));
-    const app = initializeApp(config, 'sitemap-builder-' + Date.now());
-    const db = getFirestore(app);
-    const snap = await getDocs(collection(db, 'posts'));
-    snap.forEach(d => cloudPosts.push({ id: d.id, ...d.data() }));
-    console.log(`✅ Loaded ${cloudPosts.length} posts from Firestore cloud`);
-  } catch (err) {
-    console.warn(`⚠️ Cloud fetch skipped or offline, using base posts: ${err.message}`);
-  }
-
-  // 3. Deduplicate
-  const postsMap = new Map();
-  basePosts.forEach(p => postsMap.set(p.id, p));
-  cloudPosts.forEach(p => postsMap.set(p.id, p));
-
-  const now = Date.now();
-  const validPublishedPosts = [];
-
-  for (const post of postsMap.values()) {
-    if (post.isDeleted === true || post.status === 'TRASH' || post.status === 'DRAFT') continue;
-    if (post.scheduledDate) {
-      const sch = new Date(post.scheduledDate).getTime();
-      if (!isNaN(sch) && sch > now) continue;
-    }
-    if (!post.status || post.status === 'PUBLISHED' || post.status === 'publish') {
-      if (post.slug && post.title) {
-        validPublishedPosts.push(post);
-      }
-    }
-  }
+  const { isIndexableArticle } = await import('../src/utils/articleUrls.mjs');
+  const validPublishedPosts = (await loadPublicPosts({ refresh: true })).filter(isIndexableArticle);
 
   // Sort by date desc
   validPublishedPosts.sort((a, b) => {
@@ -132,12 +93,15 @@ async function generateAll() {
   }
   sitemapXml += `</urlset>\n`;
 
-  // 5. Build sitemap-news.xml (Articles from past 48 hours, or top 10 recent)
-  const recentNews = validPublishedPosts.slice(0, 10);
+  // 5. Google News includes only articles published within the past 48 hours.
+  const recentNews = validPublishedPosts.filter(post => {
+    const date = extractStableDate({ createdAt: post.publishedAt || post.publishDate || post.createdAt });
+    return Date.parse(date) >= Date.now() - 48 * 60 * 60 * 1000 && Date.parse(date) <= Date.now();
+  }).slice(0, 1000);
   let newsSitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">\n`;
   for (const post of recentNews) {
     const postUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(post.slug)}`;
-    const pubDate = extractStableDate(post);
+    const pubDate = extractStableDate({ createdAt: post.publishedAt || post.publishDate || post.createdAt });
     newsSitemapXml += `  <url>\n    <loc>${escapeXml(postUrl)}</loc>\n    <news:news>\n      <news:publication>\n        <news:name>InfoNewsUpdate24</news:name>\n        <news:language>mr</news:language>\n      </news:publication>\n      <news:publication_date>${pubDate}</news:publication_date>\n      <news:title>${escapeXml(post.title)}</news:title>\n    </news:news>\n  </url>\n`;
   }
   newsSitemapXml += `</urlset>\n`;

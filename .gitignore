@@ -12,3 +12,5 @@ domains/
 public/wp-content/
 .firebase/
 
+
+firebase.hosting.generated.json

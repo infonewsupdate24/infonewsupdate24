@@ -4,15 +4,10 @@ const path = require('path');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
 const DIST_INDEX = path.join(DIST_DIR, 'index.html');
-const IMPORTED_POSTS_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'importedWordPressPosts.json');
+const { loadPublicPosts } = require('./load_public_posts.cjs');
 const SITE_ORIGIN = 'https://www.infonewsupdate24.com';
 
-function normalizeSlug(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^\/+|\/+$/g, '');
-}
+let normalizeSlug;
 
 function escapeHtml(value) {
   return String(value || '')
@@ -75,7 +70,7 @@ function getSeoImageUrl(post) {
     if (normalized) return normalized;
   }
 
-  return `${SITE_ORIGIN}/icon-512.svg`;
+  return 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80';
 }
 
 function getImageMimeType(imageUrl) {
@@ -130,8 +125,8 @@ function textExcerpt(post) {
 function setTitle(html, value) {
   const tag = `<title>${escapeHtml(value)}</title>`;
   return /<title>[\s\S]*?<\/title>/i.test(html)
-    ? html.replace(/<title>[\s\S]*?<\/title>/i, tag)
-    : html.replace(/<\/head>/i, `  ${tag}\n</head>`);
+    ? html.replace(/<title>[\s\S]*?<\/title>/i, () => tag)
+    : html.replace(/<\/head>/i, () => `  ${tag}\n</head>`);
 }
 
 function setMeta(html, keyType, key, content) {
@@ -139,76 +134,18 @@ function setMeta(html, keyType, key, content) {
   const keyEsc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(`<meta\\s+[^>]*${keyType}=["']${keyEsc}["'][^>]*>`, 'i');
   const tag = `<meta ${keyType}="${key}" content="${escaped}" />`;
-  return re.test(html) ? html.replace(re, tag) : html.replace(/<\/head>/i, `  ${tag}\n</head>`);
+  return re.test(html) ? html.replace(re, () => tag) : html.replace(/<\/head>/i, () => `  ${tag}\n</head>`);
 }
 
 function setCanonical(html, href) {
   const tag = `<link rel="canonical" href="${escapeHtml(href)}" />`;
-  const re = /<link\s+[^>]*rel=["']canonical["'][^>]*>/i;
-  return re.test(html) ? html.replace(re, tag) : html.replace(/<\/head>/i, `  ${tag}\n</head>`);
+  const re = /<link\s+[^>]*rel=["']canonical["'][^>]*>/gi;
+  return html.replace(re, '').replace(/<\/head>/i, () => `  ${tag}\n</head>`);
 }
 
 function injectArticleJsonLd(html, data) {
   const block = `  <script type="application/ld+json" data-infonews-static-article-seo>${safeJson(data)}</script>\n`;
-  return html.replace(/<\/head>/i, `${block}</head>`);
-}
-
-async function loadPosts() {
-  let importedPosts = [];
-  if (fs.existsSync(IMPORTED_POSTS_PATH)) {
-    importedPosts = JSON.parse(fs.readFileSync(IMPORTED_POSTS_PATH, 'utf8'));
-  }
-
-  let cloudPosts = [];
-  try {
-    const { initializeApp } = require(path.join(PROJECT_ROOT, 'node_modules', 'firebase', 'app'));
-    const { getFirestore, collection, getDocs } = require(path.join(PROJECT_ROOT, 'node_modules', 'firebase', 'firestore'));
-    const config = require(path.join(PROJECT_ROOT, 'firebase-applet-config.json'));
-    const app = initializeApp(config, `article-seo-builder-${Date.now()}`);
-    const db = getFirestore(app);
-    const snapshot = await getDocs(collection(db, 'posts'));
-    snapshot.forEach((doc) => cloudPosts.push({ id: doc.id, ...doc.data() }));
-    console.log(`✅ SEO pages: loaded ${cloudPosts.length} Firestore posts`);
-  } catch (error) {
-    console.warn(`⚠️ SEO pages: Firestore fetch skipped; using imported posts: ${error.message}`);
-  }
-
-  const bySlug = new Map();
-  importedPosts.forEach((post) => {
-    const slug = normalizeSlug(post.slug);
-    if (slug) bySlug.set(slug, { ...post, slug });
-  });
-  cloudPosts.forEach((post) => {
-    const slug = normalizeSlug(post.slug);
-    if (slug) {
-      const importedPost = bySlug.get(slug);
-      bySlug.set(slug, {
-        ...importedPost,
-        ...post,
-        slug,
-        _importedFeaturedImage:
-          importedPost?._importedFeaturedImage || importedPost?.featuredImage || '',
-      });
-    }
-  });
-
-  const now = Date.now();
-  return [...bySlug.values()].filter((post) => {
-    const status = String(post.status || '').toUpperCase();
-    const visibility = String(post.visibility || 'PUBLIC').toUpperCase();
-    const scheduledValue = post.scheduleDate || post.scheduledDate;
-    if (!post.slug || !post.title) return false;
-    if (post.isDeleted === true || post.isTest === true || post.isQa === true) return false;
-    if (post.indexable === false || post.seo?.indexable === false) return false;
-    if (status !== 'PUBLISHED' && status !== 'PUBLISH') return false;
-    if (visibility !== 'PUBLIC') return false;
-    if (/^(test-persistence|live-acceptance)(-|$)/i.test(post.slug)) return false;
-    if (scheduledValue) {
-      const scheduledAt = new Date(scheduledValue).getTime();
-      if (!Number.isNaN(scheduledAt) && scheduledAt > now) return false;
-    }
-    return true;
-  });
+  return html.replace(/<\/head>/i, () => `${block}</head>`);
 }
 
 async function main() {
@@ -217,14 +154,19 @@ async function main() {
   }
 
   const baseHtml = fs.readFileSync(DIST_INDEX, 'utf8');
-  const posts = await loadPosts();
+  const posts = await loadPublicPosts();
+  const { isIndexableArticle } = await import('../src/utils/articleUrls.mjs');
+  normalizeSlug = (await import('../src/utils/articleUrls.mjs')).normalizeArticleSlug;
+  const hosting = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'firebase.json'), 'utf8')).hosting;
+  delete hosting.predeploy;
+  const redirects = [...hosting.redirects];
 
   let generated = 0;
   for (const post of posts) {
     const slug = normalizeSlug(post.slug);
     const canonical = `${SITE_ORIGIN}/news/${encodeURIComponent(slug)}`;
     const title = post.seo?.seoTitle || post.title;
-    const fullTitle = `${title} | InfoNewsUpdate24`;
+    const fullTitle = title;
     const description = textExcerpt(post) || post.title;
     const image = getSeoImageUrl(post);
     const imageType = getImageMimeType(image);
@@ -237,6 +179,9 @@ async function main() {
 
     let html = baseHtml;
     html = setTitle(html, fullTitle);
+    for (const name of ['robots', 'googlebot', 'googlebot-news']) {
+      html = setMeta(html, 'name', name, isIndexableArticle(post) ? 'index, follow, max-image-preview:large' : 'noindex, follow');
+    }
     html = setMeta(html, 'name', 'title', title);
     html = setMeta(html, 'name', 'description', description);
     html = setMeta(html, 'property', 'og:type', 'article');
@@ -270,8 +215,8 @@ async function main() {
       datePublished: published,
       dateModified: modified,
       author: {
-        '@type': 'Person',
-        name: post.authorName || 'InfoNewsUpdate24 विशेष प्रतिनिधी',
+        '@type': post.authorName ? 'Person' : 'Organization',
+        name: post.authorName || 'InfoNewsUpdate24',
       },
       publisher: {
         '@type': 'NewsMediaOrganization',
@@ -287,20 +232,27 @@ async function main() {
       inLanguage: 'mr-IN',
     });
 
-    const articleOutputDirs = [
-      path.join(DIST_DIR, 'news', slug),
-      // Keep old /<slug>/ links crawler-readable while /news/<slug> remains canonical.
-      path.join(DIST_DIR, slug),
-    ];
-    articleOutputDirs.forEach((outDir) => {
-      fs.mkdirSync(outDir, { recursive: true });
-      fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
-    });
+    const outDir = path.join(DIST_DIR, 'news', slug);
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
+    // Exact published destinations only; missing slugs must remain HTTP 404.
+    const escapedSlug = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    redirects.push({ regex: '^/(?:article/|post/|[0-9]{4}/[0-9]{2}/(?:[0-9]{2}/)?)?' + escapedSlug + '/?$', destination: canonical, type: 301 });
     generated += 1;
   }
 
+  hosting.redirects = redirects;
+  fs.writeFileSync(path.join(PROJECT_ROOT, 'firebase.hosting.generated.json'), JSON.stringify({ hosting }, null, 2) + '\n');
+  let notFound = setTitle(baseHtml, 'Article Not Found | InfoNewsUpdate24');
+  notFound = notFound.replace(/<link\s+[^>]*rel=["']canonical["'][^>]*>/gi, '')
+    .replace(/<meta\s+[^>]*(?:property=["']og:[^"']+["']|name=["']twitter:[^"']+["'])[^>]*>/gi, '')
+    .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/gi, '');
+  for (const name of ['robots', 'googlebot', 'googlebot-news']) notFound = setMeta(notFound, 'name', name, 'noindex, follow');
+  notFound = setMeta(notFound, 'name', 'title', 'Article Not Found | InfoNewsUpdate24');
+  notFound = setMeta(notFound, 'name', 'description', 'The requested article could not be found.');
+  fs.writeFileSync(path.join(DIST_DIR, '404.html'), notFound);
   console.log(
-    `✅ Generated ${generated} crawler-readable article SEO pages for /news/<slug> and legacy /<slug> links`
+    `✅ Generated ${generated} crawler-readable article SEO pages with matching legacy 301 redirects`
   );
 }
 

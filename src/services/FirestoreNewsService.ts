@@ -7,6 +7,8 @@ import {
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
+  getDocsFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -19,6 +21,7 @@ import {
   runTransaction,
   type Unsubscribe,
 } from 'firebase/firestore';
+import { normalizeArticleSlug, isPublicArticle, newestArticleFirst } from '../utils/articleUrls.mjs';
 import { auth, db } from './firebase';
 import type {
   Post,
@@ -205,25 +208,16 @@ export class FirestoreNewsService {
   }
 
   static async getPostBySlugOrId(slugOrId: string): Promise<Post | null> {
-    try {
-      const cleanTarget = decodeURIComponent(slugOrId).trim().toLowerCase().replace(/^\/+|\/+$/g, '');
-      // 1. Try direct doc ID
-      const docSnap = await getDoc(doc(db, 'posts', cleanTarget));
-      if (docSnap.exists()) {
-        return { ...docSnap.data(), id: docSnap.id } as Post;
-      }
-      // 2. Try query by slug field
-      const q = query(collection(db, 'posts'), where('slug', '==', cleanTarget), limit(1));
-      const qSnap = await getDocs(q);
-      if (!qSnap.empty) {
-        const foundDoc = qSnap.docs[0];
-        return { ...foundDoc.data(), id: foundDoc.id } as Post;
-      }
-      return null;
-    } catch (err) {
-      console.warn('Firestore getPostBySlugOrId lookup note:', err);
-      return null;
+    const cleanTarget = normalizeArticleSlug(slugOrId);
+    if (!cleanTarget || /[\/?#\\]/.test(cleanTarget)) return null;
+    // Slugs take precedence over unrelated document IDs. Do not report network errors as 404.
+    const candidates = [...new Set([cleanTarget, encodeURIComponent(cleanTarget), cleanTarget + '/'])];
+    for (const candidate of candidates) {
+      const snap = await getDocsFromServer(query(collection(db, 'posts'), where('slug', '==', candidate)));
+      if (!snap.empty) return snap.docs.map(d => ({ ...d.data(), id: d.id }) as Post).filter(isPublicArticle).sort(newestArticleFirst)[0] || null;
     }
+    const snap = await getDocFromServer(doc(db, 'posts', cleanTarget));
+    return snap.exists() ? { ...snap.data(), id: snap.id } as Post : null;
   }
 
   static async deletePost(postId: string): Promise<void> {
