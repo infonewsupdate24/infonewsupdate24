@@ -72,7 +72,7 @@ import { ArticleContentRenderer } from '../common/ArticleContentRenderer';
 import { WebPushPromptBanner } from './WebPushPromptBanner';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { PWAService } from '../../services/PWAService';
-import { normalizeArticleSlug, articleUrl, isPublicArticle, isIndexableArticle, newestArticleFirst, ARTICLE_FALLBACK_IMAGE } from '../../utils/articleUrls.mjs';
+import { normalizeArticleSlug, articleUrl, isPublicArticle, articleRobots, PUBLISHED_ROBOTS, PRIVATE_ROBOTS, newestArticleFirst, ARTICLE_FALLBACK_IMAGE } from '../../utils/articleUrls.mjs';
 import { FirestoreNewsService } from '../../services/FirestoreNewsService';
 import { KrishiMandiRatesWidget } from './KrishiMandiRatesWidget';
 import { WhatsAppCommunityFloatingWidget } from './WhatsAppCommunityFloatingWidget';
@@ -582,6 +582,11 @@ export const PublicPortalView: React.FC = () => {
       }
     };
 
+    if (/^\/(?:admin|cms|login)(?:\/|$)/.test(window.location.pathname)) {
+      for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', PRIVATE_ROBOTS);
+      return;
+    }
+
     if (publicActivePostSlug) {
       const targetPath = new URL(articleUrl(activeArticle?.slug || publicActivePostSlug)).pathname;
       const currentSlug = normalizeArticleSlug(window.location.pathname.replace(/^\/(?:news|article|post)\//, '/'));
@@ -612,7 +617,7 @@ export const PublicPortalView: React.FC = () => {
         setMetaTag('meta[name="title"]', 'content', metaTitle);
         setMetaTag('meta[property="og:type"]', 'content', 'article');
         setMetaTag('meta[name="twitter:card"]', 'content', 'summary_large_image');
-        for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', isIndexableArticle(activeArticle) ? 'index, follow, max-image-preview:large' : 'noindex, follow');
+        for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', articleRobots(activeArticle));
         setMetaTag('meta[name="description"]', 'content', metaDesc);
         setMetaTag('meta[property="og:title"]', 'content', metaTitle);
         setMetaTag('meta[property="og:description"]', 'content', metaDesc);
@@ -624,8 +629,16 @@ export const PublicPortalView: React.FC = () => {
         setMetaTag('meta[name="twitter:image"]', 'content', postImg);
         setMetaTag('link[rel="canonical"]', 'href', postUrl);
       } else {
-        document.title = articleLoading ? 'Loading article | InfoNewsUpdate24' : lookupError ? 'Article temporarily unavailable | InfoNewsUpdate24' : 'Article Not Found | InfoNewsUpdate24';
-        for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', 'noindex, follow');
+        const robots = articleRobots(null, articleLoading || lookupError);
+        if (robots === null) {
+          // Preserve crawler-readable article metadata until the lookup actually finishes.
+          const staticCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute('href');
+          if (staticCanonical === articleUrl(publicActivePostSlug) && document.querySelector('[data-infonews-static-article-seo]')) return;
+          document.title = lookupError ? 'Article temporarily unavailable | InfoNewsUpdate24' : 'Loading article | InfoNewsUpdate24';
+          return;
+        }
+        document.title = 'Article Not Found | InfoNewsUpdate24';
+        for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', robots);
         setMetaTag('meta[name="description"]', 'content', document.title);
         document.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"], [data-infonews-static-article-seo]').forEach(node => node.remove());
       }
@@ -674,7 +687,7 @@ if (currentPath !== '/') {
       const defaultImg = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=630&auto=format&fit=crop&q=80';
 
       document.querySelector('[data-infonews-static-article-seo]')?.remove();
-      for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', 'index, follow, max-image-preview:large');
+      for (const name of ['robots', 'googlebot', 'googlebot-news']) setMetaTag('meta[name="' + name + '"]', 'content', PUBLISHED_ROBOTS);
       setMetaTag('meta[name="title"]', 'content', defaultTitle);
       setMetaTag('meta[property="og:type"]', 'content', 'website');
       setMetaTag('meta[name="twitter:card"]', 'content', 'summary_large_image');

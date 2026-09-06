@@ -1,4 +1,6 @@
 export const SITE_ORIGIN = 'https://www.infonewsupdate24.com';
+export const PUBLISHED_ROBOTS = 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
+export const PRIVATE_ROBOTS = 'noindex,nofollow';
 export const ARTICLE_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80';
 
 export function normalizeArticleSlug(value) {
@@ -29,7 +31,14 @@ export function isRoutableArticle(post) {
 }
 
 export function isIndexableArticle(post) {
-  return isRoutableArticle(post) && post.indexable !== false && post.seo?.indexable !== false;
+  // Publication state is authoritative, including posts with stale SEO flags.
+  return isRoutableArticle(post);
+}
+
+export function articleRobots(post, lookupPending = false) {
+  if (post) return isIndexableArticle(post) ? PUBLISHED_ROBOTS : PRIVATE_ROBOTS;
+  // An unresolved or failed lookup is not evidence that an article is missing.
+  return lookupPending ? null : PRIVATE_ROBOTS;
 }
 
 export function newestArticleFirst(a, b) {
