@@ -66,10 +66,30 @@ function getSeoImageUrl(post) {
 
   for (const candidate of candidates) {
     const normalized = normalizePublicImageUrl(candidate);
-    if (normalized) return normalized;
+    if (normalized) return getSocialPreviewImageUrl(normalized);
   }
 
   return 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80';
+}
+
+function getSocialPreviewImageUrl(imageUrl) {
+  try {
+    const parsed = new URL(imageUrl);
+    if (parsed.hostname.toLowerCase() !== 'res.cloudinary.com') return parsed.href;
+
+    // WhatsApp is most reliable with a conventional JPEG whose dimensions are
+    // known up front. Keep the original upload untouched and ask Cloudinary for
+    // a crawler-friendly 1200x630 derivative.
+    const uploadMarker = '/image/upload/';
+    if (!parsed.pathname.includes(uploadMarker)) return parsed.href;
+
+    parsed.pathname = parsed.pathname
+      .replace(uploadMarker, `${uploadMarker}c_fill,g_auto,w_1200,h_630,q_auto,f_jpg/`)
+      .replace(/\.[a-z0-9]+$/i, '.jpg');
+    return parsed.href;
+  } catch (_) {
+    return imageUrl;
+  }
 }
 
 function getImageMimeType(imageUrl) {
@@ -179,6 +199,8 @@ async function renderArticleSeo(baseHtml, post) {
     html = setMeta(html, 'property', 'og:image', image);
     html = setMeta(html, 'property', 'og:image:secure_url', image);
     html = setMeta(html, 'property', 'og:image:type', imageType);
+    html = setMeta(html, 'property', 'og:image:width', '1200');
+    html = setMeta(html, 'property', 'og:image:height', '630');
     html = setMeta(html, 'property', 'og:image:alt', imageAlt);
     html = setMeta(html, 'property', 'article:published_time', published);
     html = setMeta(html, 'property', 'article:modified_time', modified);

@@ -57,9 +57,22 @@ async function main() {
     assert.equal((html.match(/rel="canonical"/g) || []).length, 1);
     assert(html.includes(`<title>${escape(post.seo?.seoTitle || post.title)}</title>`));
     assert(html.includes(`rel="canonical" href="${canonical}"`));
-    for (const tag of ['og:title','og:description','og:image','og:url','twitter:card','twitter:title','twitter:description','twitter:image']) {
+    for (const tag of ['og:title','og:description','og:image','og:image:secure_url','og:image:type','og:image:width','og:image:height','og:url','twitter:card','twitter:title','twitter:description','twitter:image']) {
       assert(new RegExp(`(?:name|property)="${tag}" content="[^"]+"`).test(html), `${post.slug}: missing ${tag}`);
     }
+    const ogImage = html.match(/property="og:image" content="([^"]+)"/)[1];
+    const secureImage = html.match(/property="og:image:secure_url" content="([^"]+)"/)[1];
+    const twitterImage = html.match(/name="twitter:image" content="([^"]+)"/)[1];
+    assert.equal(secureImage, ogImage, `${post.slug}: og:image URLs must match`);
+    assert.equal(twitterImage, ogImage, `${post.slug}: Twitter image must match Open Graph image`);
+    const expectedImageType = ogImage.endsWith('.webp') ? 'image/webp'
+      : ogImage.endsWith('.png') ? 'image/png'
+      : ogImage.endsWith('.gif') ? 'image/gif'
+      : ogImage.endsWith('.avif') ? 'image/avif'
+      : 'image/jpeg';
+    assert(html.includes(`property="og:image:type" content="${expectedImageType}"`));
+    assert(html.includes('property="og:image:width" content="1200"'));
+    assert(html.includes('property="og:image:height" content="630"'));
     assert(html.includes(`property="og:url" content="${canonical}"`));
     assert(html.includes('property="og:type" content="article"'));
     const schema = JSON.parse(html.match(/<script type="application\/ld\+json" data-infonews-static-article-seo>(.*?)<\/script>/s)[1]);
@@ -68,7 +81,12 @@ async function main() {
     assert.equal(schema.mainEntityOfPage['@id'], canonical);
     assert.equal(schema.publisher.logo.url, 'https://www.infonewsupdate24.com/icon-512.svg');
     assert(!schema.image[0].endsWith('.svg'));
-    if (post.featuredImage?.startsWith('https://') && !post.featuredImage.startsWith('https://infonewsupdate24.com/')) assert.equal(schema.image[0], new URL(post.featuredImage).href);
+    if (post.featuredImage?.startsWith('https://res.cloudinary.com/')) {
+      assert.match(schema.image[0], /\/image\/upload\/c_fill,g_auto,w_1200,h_630,q_auto,f_jpg\//);
+      assert(schema.image[0].endsWith('.jpg'));
+    } else if (post.featuredImage?.startsWith('https://') && !post.featuredImage.startsWith('https://infonewsupdate24.com/')) {
+      assert.equal(schema.image[0], new URL(post.featuredImage).href);
+    }
     for (const legacy of [`/${post.slug}`, `/${post.slug}/`, `/article/${post.slug}`, `/2024/05/20/${post.slug}/`]) {
       const rule = config.redirects.find(r => r.regex && new RegExp(r.regex).test(legacy));
       assert(rule && rule.type === 301 && rule.destination === canonical, legacy);

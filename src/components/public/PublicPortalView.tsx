@@ -100,6 +100,37 @@ import { Sparkles, Radio, Smartphone, CreditCard, Vote, CloudSun, PenTool, Landm
 
 const SHARE_CACHE_REFRESH_MS = 15 * 60 * 1000;
 
+function getSocialPreviewImageUrl(imageUrl?: string): string {
+  const fallback = ARTICLE_FALLBACK_IMAGE;
+  const value = String(imageUrl || fallback).trim();
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.hostname.toLowerCase() !== 'res.cloudinary.com') return parsed.href;
+
+    const uploadMarker = '/image/upload/';
+    if (!parsed.pathname.includes(uploadMarker)) return parsed.href;
+
+    parsed.pathname = parsed.pathname
+      .replace(uploadMarker, `${uploadMarker}c_fill,g_auto,w_1200,h_630,q_auto,f_jpg/`)
+      .replace(/\.[a-z0-9]+$/i, '.jpg');
+    return parsed.href;
+  } catch {
+    return fallback;
+  }
+}
+
+function getSocialPreviewImageType(imageUrl: string): string {
+  try {
+    const pathname = new URL(imageUrl).pathname.toLowerCase();
+    if (pathname.endsWith('.webp')) return 'image/webp';
+    if (pathname.endsWith('.png')) return 'image/png';
+    if (pathname.endsWith('.gif')) return 'image/gif';
+    if (pathname.endsWith('.avif')) return 'image/avif';
+  } catch {}
+  return 'image/jpeg';
+}
+
 function getVersionedArticleShareUrl(post: Post): string {
   const cleanSlug = String(post.slug || '')
     .trim()
@@ -606,7 +637,8 @@ export const PublicPortalView: React.FC = () => {
     activeArticle.title;
 
   const postUrl = articleUrl(activeArticle.slug || publicActivePostSlug);
-  const postImg = activeArticle.featuredImage || ARTICLE_FALLBACK_IMAGE;
+  const postImg = getSocialPreviewImageUrl(activeArticle.featuredImage);
+  const postImgType = getSocialPreviewImageType(postImg);
 
   const postImgAlt =
     activeArticle.featuredImageAlt ||
@@ -623,6 +655,10 @@ export const PublicPortalView: React.FC = () => {
         setMetaTag('meta[property="og:description"]', 'content', metaDesc);
         setMetaTag('meta[property="og:url"]', 'content', postUrl);
         setMetaTag('meta[property="og:image"]', 'content', postImg);
+        setMetaTag('meta[property="og:image:secure_url"]', 'content', postImg);
+        setMetaTag('meta[property="og:image:type"]', 'content', postImgType);
+        setMetaTag('meta[property="og:image:width"]', 'content', '1200');
+        setMetaTag('meta[property="og:image:height"]', 'content', '630');
         setMetaTag('meta[property="og:image:alt"]', 'content', postImgAlt);
         setMetaTag('meta[name="twitter:title"]', 'content', metaTitle);
         setMetaTag('meta[name="twitter:description"]', 'content', metaDesc);
