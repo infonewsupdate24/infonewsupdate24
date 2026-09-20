@@ -98,8 +98,6 @@ import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { ThemeService, ThemeMode } from '../../services/ThemeService';
 import { Sparkles, Radio, Smartphone, CreditCard, Vote, CloudSun, PenTool, Landmark, Key, LogIn, Lock } from 'lucide-react';
 
-const SHARE_CACHE_REFRESH_MS = 15 * 60 * 1000;
-
 function getSocialPreviewImageUrl(imageUrl?: string): string {
   const fallback = ARTICLE_FALLBACK_IMAGE;
   const value = String(imageUrl || fallback).trim();
@@ -137,11 +135,11 @@ function getVersionedArticleShareUrl(post: Post): string {
     .replace(/^\/+|\/+$/g, '');
   const updatedAt = Date.parse(post.updatedAt || post.publishDate || post.createdAt || '');
   const contentVersion = Number.isFinite(updatedAt) ? Math.floor(updatedAt / 1000) : 0;
-  // Refresh the URL periodically too, so a preview fetched before the next free
-  // static deploy does not remain stuck in WhatsApp's cache afterward.
-  const refreshVersion = Math.floor(Date.now() / SHARE_CACHE_REFRESH_MS);
+  const canonicalUrl = `https://www.infonewsupdate24.com/news/${encodeURIComponent(cleanSlug)}`;
 
-  return `https://www.infonewsupdate24.com/news/${encodeURIComponent(cleanSlug)}?v=${contentVersion}-${refreshVersion}`;
+  // Keep the shared URL stable so WhatsApp can reuse its successful preview.
+  // Only create a new cache key when the article itself is published or edited.
+  return contentVersion > 0 ? `${canonicalUrl}?v=${contentVersion}` : canonicalUrl;
 }
 
 // ⚡ On-Demand Lazy Loaded Views & Modals
