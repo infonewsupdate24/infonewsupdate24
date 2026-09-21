@@ -131,7 +131,7 @@ const GenericModuleView = lazy(() =>
 );
 
 const MainRouter: React.FC = () => {
-  const { portalMode, cmsView } = useApp();
+  const { portalMode, cmsView, selectedPostId, posts } = useApp();
   const { currentUser, isLoggedIn } = useAuth();
 
   // Strict Security Gate:
@@ -157,7 +157,7 @@ const MainRouter: React.FC = () => {
         return <PostsListView />;
       case 'posts_new':
       case 'posts_edit':
-        return <PostEditorView />;
+        return <PostEditorView key={`${currentUser.id}:${selectedPostId || 'new'}:${posts.some((post) => post.id === selectedPostId)}`} />;
       case 'categories':
         return <CategoryManagerView />;
       case 'tags':

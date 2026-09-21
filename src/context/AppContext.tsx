@@ -1,3 +1,4 @@
+import { useAuth } from './AuthContext';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   SEED_ACTIVITY_LOGS,
@@ -392,6 +393,7 @@ function smartMergePosts(localPosts: Post[], cloudPosts: Post[], deletedIds: Set
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser } = useAuth();
   // Navigation State (Strict PUBLIC Default)
   const [portalMode, setPortalMode] = useState<PortalMode>('PUBLIC');
   const [cmsView, setCmsView] = useState<CmsView>('dashboard');
@@ -759,8 +761,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `wf-${Date.now()}`,
           fromStatus: 'DRAFT',
           toStatus: postData.status,
-          changedBy: postData.authorName,
-          changedByRole: postData.authorRole,
+          changedBy: currentUser.name,
+          changedByRole: currentUser.role,
           timestamp: new Date().toLocaleString('en-GB'),
           note: 'Post created.',
         },
@@ -804,8 +806,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `wf-${Date.now()}`,
           fromStatus: currentPost.status,
           toStatus: updates.status || currentPost.status,
-          changedBy: updates.authorName || currentPost.authorName,
-          changedByRole: updates.authorRole || currentPost.authorRole,
+          changedBy: currentUser.name,
+          changedByRole: currentUser.role,
           timestamp: new Date().toLocaleString('en-GB'),
           note,
         },
@@ -860,8 +862,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `wf-${Date.now()}`,
           fromStatus: 'DRAFT',
           toStatus: 'DRAFT',
-          changedBy: target.authorName,
-          changedByRole: target.authorRole,
+          changedBy: currentUser.name,
+          changedByRole: currentUser.role,
           timestamp: new Date().toLocaleString('en-GB'),
           note: `Cloned from post: ${target.id}`,
         },

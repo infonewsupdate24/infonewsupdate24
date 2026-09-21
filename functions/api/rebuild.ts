@@ -151,7 +151,7 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-export const onRequestPost: PagesFunction<Env> = async (context) => {
+export const onRequestPost = async (context: { request: Request; env: Env }): Promise<Response> => {
   try {
     const projectId = context.env.FIREBASE_PROJECT_ID || 'in24-news-platform-6f802';
     const hookUrl = context.env.DEPLOY_HOOK_URL;

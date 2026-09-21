@@ -1,3 +1,4 @@
+import { AUTHOR_PLACEHOLDER } from '../../utils/articleAuthor';
 import {
   ArrowLeft,
   Calendar,
@@ -3226,7 +3227,8 @@ if (currentPath !== '/') {
               <div className="flex flex-wrap items-center justify-between border-y border-slate-200 py-3.5 text-xs text-slate-600 gap-3">
                 <div className="flex items-center gap-3">
                   <img
-                    src={activeArticle.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                    src={activeArticle.authorAvatar || AUTHOR_PLACEHOLDER}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = AUTHOR_PLACEHOLDER; }}
                     alt={activeArticle.authorName}
                     loading="lazy"
                     decoding="async"
@@ -3239,7 +3241,7 @@ if (currentPath !== '/') {
                       {activeArticle.authorName}
                     </p>
                     <p className="text-[11px] text-slate-500 font-medium">
-                      विशेष प्रतिनिधी &bull; {formatMarathiDate(activeArticle.publishDate || activeArticle.createdAt)}
+                      {({ SUPER_ADMIN: 'मुख्य प्रशासक', ADMIN: 'प्रशासक', EDITOR: 'संपादक', SUB_EDITOR: 'उपसंपादक', REPORTER: 'वार्ताहर', VIDEO_REPORTER: 'व्हिडिओ वार्ताहर', PHOTOGRAPHER: 'छायाचित्रकार', USER: 'लेखक' })[activeArticle.authorRole] || 'लेखक'} &bull; {formatMarathiDate(activeArticle.publishDate || activeArticle.createdAt)}
                     </p>
                   </div>
                 </div>

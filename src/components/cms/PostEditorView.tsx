@@ -1,4 +1,6 @@
-﻿import {
+import { articleDraftKey, readArticleDraft, type ArticleDraft, type ArticleDraftFields } from '../../utils/articleDraft';
+import { getArticleAuthor, AUTHOR_PLACEHOLDER } from '../../utils/articleAuthor';
+import {
   AlertCircle,
   ArrowLeft,
   Bold,
@@ -82,16 +84,8 @@ export const PostEditorView: React.FC = () => {
   const [featuredImageCaption, setFeaturedImageCaption] = useState(
     existingPost?.featuredImageCaption || ''
   );
-  const [authorName, setAuthorName] = useState(
-    existingPost?.authorName || 'InfoNewsUpdate24 विशेष प्रतिनिधी'
-  );
-  const [authorRole, setAuthorRole] = useState(
-    existingPost?.authorRole || currentUser?.role || 'SUPER_ADMIN'
-  );
-  const [authorAvatar, setAuthorAvatar] = useState(
-    existingPost?.authorAvatar ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
-  );
+  // Existing bylines belong to the original author, never the current editor.
+  const { authorId, authorName, authorRole, authorAvatar } = getArticleAuthor(existingPost, currentUser);
   const [categoryId, setCategoryId] = useState(existingPost?.categoryId || categories[0]?.id || 'cat-1');
   const [subCategoryId, setSubCategoryId] = useState(existingPost?.subCategoryId || '');
   const [postTags, setPostTags] = useState<string[]>(existingPost?.tags || ['Maharashtra', 'News']);
@@ -139,30 +133,6 @@ export const PostEditorView: React.FC = () => {
     status === 'FINAL_EDIT' || status === 'SCHEDULED' || status === 'PUBLISHED';
 
   const canSaveInPlace = status !== 'PUBLISHED' || currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
-
-  // Auto-Save Draft every 25s (Only if user has edit permission)
-  useEffect(() => {
-    if (!title && !content) return;
-    if (isReadOnly) return;
-    const timer = setInterval(() => {
-      try {
-        const draftData = {
-          title,
-          slug,
-          content,
-          excerpt,
-          featuredImage,
-          categoryId,
-          postTags,
-          location,
-          savedAt: new Date().toLocaleTimeString('mr-IN'),
-        };
-        localStorage.setItem(`infonews_autosave_${selectedPostId || 'new'}`, JSON.stringify(draftData));
-        setLastAutoSavedTime(new Date().toLocaleTimeString('mr-IN'));
-      } catch (e) {}
-    }, 25000);
-    return () => clearInterval(timer);
-  }, [title, slug, content, excerpt, featuredImage, categoryId, postTags, location, selectedPostId]);
 
   // 1-Click Smart Non-Destructive Auto-Populate & Editorial SEO Assistant
   // Priority: 1. Manual Value -> 2. Existing Saved Value -> 3. Auto-Generated Value
@@ -258,6 +228,64 @@ export const PostEditorView: React.FC = () => {
   const [metaDescription, setMetaDescription] = useState(existingPost?.seo?.metaDescription || '');
   const [isSlugLocked, setIsSlugLocked] = useState(Boolean(existingPost?.slug));
 
+  const draftPostId = existingPost?.id || selectedPostId || persistedPostIdRef.current;
+  const draftKey = articleDraftKey(currentUser.id, draftPostId);
+  const [pendingDraft, setPendingDraft] = useState<ArticleDraft | null>(null);
+  const [draftCheckedKey, setDraftCheckedKey] = useState('');
+  const draftFields: ArticleDraftFields = {
+    title, slug, content, excerpt, featuredImage, featuredImageAlt, featuredImageCaption,
+    categoryId, subCategoryId, postTags, location, videoUrl, attachmentUrl, attachmentName,
+    focusKeyword, seoTitle, metaDescription, scheduleDate, editorialNote,
+    isBreaking, isTrending, isVideoNews, visibility,
+  };
+  const draftSnapshot = JSON.stringify(draftFields);
+  const savedSnapshotRef = useRef(draftSnapshot);
+
+  useEffect(() => {
+    if (isReadOnly || !currentUser.id || (cmsView === 'posts_edit' && !existingPost)) return;
+    try {
+      setPendingDraft(readArticleDraft(localStorage.getItem(draftKey), currentUser.id, draftPostId, existingPost?.updatedAt));
+    } catch { setPendingDraft(null); }
+    setDraftCheckedKey(draftKey);
+  }, [draftKey, isReadOnly, currentUser.id, Boolean(existingPost), cmsView]);
+
+  const discardDraft = () => {
+    try { localStorage.removeItem(draftKey); } catch { /* Storage may be unavailable. */ }
+    setPendingDraft(null);
+    setLastAutoSavedTime(null);
+  };
+
+  const restoreDraft = () => {
+    if (!pendingDraft || isReadOnly) return;
+    const f = pendingDraft.fields;
+    setTitle(f.title); setSlug(f.slug); setContent(f.content); setExcerpt(f.excerpt);
+    setFeaturedImage(f.featuredImage); setFeaturedImageAlt(f.featuredImageAlt);
+    setFeaturedImageCaption(f.featuredImageCaption); setCategoryId(f.categoryId);
+    setSubCategoryId(f.subCategoryId); setPostTags(f.postTags); setLocation(f.location);
+    setVideoUrl(f.videoUrl); setAttachmentUrl(f.attachmentUrl); setAttachmentName(f.attachmentName);
+    setFocusKeyword(f.focusKeyword); setSeoTitle(f.seoTitle); setMetaDescription(f.metaDescription);
+    setScheduleDate(f.scheduleDate); setEditorialNote(f.editorialNote);
+    setIsBreaking(f.isBreaking); setIsTrending(f.isTrending); setIsVideoNews(f.isVideoNews);
+    setVisibility(f.visibility); setIsSlugLocked(Boolean(f.slug));
+    setLastAutoSavedTime(new Date(pendingDraft.savedAt).toLocaleTimeString('mr-IN'));
+    setPendingDraft(null);
+  };
+
+  // Debounce edits without overwriting a draft that the user has not reviewed yet.
+  useEffect(() => {
+    if (isReadOnly || isSaving || pendingDraft || draftCheckedKey !== draftKey ||
+        !currentUser.id || draftSnapshot === savedSnapshotRef.current || (!title && !content)) return;
+    const timer = setTimeout(() => {
+      try {
+        const draft: ArticleDraft = { version: 1, editorId: currentUser.id,
+          postId: draftPostId, savedAt: Date.now(), fields: JSON.parse(draftSnapshot) };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+        setLastAutoSavedTime(new Date(draft.savedAt).toLocaleTimeString('mr-IN'));
+      } catch { /* Keep the editor usable when browser storage is full or disabled. */ }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [draftSnapshot, draftKey, draftPostId, draftCheckedKey, pendingDraft, isReadOnly, isSaving, currentUser.id]);
+
   // Auto-generate slug from Marathi title using phonetic transliteration
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -288,7 +316,7 @@ export const PostEditorView: React.FC = () => {
       focusKeyword,
       seoTitle,
       metaDescription,
-      authorName: currentUser.name,
+      authorName,
       publishDate: existingPost?.publishDate || new Date().toISOString(),
       isPublished: status === 'PUBLISHED' || existingPost?.status === 'PUBLISHED',
       visibility: 'PUBLIC',
@@ -406,6 +434,11 @@ export const PostEditorView: React.FC = () => {
       return;
     }
 
+    if (!authorName?.trim()) {
+      setSaveErrorMsg('मूळ लेखकाचे नाव उपलब्ध नाही. लेखकाची माहिती दुरुस्त केल्यावर सेव्ह करा.');
+      return;
+    }
+
     const postPayload = {
       title: title || 'Untitled News Article',
       slug: slug || `article-${Date.now()}`,
@@ -417,8 +450,8 @@ export const PostEditorView: React.FC = () => {
       categoryId,
       subCategoryId: subCategoryId || undefined,
       tags: postTags,
-      authorId: existingPost ? existingPost.authorId : currentUser.id,
-      authorName: authorName.trim() || 'InfoNewsUpdate24 विशेष प्रतिनिधी',
+      authorId,
+      authorName: authorName.trim(),
       authorAvatar: authorAvatar,
       authorRole: authorRole,
       status: finalStatus,
@@ -468,6 +501,9 @@ export const PostEditorView: React.FC = () => {
         setStatus(finalStatus);
         setSaveSuccessMsg(`बातमी यशस्वीरीत्या क्लाउडवर सेव्ह झाली! (ID: ${created.id}, ${finalStatus})`);
       }
+
+      savedSnapshotRef.current = draftSnapshot;
+      discardDraft();
 
       // Non-blocking production OG refresh. Publishing stays successful even
       // if the rebuild request is temporarily unavailable.
@@ -726,6 +762,14 @@ export const PostEditorView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {pendingDraft && !isReadOnly && (
+        <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+          <p className="flex-1">या ब्राउझरमध्ये {new Date(pendingDraft.savedAt).toLocaleString('mr-IN')} चा अपूर्ण मसुदा आहे.</p>
+          <button type="button" onClick={restoreDraft} className="rounded-lg bg-blue-700 px-3 py-2 font-semibold text-white">मसुदा परत आणा</button>
+          <button type="button" onClick={discardDraft} className="rounded-lg border border-blue-300 px-3 py-2">मसुदा काढून टाका</button>
+        </div>
+      )}
 
       {/* 🔒 Read-Only Published Post Security Banner for Non-Admins */}
       {isReadOnly && (
@@ -1155,14 +1199,15 @@ export const PostEditorView: React.FC = () => {
                 {/* Author Card in Preview */}
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-white border border-slate-200">
                   <img
-                    src={currentUser.avatar}
-                    alt={currentUser.name}
+                    src={authorAvatar || AUTHOR_PLACEHOLDER}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = AUTHOR_PLACEHOLDER; }}
+                    alt={authorName}
                     className="h-10 w-10 rounded-full object-cover ring-2 ring-red-500/20"
                   />
                   <div>
-                    <h5 className="text-xs font-bold text-slate-900">{currentUser.name}</h5>
+                    <h5 className="text-xs font-bold text-slate-900">{authorName}</h5>
                     <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
-                      {currentUser.role.replace('_', ' ')} &bull; {location} Bureau
+                      {(authorRole || 'REPORTER').replaceAll('_', ' ')} &bull; {location} Bureau
                     </span>
                   </div>
                 </div>
@@ -1205,7 +1250,7 @@ export const PostEditorView: React.FC = () => {
             metaDescription={metaDescription}
             setMetaDescription={setMetaDescription}
             categoryName={categories.find((c) => c.id === categoryId)?.name || 'महाराष्ट्र'}
-            authorName={currentUser.name}
+            authorName={authorName}
             publishDate={existingPost?.publishDate}
             isPublished={status === 'PUBLISHED' || existingPost?.status === 'PUBLISHED'}
             onAutoPopulate={handleAutoPopulateRankMath}
@@ -1371,49 +1416,17 @@ export const PostEditorView: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
+                value={authorName || ''}
+                readOnly
+                disabled={isReadOnly}
                 placeholder="उदा. InfoNewsUpdate24 विशेष प्रतिनिधी"
                 className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-hidden"
               />
             </div>
 
-            {/* Quick Author Presets */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 block">
-                त्वरित निवड (Quick Presets):
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setAuthorName('InfoNewsUpdate24 विशेष प्रतिनिधी')}
-                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
-                >
-                  📰 InfoNews24 विशेष प्रतिनिधी
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthorName('Komal Daulatrao Dahagaonkar')}
-                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
-                >
-                  ✍️ Komal D. Dahagaonkar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthorName('गडचिरोली ब्युरो प्रतिनिधी')}
-                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
-                >
-                  📍 गडचिरोली ब्युरो
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthorName('संपादकीय मंडळ, InfoNewsUpdate24')}
-                  className="rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-700 border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
-                >
-                  🏛️ संपादकीय मंडळ
-                </button>
-              </div>
-            </div>
+            <p className="text-xs text-slate-500">
+              मूळ लेखकाची माहिती कायम ठेवली जाते. संपादन करणाऱ्या व्यक्तीची नोंद History मध्ये होते.
+            </p>
 
             {/* Location / Bureau */}
             <div>
@@ -1423,6 +1436,7 @@ export const PostEditorView: React.FC = () => {
               <input
                 type="text"
                 value={location}
+                disabled={isReadOnly}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="उदा. गडचिरोली, मुंबई, नागपूर, चामोर्शी, एटापल्ली"
                 className="h-8 w-full rounded-md border border-slate-200 px-2.5 text-xs text-slate-800 focus:border-red-500 focus:outline-hidden"
@@ -1621,6 +1635,7 @@ export const PostEditorView: React.FC = () => {
                 type="text"
                 placeholder="e.g. Mumbai, Gadchiroli, Nagpur"
                 value={location}
+                disabled={isReadOnly}
                 onChange={(e) => setLocation(e.target.value)}
                 className="h-8 w-full rounded-md border border-slate-200 px-2.5 text-xs text-slate-800 focus:outline-hidden"
               />
@@ -1667,8 +1682,9 @@ export const PostEditorView: React.FC = () => {
       {/* Social Media Share Preview Modal */}
       <SocialSharePreviewModal
         post={
-          existingPost || {
-            id: 'preview-temp',
+          {
+            ...existingPost,
+            id: existingPost?.id || 'preview-temp',
             title: title || 'बातमी शीर्षक प्रिव्ह्यू',
             slug: slug || 'sample-post',
             content: content || 'बातमीचा मजकूर...',
@@ -1676,14 +1692,14 @@ export const PostEditorView: React.FC = () => {
             featuredImage: featuredImage,
             categoryId: categoryId,
             tags: postTags,
-            authorId: currentUser.id,
-            authorName: currentUser.name,
-            authorAvatar: currentUser.avatar,
-            authorRole: currentUser.role,
+            authorId,
+            authorName,
+            authorAvatar,
+            authorRole,
             status: status,
-            publishDate: 'Today',
-            views: 120,
-            likes: 15,
+            publishDate: existingPost?.publishDate || new Date().toISOString(),
+            views: existingPost?.views || 0,
+            likes: existingPost?.likes || 0,
             readingTimeMinutes: readingTime,
             location: location,
             seo: seoData,

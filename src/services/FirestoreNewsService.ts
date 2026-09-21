@@ -114,7 +114,7 @@ export class FirestoreNewsService {
     });
   }
 
-  static subscribeBillingCollection<T>(path: string, onUpdate: (rows: T[]) => void): Unsubscribe {
+  static subscribeBillingCollection<T extends { id: string; isArchived?: boolean }>(path: string, onUpdate: (rows: T[]) => void): Unsubscribe {
     return onSnapshot(collection(db, path), (snapshot) => {
       const rows = snapshot.docs
         .map((item) => ({ ...item.data(), id: item.id } as T & { isArchived?: boolean }))

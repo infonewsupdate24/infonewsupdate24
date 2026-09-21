@@ -60,9 +60,11 @@ export interface UserProfile {
 export type PostStatus =
   | 'DRAFT'
   | 'SUBMITTED'
+  | 'RESUBMITTED'
   | 'UNDER_REVIEW'
   | 'NEEDS_CORRECTION'
   | 'APPROVED'
+  | 'FINAL_EDIT'
   | 'SCHEDULED'
   | 'PUBLISHED'
   | 'ARCHIVED'
@@ -167,6 +169,7 @@ export interface MediaItem {
   id: string;
   name: string;
   url: string;
+  storagePath?: string;
   type: 'image' | 'video' | 'audio' | 'document';
   mimeType: string;
   sizeBytes: number;

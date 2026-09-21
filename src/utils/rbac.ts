@@ -131,7 +131,9 @@ export function canPerformWorkflowTransition(
   if (user.role === 'REPORTER' || user.role === 'VIDEO_REPORTER') {
     if (fromStatus === 'DRAFT' && toStatus === 'SUBMITTED') return true;
     if (fromStatus === 'NEEDS_CORRECTION' && toStatus === 'SUBMITTED') return true;
+    if (fromStatus === 'NEEDS_CORRECTION' && toStatus === 'RESUBMITTED') return true;
     if (fromStatus === 'SUBMITTED' && toStatus === 'DRAFT') return true;
+    if (fromStatus === 'RESUBMITTED' && toStatus === 'DRAFT') return true;
     return false;
   }
 
@@ -188,6 +190,7 @@ export function canEditPost(
       post.status === 'DRAFT' ||
       post.status === 'UNDER_REVIEW' ||
       post.status === 'SUBMITTED' ||
+      post.status === 'RESUBMITTED' ||
       post.status === 'NEEDS_CORRECTION'
     );
   }
@@ -199,6 +202,7 @@ export function canEditPost(
       isOwner &&
       (post.status === 'DRAFT' ||
         post.status === 'SUBMITTED' ||
+        post.status === 'RESUBMITTED' ||
         post.status === 'NEEDS_CORRECTION')
     );
   }

@@ -92,7 +92,7 @@ export const PostsListView: React.FC = () => {
   // Tab counts
   const publishedCount = posts.filter((p) => p.status === 'PUBLISHED').length;
   const draftCount = posts.filter((p) => p.status === 'DRAFT').length;
-  const submittedCount = posts.filter((p) => p.status === 'SUBMITTED').length;
+  const submittedCount = posts.filter((p) => p.status === 'SUBMITTED' || p.status === 'RESUBMITTED').length;
   const underReviewCount = posts.filter((p) => p.status === 'UNDER_REVIEW').length;
   const totalCount = posts.length;
 
@@ -100,7 +100,8 @@ export const PostsListView: React.FC = () => {
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
       // Tab filter
-      if (activeTab !== 'ALL' && activeTab !== 'TRASH' && post.status !== activeTab) {
+      if (activeTab !== 'ALL' && activeTab !== 'TRASH' && post.status !== activeTab &&
+          !(activeTab === 'SUBMITTED' && post.status === 'RESUBMITTED')) {
         return false;
       }
       // Category filter
