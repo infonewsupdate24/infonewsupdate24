@@ -1,17 +1,19 @@
 import type { Post, UserProfile } from '../types';
 
 // Keep saved attribution intact, including legacy posts without an author ID.
-export function getArticleAuthor(post: Pick<Post, 'authorId' | 'authorName' | 'authorAvatar' | 'authorRole'> | undefined, user: UserProfile) {
+export function getArticleAuthor(post: Pick<Post, 'authorId' | 'authorName' | 'authorAvatar' | 'authorRole' | 'authorDesignation'> | undefined, user: UserProfile) {
   return post ? {
     authorId: post.authorId,
     authorName: post.authorName,
     authorAvatar: post.authorAvatar,
     authorRole: post.authorRole,
+    ...(post.authorDesignation !== undefined ? { authorDesignation: post.authorDesignation } : {}),
   } : {
     authorId: user.id,
     authorName: user.name,
     authorAvatar: user.avatar,
     authorRole: user.role,
+    ...(user.designation !== undefined ? { authorDesignation: user.designation } : {}),
   };
 }
 

@@ -57,6 +57,8 @@ export interface UserProfile {
   customPermissions?: Permission[];
 }
 
+export type PublicAuthorProfile = Pick<UserProfile, 'id' | 'name' | 'avatar' | 'role' | 'designation'>;
+
 export type PostStatus =
   | 'DRAFT'
   | 'SUBMITTED'
@@ -122,6 +124,7 @@ export interface Post {
   authorName: string;
   authorAvatar: string;
   authorRole: UserRole;
+  authorDesignation?: string;
   status: PostStatus;
   visibility: PostVisibility;
   publishDate: string;

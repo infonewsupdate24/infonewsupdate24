@@ -19,15 +19,18 @@ import {
   limit,
   serverTimestamp,
   runTransaction,
+  writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { normalizeArticleSlug, isPublicArticle, newestArticleFirst } from '../utils/articleUrls.mjs';
 import { auth, db } from './firebase';
+import { toPublicAuthor } from '../utils/publicAuthors.mjs';
 import type {
   Post,
   Category,
   Tag,
   UserProfile,
+  PublicAuthorProfile,
   BreakingTickerItem,
   CitizenNewsReport,
   MediaItem,
@@ -841,18 +844,17 @@ export class FirestoreNewsService {
     );
   }
 
+  static subscribePublicAuthors(onUpdate: (authors: PublicAuthorProfile[]) => void): Unsubscribe {
+    return onSnapshot(collection(db, 'public_authors'), snapshot => {
+      onUpdate(snapshot.docs.map(item => toPublicAuthor({ ...item.data(), id: item.id })));
+    }, error => console.warn('Public author directory unavailable:', error));
+  }
+
   static async bulkSyncInitialUsers(initialUsers: UserProfile[]): Promise<void> {
     try {
       if (initialUsers.length > 0) {
         for (const u of initialUsers) {
-          await setDoc(
-            doc(db, 'users', u.id),
-            {
-              ...u,
-              _syncedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
+          await this.saveUserProfile(u);
         }
       }
     } catch (err) {
@@ -864,14 +866,7 @@ export class FirestoreNewsService {
     try {
       let count = 0;
       for (const u of users) {
-        await setDoc(
-          doc(db, 'users', u.id),
-          {
-            ...u,
-            _syncedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
+        await this.saveUserProfile(u);
         count++;
       }
       return { count };
@@ -895,16 +890,18 @@ export class FirestoreNewsService {
   }
 
   static async saveUserProfile(user: UserProfile): Promise<void> {
-    try {
-      await setDoc(doc(db, 'users', user.id), user, { merge: true });
-    } catch (err) {
-      console.warn('Failed to save user to Firestore:', err);
-    }
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'users', user.id), sanitizeForFirestore(user), { merge: true });
+    batch.set(doc(db, 'public_authors', user.id), toPublicAuthor(user));
+    await batch.commit();
   }
 
   static async deleteUserProfile(uid: string): Promise<void> {
     try {
-      await deleteDoc(doc(db, 'users', uid));
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'users', uid));
+      batch.delete(doc(db, 'public_authors', uid));
+      await batch.commit();
     } catch (err) {
       console.warn('Failed to delete user from Firestore:', err);
     }
@@ -938,7 +935,7 @@ export class FirestoreNewsService {
 
       // 3. Sync Users
       for (const u of payload.users) {
-        await setDoc(doc(db, 'users', u.id), { ...u, _syncedAt: serverTimestamp() }, { merge: true });
+        await this.saveUserProfile(u);
         usersCount++;
       }
 

@@ -1,5 +1,7 @@
 import { useAuth } from './AuthContext';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { resolvePostAuthor } from '../utils/publicAuthors.mjs';
+import type { PublicAuthorProfile } from '../types';
 import {
   SEED_ACTIVITY_LOGS,
   SEED_ADS,
@@ -121,6 +123,7 @@ interface AppContextType {
 
   // Domain Collections
   posts: Post[];
+  publicAuthors: PublicAuthorProfile[];
   categories: Category[];
   tags: Tag[];
   menus: Menu[];
@@ -394,6 +397,8 @@ function smartMergePosts(localPosts: Post[], cloudPosts: Post[], deletedIds: Set
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
+  const [publicAuthors, setPublicAuthors] = useState<PublicAuthorProfile[]>([]);
+  useEffect(() => FirestoreNewsService.subscribePublicAuthors(setPublicAuthors), []);
   // Navigation State (Strict PUBLIC Default)
   const [portalMode, setPortalMode] = useState<PortalMode>('PUBLIC');
   const [cmsView, setCmsView] = useState<CmsView>('dashboard');
@@ -423,6 +428,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
     return result;
   });
+
+  const attributedPosts = useMemo(() => posts.map(post => resolvePostAuthor(post, publicAuthors)), [posts, publicAuthors]);
 
   const syncAllSeedPosts = () => {
     const deletedIds = getDeletedPostIds();
@@ -1671,7 +1678,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPublicSearchQuery,
         quickListenPost,
         setQuickListenPost,
-        posts,
+        posts: attributedPosts,
+        publicAuthors,
         categories,
         tags,
         menus,

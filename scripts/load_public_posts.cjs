@@ -19,12 +19,15 @@ async function loadPublicPosts({ refresh = false } = {}) {
       getDocsFromServer(collection(db, 'posts')),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Firestore SEO snapshot timed out')), 45000); }),
     ]);
+    const { resolvePostAuthor } = await import('../src/utils/publicAuthors.mjs');
+    const authorSnapshot = await getDocsFromServer(collection(db, 'public_authors'));
+    const authors = authorSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
     const imported = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/data/importedWordPressPosts.json'), 'utf8'));
     const importedById = new Map(imported.map(p => [p.id, p]));
     const importedBySlug = new Map(imported.map(p => [normalizeArticleSlug(p.slug), p]));
     const bySlug = new Map();
     snapshot.forEach(doc => {
-      const post = { ...doc.data(), id: doc.id };
+      const post = resolvePostAuthor({ ...doc.data(), id: doc.id }, authors);
       const slug = normalizeArticleSlug(post.slug);
       const original = importedById.get(post.id) || importedBySlug.get(slug);
       // Firestore is authoritative: never resurrect deleted imports or old slugs.

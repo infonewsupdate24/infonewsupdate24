@@ -41,6 +41,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { countPublishedByAuthor } from '../../utils/publicAuthors.mjs';
 import { FirebaseAuthService } from '../../services/FirebaseAuthService';
 import { FirestoreNewsService } from '../../services/FirestoreNewsService';
 import { Permission, UserProfile, UserRole, UserStatus } from '../../types';
@@ -396,11 +397,7 @@ export const UsersManagerView: React.FC = () => {
   };
 
   // Calculate posts published by each user
-  const getUserPostCount = (userName: string) => {
-    return posts.filter(
-      (p) => p.authorName?.toLowerCase() === userName.toLowerCase() && p.status === 'PUBLISHED'
-    ).length;
-  };
+  const getUserPostCount = (userId: string) => countPublishedByAuthor(posts, userId);
 
   // Pending Approval Users
   const pendingUsers = useMemo(() => {
@@ -835,7 +832,7 @@ export const UsersManagerView: React.FC = () => {
               ) : (
                 filteredUsers.map((user) => {
                   const isCurrent = user.id === currentUser.id;
-                  const postCount = getUserPostCount(user.name);
+                  const postCount = getUserPostCount(user.id);
                   const isPending = user.status === 'PENDING';
                   const isActive = (user.status || 'ACTIVE') === 'ACTIVE';
                   const userPermCount = user.customPermissions

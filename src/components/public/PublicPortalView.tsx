@@ -1,3 +1,4 @@
+import { resolvePostAuthor } from '../../utils/publicAuthors.mjs';
 import { AUTHOR_PLACEHOLDER } from '../../utils/articleAuthor';
 import {
   ArrowLeft,
@@ -411,7 +412,9 @@ export const PublicPortalView: React.FC = () => {
     return null;
   }, [publicActivePostSlug, publishedPosts, posts]);
 
-  const activeArticle = selectedPost || (lookupSlug === publicActivePostSlug ? asyncFetchedPost : null);
+  const { publicAuthors } = useApp();
+  const rawArticle = selectedPost || (lookupSlug === publicActivePostSlug ? asyncFetchedPost : null);
+  const activeArticle = useMemo(() => rawArticle ? resolvePostAuthor(rawArticle, publicAuthors) : null, [rawArticle, publicAuthors]);
   const articleLoading = Boolean(publicActivePostSlug && !activeArticle && (isFetchingDirectPost || lookupSlug !== publicActivePostSlug));
 
   // Real-time direct Firestore fetch fallback for deep article links opened from cold cache
@@ -3241,7 +3244,7 @@ if (currentPath !== '/') {
                       {activeArticle.authorName}
                     </p>
                     <p className="text-[11px] text-slate-500 font-medium">
-                      {({ SUPER_ADMIN: 'मुख्य प्रशासक', ADMIN: 'प्रशासक', EDITOR: 'संपादक', SUB_EDITOR: 'उपसंपादक', REPORTER: 'वार्ताहर', VIDEO_REPORTER: 'व्हिडिओ वार्ताहर', PHOTOGRAPHER: 'छायाचित्रकार', USER: 'लेखक' })[activeArticle.authorRole] || 'लेखक'} &bull; {formatMarathiDate(activeArticle.publishDate || activeArticle.createdAt)}
+                      {activeArticle.authorDesignation || ({ SUPER_ADMIN: 'मुख्य प्रशासक', ADMIN: 'प्रशासक', EDITOR: 'संपादक', SUB_EDITOR: 'उपसंपादक', REPORTER: 'वार्ताहर', VIDEO_REPORTER: 'व्हिडिओ वार्ताहर', PHOTOGRAPHER: 'छायाचित्रकार', USER: 'लेखक' })[activeArticle.authorRole] || 'लेखक'} &bull; {formatMarathiDate(activeArticle.publishDate || activeArticle.createdAt)}
                     </p>
                   </div>
                 </div>

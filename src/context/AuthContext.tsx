@@ -182,19 +182,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUser = (id: string, updates: Partial<UserProfile>) => {
-    let targetUpdated: UserProfile | null = null;
-    setAllUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === id) {
-          targetUpdated = { ...u, ...updates };
-          return targetUpdated;
-        }
-        return u;
-      })
-    );
-    if (targetUpdated) {
-      FirestoreNewsService.saveUserProfile(targetUpdated).catch(() => {});
-    }
+    const target = allUsers.find(user => user.id === id);
+    if (!target) return;
+    const targetUpdated = { ...target, ...updates };
+    setAllUsers(prev => prev.map(user => user.id === id ? targetUpdated : user));
+    FirestoreNewsService.saveUserProfile(targetUpdated).catch(error => {
+      console.error('User profile update failed:', error);
+      setAllUsers(prev => prev.map(user => user.id === id ? target : user));
+    });
   };
 
   const approveUser = async (id: string) => {

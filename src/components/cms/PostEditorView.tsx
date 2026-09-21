@@ -85,7 +85,7 @@ export const PostEditorView: React.FC = () => {
     existingPost?.featuredImageCaption || ''
   );
   // Existing bylines belong to the original author, never the current editor.
-  const { authorId, authorName, authorRole, authorAvatar } = getArticleAuthor(existingPost, currentUser);
+  const { authorId, authorName, authorRole, authorAvatar, authorDesignation } = getArticleAuthor(existingPost, currentUser);
   const [categoryId, setCategoryId] = useState(existingPost?.categoryId || categories[0]?.id || 'cat-1');
   const [subCategoryId, setSubCategoryId] = useState(existingPost?.subCategoryId || '');
   const [postTags, setPostTags] = useState<string[]>(existingPost?.tags || ['Maharashtra', 'News']);
@@ -452,6 +452,7 @@ export const PostEditorView: React.FC = () => {
       tags: postTags,
       authorId,
       authorName: authorName.trim(),
+      authorDesignation,
       authorAvatar: authorAvatar,
       authorRole: authorRole,
       status: finalStatus,
@@ -1207,7 +1208,7 @@ export const PostEditorView: React.FC = () => {
                   <div>
                     <h5 className="text-xs font-bold text-slate-900">{authorName}</h5>
                     <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
-                      {(authorRole || 'REPORTER').replaceAll('_', ' ')} &bull; {location} Bureau
+                      {authorDesignation || (authorRole || 'REPORTER').replaceAll('_', ' ')} &bull; {location} Bureau
                     </span>
                   </div>
                 </div>
@@ -1696,6 +1697,7 @@ export const PostEditorView: React.FC = () => {
             authorName,
             authorAvatar,
             authorRole,
+            authorDesignation,
             status: status,
             publishDate: existingPost?.publishDate || new Date().toISOString(),
             views: existingPost?.views || 0,
