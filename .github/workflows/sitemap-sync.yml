@@ -2,7 +2,7 @@ name: InfoNewsUpdate24 Sitemap & RSS Sync
 
 on:
   schedule:
-    # Free-plan refresh: publish new Firestore articles to static Hosting hourly.
+    # Refresh sitemaps/RSS; live article previews do not depend on this schedule.
     - cron: '7 * * * *'
   workflow_dispatch: # Allows manual 1-click trigger from GitHub Actions tab
 
@@ -17,10 +17,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies

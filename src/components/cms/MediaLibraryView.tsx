@@ -367,10 +367,10 @@ export const MediaLibraryView: React.FC<MediaLibraryViewProps> = ({
             type="button"
             onClick={() => setCmsView('litespeed_cache')}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl shadow-2xs transition cursor-pointer"
-            title="LiteSpeed Cache WebP Image Optimization"
+            title="WhatsApp Preview तपासणी"
           >
             <Zap className="w-4 h-4 text-emerald-600" />
-            <span>LiteSpeed WebP Opt</span>
+            <span>Preview तपासणी</span>
           </button>
 
           {hasPermission('media.upload') && (

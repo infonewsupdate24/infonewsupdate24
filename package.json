@@ -10,7 +10,11 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "postbuild": "node scripts/generate_article_seo_pages.cjs && node scripts/validate_seo.cjs",
+    "postbuild": "node scripts/generate_article_seo_pages.cjs && node scripts/validate_seo.cjs && node scripts/prepare_preview_runtime.cjs",
+    "test:preview": "node --test scripts/article_preview.test.mjs scripts/worker_preview.test.mjs",
+    "build:preview": "npm run build",
+    "build:cached": "node scripts/build_cached_snapshot.cjs",
+    "deploy:preview": "node scripts/prepare_preview_runtime.cjs && npx --yes wrangler@4.136.1 deploy --config wrangler.preview.jsonc",
     "deploy:hosting": "npm run build && npx firebase-tools deploy --only hosting --project in24-news-platform-6f802 --config firebase.hosting.generated.json"
   },
   "dependencies": {

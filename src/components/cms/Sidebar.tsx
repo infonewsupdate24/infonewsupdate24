@@ -426,7 +426,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           },
           {
             id: 'litespeed_cache',
-            label: 'LiteSpeed Cache (LSCache)',
+            label: 'WhatsApp Preview तपासणी',
             view: 'litespeed_cache',
             icon: Zap,
             badge: '6.1',

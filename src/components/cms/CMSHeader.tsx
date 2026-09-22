@@ -145,7 +145,7 @@ export const CMSHeader: React.FC<CMSHeaderProps> = ({
     setShowLiteSpeedDropdown(false);
     try {
       const res = await optimizeLiteSpeedImages('ALL');
-      triggerToast(`LiteSpeed WebP: ${res.count} इमेजेस यशस्वीरित्या WebP मध्ये रूपांतरित झाल्या!`);
+      triggerToast(res.success ? `${res.count} इमेजेस optimize झाल्या.` : 'LiteSpeed image backend जोडलेला नाही. कोणतीही image बदललेली नाही.');
     } finally {
       setIsPurging(false);
     }
@@ -274,117 +274,11 @@ export const CMSHeader: React.FC<CMSHeaderProps> = ({
           </div>
         )}
 
-        {/* WordPress-Style LiteSpeed Cache Top Bar Quick Menu */}
-        <div className="relative">
-          <button
-            id="btn-cms-litespeed-quick"
-            type="button"
-            onClick={() => setShowLiteSpeedDropdown(!showLiteSpeedDropdown)}
-            className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/80 px-2.5 py-1.5 text-xs font-bold text-emerald-800 shadow-2xs transition-all hover:border-emerald-300 hover:bg-emerald-100/90"
-            title="LiteSpeed Cache & Purge Quick Controls"
-          >
-            <Zap className={`h-3.5 w-3.5 text-emerald-600 ${isPurging ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">LiteSpeed</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <ChevronDown className="h-3 w-3 text-emerald-600" />
-          </button>
-
-          {showLiteSpeedDropdown && (
-            <div
-              id="dropdown-litespeed-menu"
-              className="absolute left-0 mt-2 w-64 rounded-xl border border-slate-200 bg-white py-2 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-emerald-600" />
-                  <span className="text-[11px] font-bold text-slate-800">LiteSpeed Cache</span>
-                </div>
-                <span className="text-[10px] rounded-full bg-emerald-100 px-2 py-0.5 font-extrabold text-emerald-700">
-                  Hit: {liteSpeedSettings?.stats?.cacheHitRatio || 95.4}%
-                </span>
-              </div>
-
-              <div className="py-1">
-                {/* Purge All */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickPurge('ALL', 'All Cache')}
-                  disabled={isPurging}
-                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className={`h-3.5 w-3.5 text-red-500 ${isPurging ? 'animate-spin' : ''}`} />
-                    <span>Purge All (सर्व कॅशे साफ करा)</span>
-                  </div>
-                  <span className="text-[10px] rounded bg-red-100 px-1.5 py-0.2 font-mono text-red-700">1-Click</span>
-                </button>
-
-                {/* Purge Front Page */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickPurge('FRONT_PAGE', 'Front Page')}
-                  disabled={isPurging}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  <Globe className="h-3.5 w-3.5 text-blue-500" />
-                  <span>Purge - Front Page (मुख्य पृष्ठ)</span>
-                </button>
-
-                {/* Purge CSS / JS */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickPurge('CSS_JS', 'CSS/JS')}
-                  disabled={isPurging}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  <Layers className="h-3.5 w-3.5 text-purple-500" />
-                  <span>Purge - CSS/JS Minified</span>
-                </button>
-
-                {/* Purge Object Cache */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickPurge('OBJECT', 'Object Cache')}
-                  disabled={isPurging}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  <Shield className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>Purge - Object Cache (Redis)</span>
-                </button>
-
-                <div className="my-1 border-t border-slate-100"></div>
-
-                {/* Image Optimization Queue Quick Action */}
-                <button
-                  type="button"
-                  onClick={handleQuickImageOpt}
-                  disabled={isPurging}
-                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="h-3.5 w-3.5 text-amber-500" />
-                    <span>WebP Image Optimization</span>
-                  </div>
-                  <span className="text-[10px] rounded bg-amber-100 px-1.5 py-0.2 font-bold text-amber-700">WebP</span>
-                </button>
-              </div>
-
-              <div className="mt-1 border-t border-slate-100 pt-1 px-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCmsView('litespeed_cache');
-                    setShowLiteSpeedDropdown(false);
-                  }}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md bg-slate-900 py-1.5 text-center text-xs font-bold text-white hover:bg-slate-800 transition-colors"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                  <span>LiteSpeed Cache Settings</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <button type="button" id="btn-cms-litespeed-quick"
+          onClick={() => setCmsView("litespeed_cache")}
+          className="rounded-lg px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-50">
+          Preview तपासणी
+        </button>
       </div>
 
       {/* Center Search Bar */}

@@ -60,7 +60,7 @@ import {
 import { WebPushNotificationService } from '../../services/WebPushNotificationService';
 import { optimizeImageFile } from '../../utils/imageOptimizer';
 import { dataUrlToBlob, uploadMediaBlobToStorage } from '../../services/MediaStorageService';
-import { requestProductionRebuild } from '../../services/ProductionRebuildService';
+import { checkArticlePreview } from '../../services/ArticlePreviewService';
 
 export const PostEditorView: React.FC = () => {
   const { posts, categories, tags, selectedPostId, setSelectedPostId, cmsView, setCmsView, createPost, updatePost, uploadMedia } = useApp();
@@ -101,6 +101,7 @@ export const PostEditorView: React.FC = () => {
   const [editorialNote, setEditorialNote] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [saveErrorMsg, setSaveErrorMsg] = useState('');
+  const [previewMessage, setPreviewMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [activeEditorTab, setActiveEditorTab] = useState<'write' | 'preview'>('write');
   const [isSocialPreviewOpen, setIsSocialPreviewOpen] = useState(false);
@@ -488,14 +489,17 @@ export const PostEditorView: React.FC = () => {
     setSaveErrorMsg('');
 
     try {
+      setPreviewMessage('');
       const persistedId = existingPost?.id || persistedPostIdRef.current;
+      let savedPost: Post | null = null;
 
       if (persistedId) {
-        await updatePost(persistedId, postPayload, editorialNote || `Status: ${finalStatus}`);
+        savedPost = await updatePost(persistedId, postPayload, editorialNote || `Status: ${finalStatus}`);
         setStatus(finalStatus);
         setSaveSuccessMsg(`बातमी यशस्वीरीत्या क्लाउडवर अद्ययावत झाली (${finalStatus})`);
       } else {
         const created = await createPost(postPayload);
+        savedPost = created;
         persistedPostIdRef.current = created.id;
         setSelectedPostId(created.id);
         setCmsView('posts_edit');
@@ -504,16 +508,15 @@ export const PostEditorView: React.FC = () => {
       }
 
       savedSnapshotRef.current = draftSnapshot;
+      if (savedPost) setFeaturedImage(savedPost.featuredImage);
       discardDraft();
 
-      // Non-blocking production OG refresh. Publishing stays successful even
-      // if the rebuild request is temporarily unavailable.
-      if (finalStatus === 'PUBLISHED') {
-        try {
-          await requestProductionRebuild(existingPost ? 'post_updated' : 'post_published');
-        } catch (rebuildError) {
-          console.error('Production OG rebuild trigger failed:', rebuildError);
-        }
+      // The saved article remains saved even if its public preview is not ready.
+      if (finalStatus === 'PUBLISHED' && savedPost && visibility === 'PUBLIC') {
+        setPreviewMessage('बातमी सेव्ह झाली. सार्वजनिक लिंक आणि thumbnail तपासत आहे…');
+        const preview = await checkArticlePreview(savedPost);
+        setPreviewMessage(preview.ready ? preview.message
+          : `बातमी सेव्ह झाली; WhatsApp preview तयार नाही: ${preview.message} Cache purge करण्याऐवजी “Preview तपासणी” मध्ये पुन्हा तपासा.`);
       }
       if (sendPushAlert && finalStatus === 'PUBLISHED') {
         WebPushNotificationService.broadcastPush(
@@ -796,6 +799,12 @@ export const PostEditorView: React.FC = () => {
         </div>
       )}
 
+      {previewMessage && (
+        <div role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          {previewMessage}
+          <button type="button" className="ml-3 underline" onClick={() => setCmsView('litespeed_cache')}>Preview तपासणी</button>
+        </div>
+      )}
       {saveErrorMsg && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-xs font-bold text-red-800 ring-1 ring-red-600/30 animate-in fade-in">
           <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />

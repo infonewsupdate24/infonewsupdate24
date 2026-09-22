@@ -25,6 +25,7 @@ import {
 import { DEFAULT_EPAPER_SETTINGS } from '../data/epaperSeedData';
 import { DEFAULT_WHATSAPP_SETTINGS } from '../data/whatsAppSeedData';
 import { FirestoreNewsService } from '../services/FirestoreNewsService';
+import { preparePublishImage, refreshArticlePreview } from '../services/ArticlePreviewService';
 import {
   ActivityLog,
   AdSenseGlobalSettings,
@@ -779,7 +780,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // 1. Authoritative Cloud Persistence First (Await Firestore)
+    newPost.featuredImage = await preparePublishImage(newPost);
     await FirestoreNewsService.savePost(newPost);
+    if (newPost.status === 'PUBLISHED') await refreshArticlePreview(newPost);
 
     // 2. Update React State and Local Cache
     setPosts((prev) => {
@@ -823,7 +826,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 1. Authoritative Cloud Persistence First (Await Firestore)
+    if (updated.status === 'PUBLISHED' && (
+      currentPost.status !== 'PUBLISHED' || currentPost.visibility !== updated.visibility ||
+      currentPost.featuredImage !== updated.featuredImage || updated.featuredImage?.startsWith('data:')
+    )) updated.featuredImage = await preparePublishImage(updated);
     await FirestoreNewsService.savePost(updated);
+    if (updated.status === 'PUBLISHED' || currentPost.status === 'PUBLISHED') {
+      await refreshArticlePreview(updated);
+      if (currentPost.slug !== updated.slug) await refreshArticlePreview({ slug: currentPost.slug, updatedAt: updated.updatedAt });
+    }
 
     // 2. Update React State and Local Cache
     setPosts((prev) => {
@@ -838,8 +849,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deletePost = async (id: string): Promise<void> => {
+    const deletedPost = posts.find(post => post.id === id);
     recordDeletedPostId(id);
     await FirestoreNewsService.deletePost(id);
+    if (deletedPost?.status === 'PUBLISHED') await refreshArticlePreview({ slug: deletedPost.slug, updatedAt: new Date().toISOString() });
 
     setPosts((prev) => {
       const remaining = prev.filter((p) => p.id !== id);
@@ -1317,263 +1330,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
+  // No LiteSpeed backend is connected to Firebase Hosting. Never fabricate
+  // purge, compression, database cleanup or crawler success.
   const purgeLiteSpeedCache = async (
-    type: LiteSpeedPurgeLog['type'],
-    note?: string
-  ): Promise<{ success: boolean; message: string; purgedItemsCount: number }> => {
-    // Generate counts according to purge type
-    let purgedItemsCount = 1420;
-    let label = 'सर्व कॅशे (Purge All)';
-
-    if (type === 'FRONT_PAGE') {
-      purgedItemsCount = 24;
-      label = 'Front Page Cache';
-    } else if (type === 'CSS_JS') {
-      purgedItemsCount = 68;
-      label = 'Minified CSS & JS Assets';
-    } else if (type === 'OBJECT') {
-      purgedItemsCount = 850;
-      label = 'Redis Object Cache Pool';
-    } else if (type === 'REST_API') {
-      purgedItemsCount = 120;
-      label = 'REST API & Feed Endpoints';
-    } else if (type === 'ERROR_PAGES') {
-      purgedItemsCount = 15;
-      label = '403/404 Error Pages';
-    } else if (type === 'CDN') {
-      purgedItemsCount = 1800;
-      label = 'QUIC.cloud CDN Edge Nodes';
-    }
-
-    const newLog: LiteSpeedPurgeLog = {
-      id: 'purge-' + Date.now(),
-      type,
-      triggeredBy: 'Administrator (One-Click Action)',
-      timestamp: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'SUCCESS',
-      purgedItemsCount,
-      note: note || `Purge ${label} executed successfully.`,
-    };
-
-    setLiteSpeedPurgeLogs((prev) => [newLog, ...prev]);
-    setLiteSpeedSettings((prev) => ({
-      ...prev,
-      stats: {
-        ...prev.stats,
-        totalPurgeCount: prev.stats.totalPurgeCount + 1,
-        cachedRequests: type === 'ALL' ? 0 : Math.max(0, prev.stats.cachedRequests - purgedItemsCount),
-      },
-    }));
-
-    addActivityLog({
-      userId: 'user-admin',
-      userName: 'Administrator',
-      userRole: 'SUPER_ADMIN',
-      action: 'LiteSpeed Purge',
-      details: `Purged LiteSpeed cache (${type}): ${purgedItemsCount} objects cleared.`,
-    });
-
-    return {
-      success: true,
-      message: `LiteSpeed Cache Purge (${label}) यशस्वीरित्या पूर्ण झाले! (${purgedItemsCount} फाइल्स/ऑब्जेक्ट्स रिफ्रेश झाले)`,
-      purgedItemsCount,
-    };
-  };
-
+    type: LiteSpeedPurgeLog["type"], note?: string
+  ) => ({ success: false, purgedItemsCount: 0,
+    message: "LiteSpeed backend जोडलेला नाही. Cache साफ झालेला नाही. Preview तपासणी उघडा." });
   const optimizeLiteSpeedImages = async (
-    mode: 'ALL' | 'NEW' | 'SINGLE' = 'ALL',
-    targetMediaId?: string
-  ): Promise<{ success: boolean; count: number; savedBytes: number }> => {
-    let totalSaved = 0;
-    let count = 0;
-
-    // Convert media items to optimized WebP images
-    setLiteSpeedImages((prev) => {
-      // Map existing media items if not yet in queue
-      const existingMediaIds = new Set(prev.map((img) => img.mediaId));
-      const newItemsFromMedia: LiteSpeedImageItem[] = media
-        .filter((m) => !existingMediaIds.has(m.id))
-        .map((m) => {
-          const originalBytes = m.sizeBytes || 1200000;
-          const optimizedBytes = Math.round(originalBytes * 0.22); // ~78% compression
-          const webpUrl = m.url.includes('unsplash.com')
-            ? (m.url.replace(/&auto=format(&fit=crop)?/, '') + '&fm=webp&q=80')
-            : m.url;
-          return {
-            id: 'ls-img-' + m.id,
-            mediaId: m.id,
-            fileName: m.name,
-            originalUrl: m.url,
-            originalSizeBytes: originalBytes,
-            optimizedSizeBytes: optimizedBytes,
-            webpUrl,
-            savingsPercent: Math.round(((originalBytes - optimizedBytes) / originalBytes) * 1000) / 10,
-            status: 'OPTIMIZED' as const,
-            format: 'JPEG -> WebP',
-            optimizedAt: new Date().toISOString(),
-          };
-        });
-
-      const combined = [...prev, ...newItemsFromMedia];
-
-      return combined.map((item) => {
-        if (
-          mode === 'ALL' ||
-          (mode === 'SINGLE' && item.mediaId === targetMediaId) ||
-          (mode === 'NEW' && item.status !== 'OPTIMIZED')
-        ) {
-          count++;
-          totalSaved += item.originalSizeBytes - item.optimizedSizeBytes;
-          return {
-            ...item,
-            status: 'OPTIMIZED' as const,
-            optimizedAt: new Date().toISOString(),
-          };
-        }
-        return item;
-      });
-    });
-
-    setLiteSpeedSettings((prev) => ({
-      ...prev,
-      replaceWebP: true,
-      generateWebP: true,
-      stats: {
-        ...prev.stats,
-        totalBytesSavedMb: prev.stats.totalBytesSavedMb + Math.round(totalSaved / (1024 * 1024)),
-        pageSpeedDesktop: 99,
-        pageSpeedMobile: 97,
-      },
-    }));
-
-    addActivityLog({
-      userId: 'user-admin',
-      userName: 'Administrator',
-      userRole: 'SUPER_ADMIN',
-      action: 'LiteSpeed Image Optimization',
-      details: `Optimized images to WebP via QUIC.cloud lossless engine.`,
-    });
-
-    return {
-      success: true,
-      count: count || 6,
-      savedBytes: totalSaved || 6840000,
-    };
-  };
-
-  const revertLiteSpeedImages = () => {
-    setLiteSpeedImages((prev) =>
-      prev.map((item) => ({
-        ...item,
-        status: 'NOT_OPTIMIZED',
-      }))
-    );
-    setLiteSpeedSettings((prev) => ({
-      ...prev,
-      replaceWebP: false,
-    }));
-    addActivityLog({
-      userId: 'user-admin',
-      userName: 'Administrator',
-      userRole: 'SUPER_ADMIN',
-      action: 'Revert WebP Images',
-      details: 'Reverted images to original formats from backups.',
-    });
-  };
-
+    mode: "ALL" | "NEW" | "SINGLE" = "ALL", targetMediaId?: string
+  ) => ({ success: false, count: 0, savedBytes: 0 });
+  const revertLiteSpeedImages = () => {};
   const cleanDatabaseTables = async (
-    target: 'REVISIONS' | 'DRAFTS' | 'TRASH' | 'SPAM_COMMENTS' | 'TRANSIENTS' | 'ALL'
-  ): Promise<{ success: boolean; cleanedCount: number; spaceFreedKb: number }> => {
-    const current = liteSpeedSettings.dbStats;
-    let cleanedCount = 0;
-    let spaceFreedKb = 0;
-
-    if (target === 'ALL') {
-      cleanedCount = current.revisionsCount + current.autoDraftsCount + current.trashedPostsCount + current.spamCommentsCount + current.transientsCount;
-      spaceFreedKb = cleanedCount * 42;
-      setLiteSpeedSettings((prev) => ({
-        ...prev,
-        dbStats: {
-          revisionsCount: 0,
-          autoDraftsCount: 0,
-          trashedPostsCount: 0,
-          spamCommentsCount: 0,
-          transientsCount: 0,
-          databaseSizeMb: Math.max(8.2, prev.dbStats.databaseSizeMb - (spaceFreedKb / 1024)),
-        },
-      }));
-    } else if (target === 'REVISIONS') {
-      cleanedCount = current.revisionsCount;
-      spaceFreedKb = cleanedCount * 36;
-      setLiteSpeedSettings((prev) => ({
-        ...prev,
-        dbStats: { ...prev.dbStats, revisionsCount: 0 },
-      }));
-    } else if (target === 'DRAFTS') {
-      cleanedCount = current.autoDraftsCount;
-      spaceFreedKb = cleanedCount * 28;
-      setLiteSpeedSettings((prev) => ({
-        ...prev,
-        dbStats: { ...prev.dbStats, autoDraftsCount: 0 },
-      }));
-    } else if (target === 'TRASH') {
-      cleanedCount = current.trashedPostsCount;
-      spaceFreedKb = cleanedCount * 45;
-      setLiteSpeedSettings((prev) => ({
-        ...prev,
-        dbStats: { ...prev.dbStats, trashedPostsCount: 0 },
-      }));
-    } else if (target === 'SPAM_COMMENTS') {
-      cleanedCount = current.spamCommentsCount;
-      spaceFreedKb = cleanedCount * 18;
-      setLiteSpeedSettings((prev) => ({
-        ...prev,
-        dbStats: { ...prev.dbStats, spamCommentsCount: 0 },
-      }));
-    } else if (target === 'TRANSIENTS') {
-      cleanedCount = current.transientsCount;
-      spaceFreedKb = cleanedCount * 12;
-      setLiteSpeedSettings((prev) => ({
-        ...prev,
-        dbStats: { ...prev.dbStats, transientsCount: 0 },
-      }));
-    }
-
-    addActivityLog({
-      userId: 'user-admin',
-      userName: 'Administrator',
-      userRole: 'SUPER_ADMIN',
-      action: 'LiteSpeed Database Optimization',
-      details: `Cleaned ${cleanedCount} orphaned DB rows (${target}), freed ~${spaceFreedKb} KB.`,
-    });
-
-    return {
-      success: true,
-      cleanedCount,
-      spaceFreedKb,
-    };
-  };
-
-  const runLiteSpeedCrawler = async (): Promise<{ success: boolean; crawledCount: number; durationMs: number }> => {
-    const total = 84;
-    setLiteSpeedSettings((prev) => ({
-      ...prev,
-      cachedUrlsCount: total,
-      lastCrawlTime: 'Just now (' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ')',
-    }));
-    addActivityLog({
-      userId: 'user-admin',
-      userName: 'Administrator',
-      userRole: 'SUPER_ADMIN',
-      action: 'LiteSpeed Crawler Run',
-      details: `Crawled ${total} sitemap URLs and pre-warmed full cache.`,
-    });
-    return {
-      success: true,
-      crawledCount: total,
-      durationMs: 1420,
-    };
-  };
+    target: "REVISIONS" | "DRAFTS" | "TRASH" | "SPAM_COMMENTS" | "TRANSIENTS" | "ALL"
+  ) => ({ success: false, cleanedCount: 0, spaceFreedKb: 0 });
+  const runLiteSpeedCrawler = async () => ({ success: false, crawledCount: 0, durationMs: 0 });
 
   // Backup & Recovery System (Section 24 Architecture)
   const exportDataJson = (): string => {
