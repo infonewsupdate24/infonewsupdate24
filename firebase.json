@@ -185,6 +185,10 @@
     ],
     "headers": [
       {
+        "source": "/verify-{card,reporter}{,/**}",
+        "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }, { "key": "Referrer-Policy", "value": "no-referrer" }]
+      },
+      {
         "source": "**",
         "headers": [
           {
@@ -239,6 +243,14 @@
       }
     ],
     "rewrites": [
+      {
+        "source": "/verify-card{,/**}",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/verify-reporter{,/**}",
+        "destination": "/index.html"
+      },
       {
         "source": "/category/**",
         "destination": "/index.html"
