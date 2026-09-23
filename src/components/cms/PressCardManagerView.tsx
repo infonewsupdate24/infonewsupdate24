@@ -15,8 +15,14 @@ export function PressCardManagerContent({admin}: {admin:boolean}) {
   const [form, setForm] = useState({ name: '', designation: '', employeeId: 'INU24-', photo: '', issued: indiaToday(), expiry: '2028-12-31' });
   const [renewal, setRenewal] = useState(''), [confirmRevoke, setConfirmRevoke] = useState(false);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [qr, setQr] = useState('');
-  const reload = async () => { const rows = await listPressCards(); setCards(rows); return rows; };
-  useEffect(() => { if (admin) void reload().catch(() => setMessage('नोंदी लोड झाल्या नाहीत. इंटरनेट / डेटाबेस उपलब्धता तपासा आणि पुन्हा प्रयत्न करा.')); }, [admin]);
+  const [serviceState,setServiceState] = useState<'checking'|'ready'|'blocked'>('checking');
+  const [serviceError,setServiceError] = useState('');
+  const reload = async () => {
+    setServiceState('checking'); setServiceError('');
+    try { const rows = await listPressCards(); setCards(rows); setServiceState('ready'); return rows; }
+    catch(e) { setServiceState('blocked'); setServiceError(e instanceof Error ? e.message : 'कार्ड सेवा उपलब्ध नाही.'); throw e; }
+  };
+  useEffect(() => { if (admin) void reload().catch(() => {}); }, [admin]);
   useEffect(() => {
     setQr(''); setConfirmRevoke(false); setRenewal(''); let active = true;
     if (selected) void QRCode.toDataURL(cardUrl(selected.token), { width: 320, margin: 4, errorCorrectionLevel: 'M' }).then(value => { if (active) setQr(value); }).catch(() => setMessage('QR तयार झाला नाही. कार्ड पुन्हा उघडा.'));
@@ -47,16 +53,19 @@ export function PressCardManagerContent({admin}: {admin:boolean}) {
   return <div className="space-y-6 text-slate-900">
     <style>{`@media print { body * { visibility:hidden !important; } #issued-press-card, #issued-press-card * { visibility:visible !important; } #issued-press-card { position:absolute; left:0; top:0; width:95mm; margin:0; box-shadow:none; print-color-adjust:exact; -webkit-print-color-adjust:exact; } }`}</style>
     <header><h1 className="text-2xl font-black">अधिकृत ओळखपत्र आणि QR पडताळणी</h1><p className="mt-2 text-slate-600">जारी केलेली नोंद जतन राहते. मुदत आपोआप तपासली जाते. रद्द केलेल्या कार्डाचा QR पुन्हा सक्रिय होत नाही.</p></header>
+    {serviceState !== 'ready' && <div role="alert" className="rounded-xl border border-amber-400 bg-amber-50 p-4 space-y-2"><strong>{serviceState === 'checking' ? 'कार्ड जतन करण्याची सेवा तपासत आहोत…' : 'सध्या नवीन कार्ड जतन करता येणार नाही'}</strong>{serviceError && <p>{serviceError}</p>}<p className="text-sm">सेवा उपलब्ध झाल्यानंतरच जतन करा बटण सुरू होईल.</p><button type="button" disabled={serviceState === 'checking' || busy} className={buttonClass} onClick={()=>void perform(async()=>{await reload();setMessage('कार्ड सेवा उपलब्ध आहे. आता कार्ड जतन करू शकता.');})}>सेवा पुन्हा तपासा</button></div>}
     {message && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4">{message}</p>}
     <form className="rounded-xl border bg-white p-5 space-y-4" onSubmit={e => { e.preventDefault(); void perform(async () => {
+      if (serviceState !== 'ready') throw Error('कार्ड सेवा उपलब्ध झाल्याशिवाय जतन करता येणार नाही.');
       const token = await issuePressCard({ name: form.name.trim(), designation: form.designation.trim(), employeeId: form.employeeId.trim().toUpperCase(), photo: form.photo.trim(), issuedAt: issueFromDate(form.issued), expiresAt: expiryFromDate(form.expiry) });
       setMessage('कार्ड जारी झाले आणि अधिकृत नोंद जतन झाली.');
-      const rows = await reload(); setSelected(rows.find(c => c.token === token) || null);
+      try { const rows = await reload(); setSelected(rows.find(c => c.token === token) || null); }
+      catch { setMessage('कार्ड जतन झाले आहे, पण यादी पुन्हा लोड झाली नाही. हे कार्ड पुन्हा जारी करू नका; सेवा उपलब्ध झाल्यावर नोंदी पुन्हा लोड करा.'); }
     }); }}>
       <h2 className="text-lg font-bold">नवीन कार्ड जारी करा</h2>
       <div className="grid gap-4 md:grid-cols-2">{([{ key: 'name', label: 'पूर्ण नाव', max: 150 }, { key: 'designation', label: 'पद', max: 120 }, { key: 'employeeId', label: 'Employee ID (उदा. INU24-001)', max: 38 }, { key: 'photo', label: 'अधिकृत फोटोची HTTPS लिंक (ऐच्छिक)', max: 2000 }, { key: 'issued', label: 'Issue Date — जारी तारीख', max: 10 }, { key: 'expiry', label: 'वैध अंतिम तारीख — भारताची वेळ', max: 10 }] as const).map(field => <label key={field.key} className="space-y-1 text-sm"><span>{field.label}</span><input required={field.key !== 'photo'} type={(field.key === 'expiry' || field.key === 'issued') ? 'date' : field.key === 'photo' ? 'url' : 'text'} max={field.key === 'issued' ? indiaToday() : undefined} maxLength={field.max} value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} className={inputClass} /></label>)}</div>
       <p className="text-sm text-slate-600">जारी करण्यापूर्वी नाव, पद आणि फोटो तपासा. जारी केल्यानंतर ओळख बदलता येत नाही. चुकीचे कार्ड रद्द करून नवीन ID जारी करा. रक्तगट सार्वजनिक नोंदीत साठवला जात नाही.</p>
-      <button disabled={busy} className={buttonClass}>{busy ? 'प्रक्रिया सुरू आहे…' : 'अधिकृत कार्ड जारी व जतन करा'}</button>
+      <button disabled={busy || serviceState !== 'ready'} className={buttonClass}>{busy ? 'प्रक्रिया सुरू आहे…' : serviceState !== 'ready' ? 'कार्ड जतन करणे सध्या बंद आहे' : 'अधिकृत कार्ड जारी व जतन करा'}</button>
     </form>
     <section className="rounded-xl border bg-white p-5 space-y-4"><div className="flex justify-between items-center"><h2 className="font-bold">जारी केलेली कार्डे ({cards.length})</h2><button disabled={busy} className={buttonClass} onClick={() => void perform(async () => { await reload(); setMessage('नोंदी अद्ययावत केल्या.'); })}>नोंदी पुन्हा लोड करा</button></div>
       {!cards.length && <p>सध्या कोणतीही नोंद लोड झालेली नाही.</p>}
