@@ -28,3 +28,9 @@ Do not reconstruct a card's current ACTIVE/REVOKED status from issuance scripts 
 6. Verify the existing INU24-001 URL against D1, active/revoked/expired states in tests, no-cache headers, denied anonymous administration, and editable Issue Date in the issuance form.
 
 Keep database export files and generated migration SQL out of Git. Never use `issue_initial_press_card.cjs` after the cutover; it writes the retired Firestore backend.
+
+## Completed cutover (2026-09-24 IST)
+
+Legacy Firestore card and ID-registry writes are frozen by deployed rules. All 31 rules tests passed, with no compiler warnings. A fresh post-freeze export migrated one existing card and its active SUPER_ADMIN owner to D1 atomically; `migration_ready=1` is now set. Do not rerun the initial migration.
+
+`node scripts/check_press_card_cutover.mjs` compares the live API to the ignored source snapshot. INU24-001 retained its original QR token and every public source field, returned ACTIVE with no-store, and the admin page returned HTTP 200. Anonymous management returned 401. Eight Worker tests, three date/identity tests and TypeScript checking passed. The browser admin portal requires login; a new production card was not issued as a test.

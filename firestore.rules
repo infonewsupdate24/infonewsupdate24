@@ -354,43 +354,17 @@ service cloud.firestore {
     }
 
     // Public card projection: no blood group, private contacts, account UID or issuer UID.
-    // A permanent private employee-ID reservation prevents duplicate issuance / QR reassignment.
-    function validPressCard(d, token) {
-      return d.keys().hasAll(['token','employeeId','name','designation','photo','status','issuedAt','expiresAt','updatedAt'])
-        && d.keys().hasOnly(['token','employeeId','name','designation','photo','status','issuedAt','expiresAt','updatedAt'])
-        && token.matches('[a-f0-9]{32}') && d.token == token
-        && d.employeeId is string && d.employeeId.matches('INU24-[A-Z0-9-]{1,32}')
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 150
-        && d.designation is string && d.designation.size() > 0 && d.designation.size() <= 120
-        && d.photo is string && d.photo.size() <= 2000 && (d.photo == '' || d.photo.matches('https://[^ ]+'))
-        && d.status in ['ACTIVE','REVOKED']
-        && d.issuedAt is timestamp && d.expiresAt is timestamp && d.updatedAt is timestamp
-        && d.expiresAt > d.issuedAt && d.updatedAt == request.time
-        && getAfter(/databases/$(database)/documents/press_card_ids/$(d.employeeId)).data.token == token;
-    }
+    // Legacy history only; D1 now validates and reserves employee IDs.
     match /press_cards/{token} {
       allow get: if true;
       allow list: if isAdmin();
-      allow create: if isAdmin() && validPressCard(request.resource.data, token)
-        && request.resource.data.issuedAt == request.time && request.resource.data.status == 'ACTIVE'
-        && request.resource.data.expiresAt > request.time;
-      allow update: if isAdmin() && validPressCard(request.resource.data, token)
-        && resource.data.status == 'ACTIVE'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','expiresAt','updatedAt'])
-        && ((request.resource.data.status == 'REVOKED' && request.resource.data.expiresAt == resource.data.expiresAt)
-          || (request.resource.data.status == 'ACTIVE' && request.resource.data.expiresAt > resource.data.expiresAt && request.resource.data.expiresAt > request.time));
-      allow delete: if false;
+      // Frozen legacy snapshot: issuance, renewal and revocation now use D1.
+      allow create, update, delete: if false;
     }
     match /press_card_ids/{employeeId} {
       allow read: if isAdmin();
-      allow create: if isAdmin()
-        && request.resource.data.keys().hasAll(['token','employeeId','issuedBy','issuedAt'])
-        && request.resource.data.keys().hasOnly(['token','employeeId','issuedBy','issuedAt'])
-        && request.resource.data.employeeId == employeeId && employeeId.matches('INU24-[A-Z0-9-]{1,32}')
-        && request.resource.data.token is string && request.resource.data.token.matches('[a-f0-9]{32}')
-        && request.resource.data.issuedBy == request.auth.uid && request.resource.data.issuedAt == request.time
-        && getAfter(/databases/$(database)/documents/press_cards/$(request.resource.data.token)).data.employeeId == employeeId;
-      allow update, delete: if false;
+      // D1's unique employeeId constraint is the authoritative registry.
+      allow create, update, delete: if false;
     }
 
     match /public_authors/{userId} {
