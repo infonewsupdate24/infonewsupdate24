@@ -243,6 +243,7 @@
       }
     ],
     "rewrites": [
+      { "source": "/press-card-admin", "destination": "/index.html" },
       {
         "source": "/verify-card{,/**}",
         "destination": "/index.html"

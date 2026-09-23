@@ -1,0 +1,18 @@
+{
+  "name": "infonews-press-cards",
+  "account_id": "1c113218b760301d6b09b5ea753d41ce",
+  "main": "worker/press-cards.mjs",
+  "compatibility_date": "2026-09-22",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "vars": {
+    "FIREBASE_PROJECT": "in24-news-platform-6f802",
+    "SITE_ORIGIN": "https://www.infonewsupdate24.com"
+  },
+  "d1_databases": [{
+    "binding": "CARDS",
+    "database_name": "infonews-press-cards",
+    "database_id": "0bb89d66-c6a8-4963-98be-1f3111f0574e"
+  }],
+  "routes": [{"pattern":"www.infonewsupdate24.com/api/press-cards*","zone_id":"dcfe4dffbc70927b07f87227944d57fe"}]
+}

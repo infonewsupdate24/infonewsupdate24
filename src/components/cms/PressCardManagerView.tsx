@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { useAuth } from '../../context/AuthContext';
 import { changePressCard, issuePressCard, listPressCards, verifyPressCard } from '../../services/PressCardService';
-import { cardDate, cardNotice, cardStatus, cardUrl, expiryFromDate, PressCard } from '../../utils/pressCard';
+import { cardDate, cardNotice, cardStatus, cardUrl, expiryFromDate, indiaToday, issueFromDate, PressCard } from '../../utils/pressCard';
 
 export function PressCardManagerView() {
   const { currentUser } = useAuth();
   const admin = ['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.role || '') && currentUser?.status === 'ACTIVE';
+  return <PressCardManagerContent admin={admin} />;
+}
+
+export function PressCardManagerContent({admin}: {admin:boolean}) {
   const [cards, setCards] = useState<PressCard[]>([]), [selected, setSelected] = useState<PressCard | null>(null);
-  const [form, setForm] = useState({ name: 'Komal Daulatrao Dahagaonkar', designation: 'Chief Editor', employeeId: 'INU24-001', photo: '', expiry: '2028-12-31' });
+  const [form, setForm] = useState({ name: '', designation: '', employeeId: 'INU24-', photo: '', issued: indiaToday(), expiry: '2028-12-31' });
   const [renewal, setRenewal] = useState(''), [confirmRevoke, setConfirmRevoke] = useState(false);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [qr, setQr] = useState('');
   const reload = async () => { const rows = await listPressCards(); setCards(rows); return rows; };
@@ -45,12 +49,12 @@ export function PressCardManagerView() {
     <header><h1 className="text-2xl font-black">अधिकृत ओळखपत्र आणि QR पडताळणी</h1><p className="mt-2 text-slate-600">जारी केलेली नोंद जतन राहते. मुदत आपोआप तपासली जाते. रद्द केलेल्या कार्डाचा QR पुन्हा सक्रिय होत नाही.</p></header>
     {message && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4">{message}</p>}
     <form className="rounded-xl border bg-white p-5 space-y-4" onSubmit={e => { e.preventDefault(); void perform(async () => {
-      const token = await issuePressCard({ name: form.name.trim(), designation: form.designation.trim(), employeeId: form.employeeId.trim().toUpperCase(), photo: form.photo.trim(), expiresAt: expiryFromDate(form.expiry) });
+      const token = await issuePressCard({ name: form.name.trim(), designation: form.designation.trim(), employeeId: form.employeeId.trim().toUpperCase(), photo: form.photo.trim(), issuedAt: issueFromDate(form.issued), expiresAt: expiryFromDate(form.expiry) });
       setMessage('कार्ड जारी झाले आणि अधिकृत नोंद जतन झाली.');
       const rows = await reload(); setSelected(rows.find(c => c.token === token) || null);
     }); }}>
       <h2 className="text-lg font-bold">नवीन कार्ड जारी करा</h2>
-      <div className="grid gap-4 md:grid-cols-2">{([{ key: 'name', label: 'पूर्ण नाव', max: 150 }, { key: 'designation', label: 'पद', max: 120 }, { key: 'employeeId', label: 'Employee ID (उदा. INU24-001)', max: 38 }, { key: 'photo', label: 'अधिकृत फोटोची HTTPS लिंक (ऐच्छिक)', max: 2000 }, { key: 'expiry', label: 'वैध अंतिम तारीख — भारताची वेळ', max: 10 }] as const).map(field => <label key={field.key} className="space-y-1 text-sm"><span>{field.label}</span><input required={field.key !== 'photo'} type={field.key === 'expiry' ? 'date' : field.key === 'photo' ? 'url' : 'text'} maxLength={field.max} value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} className={inputClass} /></label>)}</div>
+      <div className="grid gap-4 md:grid-cols-2">{([{ key: 'name', label: 'पूर्ण नाव', max: 150 }, { key: 'designation', label: 'पद', max: 120 }, { key: 'employeeId', label: 'Employee ID (उदा. INU24-001)', max: 38 }, { key: 'photo', label: 'अधिकृत फोटोची HTTPS लिंक (ऐच्छिक)', max: 2000 }, { key: 'issued', label: 'Issue Date — जारी तारीख', max: 10 }, { key: 'expiry', label: 'वैध अंतिम तारीख — भारताची वेळ', max: 10 }] as const).map(field => <label key={field.key} className="space-y-1 text-sm"><span>{field.label}</span><input required={field.key !== 'photo'} type={(field.key === 'expiry' || field.key === 'issued') ? 'date' : field.key === 'photo' ? 'url' : 'text'} max={field.key === 'issued' ? indiaToday() : undefined} maxLength={field.max} value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} className={inputClass} /></label>)}</div>
       <p className="text-sm text-slate-600">जारी करण्यापूर्वी नाव, पद आणि फोटो तपासा. जारी केल्यानंतर ओळख बदलता येत नाही. चुकीचे कार्ड रद्द करून नवीन ID जारी करा. रक्तगट सार्वजनिक नोंदीत साठवला जात नाही.</p>
       <button disabled={busy} className={buttonClass}>{busy ? 'प्रक्रिया सुरू आहे…' : 'अधिकृत कार्ड जारी व जतन करा'}</button>
     </form>

@@ -19,8 +19,8 @@ export function PressCardVerificationView({ token }: { token: string }) {
       try {
         const value = await verifyPressCard(token, controller.signal);
         if (alive && current === generation) { checked = performance.now(); setResult(value); }
-      } catch {
-        if (alive && current === generation) setError('ऑनलाइन पडताळणी उपलब्ध नाही. इंटरनेट तपासा किंवा अधिकृत संपर्कावर संपर्क साधा.');
+      } catch (e) {
+        if (alive && current === generation) setError(e instanceof Error && e.name !== 'AbortError' ? e.message : 'पडताळणी सेवा प्रतिसाद देत नाही. थोड्या वेळाने पुन्हा प्रयत्न करा.');
       } finally { clearTimeout(timeout); }
     };
     const offline = () => { ++generation; controller?.abort(); setResult(null); setError('इंटरनेट बंद आहे. पडताळणी पूर्ण झालेली नाही.'); };

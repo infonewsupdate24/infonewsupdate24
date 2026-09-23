@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cardStatus, expiryFromDate, validCardToken, cardUrl, PressCard } from '../src/utils/pressCard';
 const expiresAt = expiryFromDate('2028-12-31');
-const card: PressCard = { token: 'a'.repeat(32), employeeId: 'INU24-001', name: 'Test', designation: 'Editor', photo: '', issuedAt: Date.parse('2026-01-01'), updatedAt: Date.parse('2026-01-01'), expiresAt, status: 'ACTIVE' };
+const card: PressCard = { token: 'a'.repeat(32), employeeId: 'INU24-001', name: 'Test', designation: 'Editor', photo: '', issuedAt: Date.parse('2026-01-01'), createdAt: Date.parse('2026-01-01'), updatedAt: Date.parse('2026-01-01'), expiresAt, status: 'ACTIVE' };
 test('expiry includes entire final date in India and flips at midnight', () => {
   assert.equal(new Date(expiresAt).toISOString(), '2028-12-31T18:30:00.000Z');
   assert.equal(cardStatus(card, expiresAt - 1), 'ACTIVE');

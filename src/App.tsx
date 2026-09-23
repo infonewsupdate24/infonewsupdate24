@@ -8,6 +8,7 @@ import { PublicPortalView } from './components/public/PublicPortalView';
 import { AppProvider, useApp } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 const PressCardVerificationView = lazy(() => import('./components/public/PressCardVerificationView').then(m => ({ default: m.PressCardVerificationView })));
+const IndependentPressCardAdmin = lazy(() => import('./components/cms/IndependentPressCardAdmin').then(m => ({ default: m.IndependentPressCardAdmin })));
 
 // ⚡ Dynamic Lazy Imports for CMS Admin Modules (Dramatically reduces initial JS payload for public readers)
 const CMSLayout = lazy(() =>
@@ -325,6 +326,7 @@ class AppErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
 }
 
 export default function App() {
+  if (window.location.pathname.replace(/\/$/,'') === '/press-card-admin') return <AppErrorBoundary><Suspense fallback={<p className="p-8">ID Card Admin लोड होत आहे…</p>}><IndependentPressCardAdmin/></Suspense></AppErrorBoundary>;
   const verification = window.location.pathname.match(/^\/(?:verify-card|verify-reporter)(?:\/([^/]*))?\/?$/);
   if (verification) return <AppErrorBoundary><Suspense fallback={<p className="p-8">पडताळणी पेज लोड होत आहे…</p>}><PressCardVerificationView token={verification[1] || ''} /></Suspense></AppErrorBoundary>;
   return (

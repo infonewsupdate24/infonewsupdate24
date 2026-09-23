@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Verification and Firebase API responses must never be served from stale caches.
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.hostname.endsWith('googleapis.com') || /^\/verify-(card|reporter)(\/|$)/.test(url.pathname)) return;
+  if (event.request.method !== 'GET' || url.hostname.endsWith('googleapis.com') || url.pathname.startsWith('/api/press-cards') || url.pathname === '/press-card-admin' || /^\/verify-(card|reporter)(\/|$)/.test(url.pathname)) return;
   // Always use Network-First for HTML navigation and JS/CSS assets
   if (
     event.request.mode === 'navigate' ||

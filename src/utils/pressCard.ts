@@ -1,9 +1,11 @@
 export interface PressCard {
   token: string; employeeId: string; name: string; designation: string; photo: string;
-  status: 'ACTIVE' | 'REVOKED'; issuedAt: number; expiresAt: number; updatedAt: number;
+  status: 'ACTIVE' | 'REVOKED'; issuedAt: number; expiresAt: number; createdAt: number; updatedAt: number;
 }
 export const validCardToken = (token: string) => /^[a-f0-9]{32}$/.test(token);
 export const cardUrl = (token: string) => `https://www.infonewsupdate24.com/verify-card/${token}`;
+export const indiaToday = () => new Date(Date.now() + 19800000).toISOString().slice(0,10);
+export const issueFromDate = (value: string) => expiryFromDate(value) - 86400000;
 export function cardStatus(card: PressCard, now: number) {
   if (card.status === 'REVOKED') return 'REVOKED';
   if (!Number.isFinite(now) || !Number.isFinite(card.expiresAt) || !Number.isFinite(card.issuedAt) || card.issuedAt > now || card.status !== 'ACTIVE') return 'UNAVAILABLE';
