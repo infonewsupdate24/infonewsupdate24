@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "postbuild": "node scripts/generate_article_seo_pages.cjs && node scripts/validate_seo.cjs && node scripts/prepare_preview_runtime.cjs",
+    "postbuild": "node scripts/generate_article_seo_pages.cjs && node scripts/validate_seo.cjs && node scripts/prepare_preview_runtime.cjs && node scripts/generate_homepage_snapshot.mjs",
     "test:preview": "node --test scripts/article_preview.test.mjs scripts/worker_preview.test.mjs",
     "build:preview": "npm run build",
     "build:cached": "node scripts/build_cached_snapshot.cjs",

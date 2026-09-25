@@ -1,0 +1,11 @@
+{
+  "name": "infonews-homepage",
+  "account_id": "1c113218b760301d6b09b5ea753d41ce",
+  "main": "worker/homepage.mjs",
+  "compatibility_date": "2026-09-22",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "kv_namespaces": [{ "binding": "HOMEPAGE", "id": "e46359847c5a4c6bbf4be1a8b0719a2d" }],
+  "triggers": { "crons": ["*/15 * * * *"] },
+  "routes": [{ "pattern": "www.infonewsupdate24.com/*", "zone_id": "dcfe4dffbc70927b07f87227944d57fe" }]
+}

@@ -745,12 +745,14 @@ if (currentPath !== '/') {
     const handleLayoutUpdate = () => {
       setHomepageSections(HomepageLayoutService.getSections());
     };
-    const unsubscribeSavedLayout = HomepageLayoutService.subscribeSavedSections((savedSections) => {
-      setHomepageSections(savedSections);
-    });
+    const handlePublishedHomepage = (event: Event) => {
+      const sections = (event as CustomEvent).detail.sections;
+      setHomepageSections(HomepageLayoutService.setLocalSections(sections));
+    };
+    window.addEventListener('infonews:published-homepage', handlePublishedHomepage);
     window.addEventListener('infonews:homepage-layout-updated', handleLayoutUpdate);
     return () => {
-      unsubscribeSavedLayout();
+      window.removeEventListener('infonews:published-homepage', handlePublishedHomepage);
       window.removeEventListener('infonews:homepage-layout-updated', handleLayoutUpdate);
     };
   }, []);

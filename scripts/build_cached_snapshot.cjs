@@ -10,6 +10,7 @@ for (const args of [
   ['scripts/generate_article_seo_pages.cjs'],
   ['scripts/validate_seo.cjs'],
   ['scripts/prepare_preview_runtime.cjs'],
+  ['scripts/generate_homepage_snapshot.mjs', '--cached'],
 ]) {
   const result = spawnSync(process.execPath, args, { stdio: 'inherit' });
   if (result.status !== 0) process.exit(result.status || 1);

@@ -1,4 +1,5 @@
 import type { Unsubscribe } from 'firebase/firestore';
+import { getPublishedHomepage } from './PublishedHomepage';
 import { FirestoreNewsService } from './FirestoreNewsService';
 
 export type HomepageSectionId =
@@ -287,6 +288,7 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionConfig[] = [
 ];
 
 export class HomepageLayoutService {
+  private static publishedInitialised = false;
   private static normalizeSections(sections: HomepageSectionConfig[]): HomepageSectionConfig[] {
     const configured = Array.isArray(sections) ? sections.map((section) => ({ ...section })) : [];
     const existingIds = new Set(configured.map((section) => section.id));
@@ -315,6 +317,12 @@ export class HomepageLayoutService {
 
   static getSections(): HomepageSectionConfig[] {
     if (typeof window === 'undefined') return this.normalizeSections(DEFAULT_HOMEPAGE_SECTIONS);
+    if (!this.publishedInitialised && getPublishedHomepage()) {
+      this.publishedInitialised = true;
+      const sections = this.normalizeSections(getPublishedHomepage()!.sections);
+      try { localStorage.setItem(STORAGE_KEY_HOMEPAGE_LAYOUT, JSON.stringify(sections)); } catch {}
+      return sections;
+    }
     try {
       const stored = localStorage.getItem(STORAGE_KEY_HOMEPAGE_LAYOUT);
       if (stored) {

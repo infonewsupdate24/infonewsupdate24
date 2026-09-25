@@ -1,5 +1,5 @@
 // Service Worker for InfoNewsUpdate24 PWA
-const CACHE_NAME = 'infonews-pwa-v4';
+const CACHE_NAME = 'infonews-pwa-v5';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -21,6 +21,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Verification and Firebase API responses must never be served from stale caches.
   const url = new URL(event.request.url);
+  if (url.pathname === '/api/homepage') return;
   if (event.request.method !== 'GET' || url.hostname.endsWith('googleapis.com') || url.pathname.startsWith('/api/press-cards') || url.pathname === '/press-card-admin' || /^\/verify-(card|reporter)(\/|$)/.test(url.pathname)) return;
   // Always use Network-First for HTML navigation and JS/CSS assets
   if (

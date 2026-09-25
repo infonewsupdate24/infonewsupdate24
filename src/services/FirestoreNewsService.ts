@@ -24,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import { normalizeArticleSlug, isPublicArticle, newestArticleFirst } from '../utils/articleUrls.mjs';
 import { auth, db } from './firebase';
+import { refreshPublishedHomepage } from './PublishedHomepage';
 import { toPublicAuthor } from '../utils/publicAuthors.mjs';
 import type {
   Post,
@@ -184,7 +185,7 @@ export class FirestoreNewsService {
         snapshot.forEach((docSnap) => {
           posts.push({ ...docSnap.data(), id: docSnap.id } as Post);
         });
-        if (posts.length > 0) onUpdate(posts);
+        onUpdate(posts);
       },
       (error) => {
         console.warn('Firestore posts subscription note:', error);
@@ -204,6 +205,7 @@ export class FirestoreNewsService {
         },
         { merge: true }
       );
+      await refreshPublishedHomepage();
     } catch (err) {
       console.error('Failed to save post to Firestore:', err);
       throw err;
@@ -226,6 +228,7 @@ export class FirestoreNewsService {
   static async deletePost(postId: string): Promise<void> {
     try {
       await deleteDoc(doc(db, 'posts', postId));
+      await refreshPublishedHomepage();
     } catch (err) {
       console.error('Failed to delete post from Firestore:', err);
       throw err;
@@ -799,6 +802,7 @@ export class FirestoreNewsService {
         },
         { merge: true }
       );
+      if (settingId === 'homepage_layout') await refreshPublishedHomepage();
     } catch (err) {
       console.warn(`Failed to save setting ${settingId} to Firestore:`, err);
       throw err;

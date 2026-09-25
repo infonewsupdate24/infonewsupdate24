@@ -3,6 +3,8 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { PWAService } from './services/PWAService';
+import { getPublishedHomepage, loadPublishedHomepage } from './services/PublishedHomepage';
+import { HomepageSyncNotice } from './components/HomepageSyncNotice';
 
 // Initialize PWA install prompt listeners immediately on startup
 PWAService.init();
@@ -35,8 +37,15 @@ if (typeof window !== 'undefined') {
   });
 }
 
-createRoot(document.getElementById('root')!).render(
+async function start() {
+  if (!getPublishedHomepage() && !/^\/(cms|admin|login|press-card-admin|verify-card|verify-reporter)(\/|$)/.test(location.pathname)) {
+    try { await loadPublishedHomepage(); } catch (error) { console.warn(error); }
+  }
+  createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <HomepageSyncNotice />
   </StrictMode>,
 );
+}
+void start();

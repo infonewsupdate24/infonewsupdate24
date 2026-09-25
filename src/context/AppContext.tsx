@@ -1,4 +1,5 @@
 import { useAuth } from './AuthContext';
+import { getPublishedHomepage, loadPublishedHomepage, type PublishedHomepage } from '../services/PublishedHomepage';
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { resolvePostAuthor } from '../utils/publicAuthors.mjs';
 import type { PublicAuthorProfile } from '../types';
@@ -17,7 +18,6 @@ import {
   SEED_MODULES,
   SEED_NOTIFICATIONS,
   SEED_PAGES,
-  SEED_POSTS,
   SEED_SOCIAL_POSTS,
   SEED_TAGS,
   SEED_THEME_SETTINGS,
@@ -412,27 +412,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Core Data Collections (Auto-filtered against permanently deleted IDs)
   const [posts, setPosts] = useState<Post[]>(() => {
-    const deletedIds = getDeletedPostIds();
-    const stored = getStoredOrDefault<Post[]>('posts', []);
-    const postMap = new Map<string, Post>();
-    // 1. Always load all 127 authentic imported WordPress and seed posts
-    SEED_POSTS.forEach((p) => {
-      if (!deletedIds.has(p.id)) postMap.set(p.id, p);
-    });
-    // 2. Add or overwrite with locally edited/created posts
-    stored.forEach((p) => {
-      if (!deletedIds.has(p.id)) postMap.set(p.id, p);
-    });
-    const result = sortPostsNewestFirst(Array.from(postMap.values()));
-    try {
-      localStorage.setItem(STORAGE_PREFIX + 'posts', JSON.stringify(result));
-    } catch {}
-    return result;
+    return sortPostsNewestFirst(getPublishedHomepage()?.posts || []);
   });
 
   const attributedPosts = useMemo(() => posts.map(post => resolvePostAuthor(post, publicAuthors)), [posts, publicAuthors]);
 
-  const syncAllSeedPosts = () => {
+  const syncAllSeedPosts = async () => {
+    const { SEED_POSTS } = await import('../data/seedPosts');
     const deletedIds = getDeletedPostIds();
     const postMap = new Map<string, Post>();
     SEED_POSTS.forEach((p) => {
@@ -448,16 +434,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
   };
 
-  useEffect(() => {
-    if (posts.length < SEED_POSTS.length) {
-      syncAllSeedPosts();
-    }
-  }, [posts.length]);
   const [categories, setCategories] = useState<Category[]>(() =>
-    getStoredOrDefault('categories', SEED_CATEGORIES)
+    getPublishedHomepage()?.categories?.length ? getPublishedHomepage()!.categories : SEED_CATEGORIES
   );
   const [tags, setTags] = useState<Tag[]>(() => getStoredOrDefault('tags', SEED_TAGS));
-  const [menus, setMenus] = useState<Menu[]>(() => getStoredOrDefault('menus', SEED_MENUS));
+  const [menus, setMenus] = useState<Menu[]>(() => getPublishedHomepage()?.menus?.length ? getPublishedHomepage()!.menus : SEED_MENUS);
   const [media, setMedia] = useState<MediaItem[]>(() => getStoredOrDefault('media', SEED_MEDIA));
   const [pages, setPages] = useState<StaticPage[]>(() => getStoredOrDefault('pages', SEED_PAGES));
   const [socialPosts, setSocialPosts] = useState<SocialMediaPost[]>(() =>
@@ -573,41 +554,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Realtime Cloud Synchronization with Firebase Firestore
   useEffect(() => {
-    // 1. Initial seed migration to cloud if Firestore is empty
-    FirestoreNewsService.bulkSyncInitialPosts(posts).catch((err) => {
-      console.warn('Firestore initial post sync note:', err);
-    });
-
-    FirestoreNewsService.bulkSyncInitialMedia(media).catch((err) => {
-      console.warn('Firestore initial media sync note:', err);
-    });
-
-    // 2. Subscribe to Real-Time Post updates from cloud with Auto-Recovery
-    const unsubscribePosts = FirestoreNewsService.subscribePosts(
-      (cloudPosts) => {
-        if (cloudPosts && cloudPosts.length > 0) {
-          const deletedIds = getDeletedPostIds();
-          setPosts((currentLocal) => {
-            // Auto-recover orphaned posts that were saved locally but missed cloud sync
-            const orphanedPosts = currentLocal.filter(
-              (lp) =>
-                !cloudPosts.some((cp) => cp.id === lp.id) &&
-                !deletedIds.has(lp.id) &&
-                !SEED_POSTS.some((sp) => sp.id === lp.id) &&
-                lp.id.startsWith('post-')
-            );
-            if (orphanedPosts.length > 0) {
-              orphanedPosts.forEach((orphan) => {
-                FirestoreNewsService.savePost(orphan).catch((err) => {
-                  console.warn(`[AutoRecovery] Post ${orphan.id} sync note:`, err);
-                });
-              });
-            }
-            return smartMergePosts(currentLocal, cloudPosts, deletedIds);
-          });
-        }
-      }
-    );
+    // Public readers use one coherent published snapshot. Only CMS needs drafts.
+    const unsubscribePosts = portalMode === 'CMS'
+      ? FirestoreNewsService.subscribePosts(cloudPosts => setPosts(sortPostsNewestFirst(cloudPosts)))
+      : () => {};
 
     // 3. Subscribe to Real-Time Media Library updates from cloud
     const unsubscribeMedia = FirestoreNewsService.subscribeMedia((cloudMedia) => {
@@ -639,7 +589,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // 5. Subscribe to Real-Time Categories from cloud
-    const unsubscribeCats = FirestoreNewsService.subscribeCategories((cloudCats) => {
+    const unsubscribeCats = portalMode === 'CMS' ? FirestoreNewsService.subscribeCategories((cloudCats) => {
       if (cloudCats && cloudCats.length > 0) {
         setCategories((currentLocal) => {
           const catMap = new Map<string, Category>();
@@ -650,7 +600,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return Array.from(catMap.values());
         });
       }
-    });
+    }) : () => {};
 
     // 6. Subscribe to Real-Time Tags from cloud
     const unsubscribeTags = FirestoreNewsService.subscribeTags((cloudTags) => {
@@ -667,7 +617,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // 7. Subscribe to Real-Time Menus from cloud
-    const unsubscribeMenus = FirestoreNewsService.subscribeMenus((cloudMenus) => {
+    const unsubscribeMenus = portalMode === 'CMS' ? FirestoreNewsService.subscribeMenus((cloudMenus) => {
       if (cloudMenus && cloudMenus.length > 0) {
         setMenus((currentLocal) => {
           const menuMap = new Map<string, Menu>();
@@ -678,7 +628,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return Array.from(menuMap.values());
         });
       }
-    });
+    }) : () => {};
 
     // Public E-Paper visibility and settings must update for every visitor,
     // not only in the browser where an administrator saved them.
@@ -702,7 +652,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubscribeMenus();
       unsubscribeEPaperSettings();
     };
-  }, []);
+  }, [portalMode]);
+
+  useEffect(() => {
+    if (portalMode !== 'PUBLIC') return;
+    const apply = (event: Event) => {
+      const next = (event as CustomEvent<PublishedHomepage>).detail;
+      setPosts(sortPostsNewestFirst(next.posts));
+      setCategories(next.categories.length ? next.categories : SEED_CATEGORIES);
+      setMenus(next.menus.length ? next.menus : SEED_MENUS);
+    };
+    window.addEventListener('infonews:published-homepage', apply);
+    const refresh = () => { if (!document.hidden) void loadPublishedHomepage().catch(console.warn); };
+    if (!getPublishedHomepage()) refresh();
+    else apply(new CustomEvent('infonews:published-homepage', {detail:getPublishedHomepage()}));
+    const timer = window.setInterval(refresh, 60000);
+    return () => { window.clearInterval(timer); window.removeEventListener('infonews:published-homepage', apply); };
+  }, [portalMode]);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -1408,7 +1374,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const resetToDefaultSeed = () => {
+  const resetToDefaultSeed = async () => {
+    const { SEED_POSTS } = await import('../data/seedPosts');
     setPosts(sortPostsNewestFirst(SEED_POSTS));
     setCategories(SEED_CATEGORIES);
     setTags(SEED_TAGS);
